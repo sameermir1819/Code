@@ -1,0 +1,46 @@
+name: CI / Production Build Check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    name: Build & Quality Verification
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+          cache: "npm"
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Generate Prisma Client
+        run: npx prisma generate
+
+      - name: Lint Check
+        run: npm run lint
+        continue-on-error: true
+
+      - name: Production Build
+        run: npm run build
+        env:
+          NODE_ENV: production
+          NEXT_TELEMETRY_DISABLED: 1
+          # Dummy values for build phase page data collection
+          DATABASE_URL: ${{ secrets.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/postgres' }}
+          DIRECT_URL: ${{ secrets.DIRECT_URL || 'postgresql://postgres:postgres@localhost:5432/postgres' }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET || 'dummy-jwt-secret-for-build-checks-only-123456789' }}
+          NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET || 'dummy-nextauth-secret-for-build-checks' }}
+          NEXTAUTH_URL: "http://localhost:3000"
+

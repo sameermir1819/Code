@@ -3,6 +3,7 @@ const nextConfig = {
   reactStrictMode: true,
   swcMinify: true,
   compress: true,
+  output: process.env.NEXT_OUTPUT_STANDALONE === "true" ? "standalone" : undefined,
   compiler: {
     removeConsole: process.env.NODE_ENV === "production" ? { exclude: ["error", "warn"] } : false,
   },
