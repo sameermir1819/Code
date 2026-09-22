@@ -11,6 +11,8 @@ import {
   Building2,
   CreditCard,
   QrCode,
+  Copy,
+  Check,
   Sparkles,
 } from "lucide-react";
 import Link from "next/link";
@@ -83,9 +85,9 @@ interface OfficialReceiptViewProps {
   } | null;
 }
 
-// ─── SVG Vectors & Realistic Badges ─────────────────────────────────────────
+// ─── SVG Vectors & Security Graphics ─────────────────────────────────────────
 
-function BarcodeSvg({ code }: { code: string }) {
+function BarcodeSvg({ code, color = "#0f2b5c" }: { code: string; color?: string }) {
   const bars = [
     3, 1, 2, 1, 3, 2, 1, 2, 1, 3, 1, 1, 2, 3, 1, 2, 1, 1, 3, 2, 1, 3, 1, 2, 1, 1,
     2, 3, 2, 1, 1, 2, 3, 1, 2, 1, 3, 1, 1, 2, 2, 1, 3, 1, 2, 1, 1, 3, 2, 1, 3,
@@ -98,7 +100,7 @@ function BarcodeSvg({ code }: { code: string }) {
           const x = idx * 2.6;
           const isBlack = idx % 2 === 0;
           return isBlack ? (
-            <rect key={idx} x={x} y="0" width={w * 0.75} height="22" fill="#0f2b5c" />
+            <rect key={idx} x={x} y="0" width={w * 0.75} height="22" fill={color} />
           ) : null;
         })}
       </svg>
@@ -109,33 +111,33 @@ function BarcodeSvg({ code }: { code: string }) {
   );
 }
 
-function SecurityQrCode({ receiptNo, studentId }: { receiptNo: string; studentId: string }) {
+function SecurityQrCode({ receiptNo, studentId, color = "#0f2b5c" }: { receiptNo: string; studentId: string; color?: string }) {
   return (
     <div className="flex items-center gap-2 border border-zinc-300 p-1.5 rounded-lg bg-zinc-50/80">
       <svg width="46" height="46" viewBox="0 0 44 44" className="shrink-0">
         <rect width="44" height="44" fill="#ffffff" />
-        <rect x="2" y="2" width="12" height="12" fill="#0f2b5c" rx="1" />
+        <rect x="2" y="2" width="12" height="12" fill={color} rx="1" />
         <rect x="4" y="4" width="8" height="8" fill="#ffffff" />
-        <rect x="6" y="6" width="4" height="4" fill="#0f2b5c" />
-        <rect x="30" y="2" width="12" height="12" fill="#0f2b5c" rx="1" />
+        <rect x="6" y="6" width="4" height="4" fill={color} />
+        <rect x="30" y="2" width="12" height="12" fill={color} rx="1" />
         <rect x="32" y="4" width="8" height="8" fill="#ffffff" />
-        <rect x="34" y="6" width="4" height="4" fill="#0f2b5c" />
-        <rect x="2" y="30" width="12" height="12" fill="#0f2b5c" rx="1" />
+        <rect x="34" y="6" width="4" height="4" fill={color} />
+        <rect x="2" y="30" width="12" height="12" fill={color} rx="1" />
         <rect x="4" y="32" width="8" height="8" fill="#ffffff" />
-        <rect x="6" y="34" width="4" height="4" fill="#0f2b5c" />
-        <rect x="18" y="4" width="3" height="3" fill="#0f2b5c" />
-        <rect x="24" y="4" width="3" height="3" fill="#0f2b5c" />
-        <rect x="16" y="16" width="12" height="12" fill="#0f2b5c" />
+        <rect x="6" y="34" width="4" height="4" fill={color} />
+        <rect x="18" y="4" width="3" height="3" fill={color} />
+        <rect x="24" y="4" width="3" height="3" fill={color} />
+        <rect x="16" y="16" width="12" height="12" fill={color} />
         <rect x="18" y="18" width="8" height="8" fill="#ffffff" />
-        <rect x="20" y="20" width="4" height="4" fill="#0f2b5c" />
-        <rect x="4" y="18" width="3" height="3" fill="#0f2b5c" />
-        <rect x="10" y="22" width="3" height="3" fill="#0f2b5c" />
-        <rect x="18" y="32" width="3" height="3" fill="#0f2b5c" />
-        <rect x="24" y="36" width="3" height="3" fill="#0f2b5c" />
-        <rect x="32" y="18" width="3" height="3" fill="#0f2b5c" />
-        <rect x="36" y="24" width="3" height="3" fill="#0f2b5c" />
-        <rect x="32" y="32" width="4" height="4" fill="#0f2b5c" />
-        <rect x="38" y="38" width="3" height="3" fill="#0f2b5c" />
+        <rect x="20" y="20" width="4" height="4" fill={color} />
+        <rect x="4" y="18" width="3" height="3" fill={color} />
+        <rect x="10" y="22" width="3" height="3" fill={color} />
+        <rect x="18" y="32" width="3" height="3" fill={color} />
+        <rect x="24" y="36" width="3" height="3" fill={color} />
+        <rect x="32" y="18" width="3" height="3" fill={color} />
+        <rect x="36" y="24" width="3" height="3" fill={color} />
+        <rect x="32" y="32" width="4" height="4" fill={color} />
+        <rect x="38" y="38" width="3" height="3" fill={color} />
       </svg>
       <div className="text-[7.5px] leading-tight text-zinc-600">
         <p className="font-bold text-zinc-900 uppercase">Scan to Verify</p>
@@ -148,27 +150,27 @@ function SecurityQrCode({ receiptNo, studentId }: { receiptNo: string; studentId
   );
 }
 
-function OfficialAccountsSeal({ receiptDate }: { receiptDate: string }) {
+function OfficialAccountsSeal({ receiptDate, color = "#1e3a8a" }: { receiptDate: string; color?: string }) {
   return (
     <div className="relative select-none pointer-events-none rotate-[-5deg] opacity-90 transition-transform">
-      <svg width="112" height="112" viewBox="0 0 140 140" className="text-blue-900 drop-shadow-xs">
-        <circle cx="70" cy="70" r="66" stroke="#1e3a8a" strokeWidth="2.5" fill="none" strokeDasharray="6 2" />
-        <circle cx="70" cy="70" r="61" stroke="#1e3a8a" strokeWidth="1" fill="#f8faff" fillOpacity="0.4" />
+      <svg width="112" height="112" viewBox="0 0 140 140" className="drop-shadow-xs">
+        <circle cx="70" cy="70" r="66" stroke={color} strokeWidth="2.5" fill="none" strokeDasharray="6 2" />
+        <circle cx="70" cy="70" r="61" stroke={color} strokeWidth="1" fill="#f8faff" fillOpacity="0.4" />
         <path id="circleTextPath" d="M 70,70 m -50,0 a 50,50 0 1,1 100,0 a 50,50 0 1,1 -100,0" fill="none" />
-        <text fontSize="7.5" fontWeight="bold" fill="#1e3a8a" letterSpacing="2.2">
+        <text fontSize="7.5" fontWeight="bold" fill={color} letterSpacing="2.2">
           <textPath href="#circleTextPath" startOffset="5%">
             ★ FUTUREX LEARNING CENTRAL ACCOUNTS ★
           </textPath>
         </text>
-        <circle cx="70" cy="70" r="38" stroke="#1e3a8a" strokeWidth="1.5" fill="none" />
+        <circle cx="70" cy="70" r="38" stroke={color} strokeWidth="1.5" fill="none" />
         <circle cx="70" cy="70" r="35" stroke="#b45309" strokeWidth="0.8" strokeDasharray="2 1" fill="none" />
         <text x="70" y="58" textAnchor="middle" fontSize="6.5" fontWeight="bold" fill="#b45309" letterSpacing="1">
           OFFICIALLY
         </text>
-        <text x="70" y="72" textAnchor="middle" fontSize="13" fontWeight="900" fill="#1e3a8a" letterSpacing="1">
+        <text x="70" y="72" textAnchor="middle" fontSize="13" fontWeight="900" fill={color} letterSpacing="1">
           REALIZED
         </text>
-        <text x="70" y="82" textAnchor="middle" fontSize="5.5" fontWeight="semibold" fill="#1e3a8a" letterSpacing="0.8">
+        <text x="70" y="82" textAnchor="middle" fontSize="5.5" fontWeight="semibold" fill={color} letterSpacing="0.8">
           {receiptDate}
         </text>
         <text x="70" y="90" textAnchor="middle" fontSize="5.5" fontWeight="bold" fill="#047857" letterSpacing="1">
@@ -179,20 +181,20 @@ function OfficialAccountsSeal({ receiptDate }: { receiptDate: string }) {
   );
 }
 
-function DigitizedSignature({ name }: { name: string }) {
+function DigitizedSignature({ name, color = "#1e3a8a" }: { name: string; color?: string }) {
   return (
     <div className="flex flex-col items-end select-none">
       <svg width="120" height="34" viewBox="0 0 140 40" className="opacity-90">
         <path
           d="M 12 28 C 24 14, 38 6, 52 18 C 66 30, 78 8, 92 14 C 104 20, 114 12, 126 18"
-          stroke="#1e3a8a"
+          stroke={color}
           strokeWidth="2"
           strokeLinecap="round"
           fill="none"
         />
         <path
           d="M 22 28 C 45 32, 85 29, 128 26"
-          stroke="#1d4ed8"
+          stroke={color}
           strokeWidth="1.4"
           strokeLinecap="round"
           fill="none"
@@ -210,6 +212,7 @@ function DigitizedSignature({ name }: { name: string }) {
 
 export function OfficialReceiptView({ payment, institute }: OfficialReceiptViewProps) {
   const [copyType, setCopyType] = useState<"STUDENT" | "OFFICE" | "AUDIT">("STUDENT");
+  const [isCopied, setIsCopied] = useState(false);
 
   const amountInWords = numberToWords(payment.amount);
   const activeEnrollment = payment.student.enrollments?.[0];
@@ -219,16 +222,47 @@ export function OfficialReceiptView({ payment, institute }: OfficialReceiptViewP
   const logoUrl = institute?.logoUrl || "/logo.png";
   const instName = institute?.name || "FUTUREX LEARNING";
 
-  const copyLabels = {
-    STUDENT: "ORIGINAL — STUDENT / PARENT COPY",
-    OFFICE: "DUPLICATE — INSTITUTE ACCOUNTS COPY",
-    AUDIT: "TRIPLICATE — STATUTORY & AUDIT COPY",
+  const copyConfig = {
+    STUDENT: {
+      label: "ORIGINAL — STUDENT / PARENT COPY",
+      watermark: "STUDENT COPY",
+      ribbonBg: "bg-gradient-to-r from-[#0a192f] via-[#0f2b5c] to-[#1e3a8a]",
+      borderColor: "border-[#0f2b5c]",
+      textColor: "text-[#0f2b5c]",
+      themeColor: "#0f2b5c",
+    },
+    OFFICE: {
+      label: "DUPLICATE — INSTITUTE ACCOUNTS COPY",
+      watermark: "OFFICE RECORD",
+      ribbonBg: "bg-gradient-to-r from-[#064e3b] via-[#047857] to-[#059669]",
+      borderColor: "border-[#047857]",
+      textColor: "text-[#047857]",
+      themeColor: "#047857",
+    },
+    AUDIT: {
+      label: "TRIPLICATE — STATUTORY & AUDIT COPY",
+      watermark: "AUDIT COPY",
+      ribbonBg: "bg-gradient-to-r from-[#450a0a] via-[#881337] to-[#9f1239]",
+      borderColor: "border-[#881337]",
+      textColor: "text-[#881337]",
+      themeColor: "#881337",
+    },
+  };
+
+  const currentCopy = copyConfig[copyType];
+
+  const handleCopyLink = () => {
+    if (typeof window !== "undefined") {
+      navigator.clipboard.writeText(window.location.href);
+      setIsCopied(true);
+      setTimeout(() => setIsCopied(false), 2000);
+    }
   };
 
   return (
     <div className="space-y-5 max-w-4xl mx-auto pb-6">
       {/* ── Action Toolbar (Hidden during print) ── */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3 bg-card border rounded-xl shadow-xs no-print">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3.5 bg-card border rounded-2xl shadow-xs no-print">
         <Link
           href="/finance/payments"
           className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors"
@@ -239,12 +273,12 @@ export function OfficialReceiptView({ payment, institute }: OfficialReceiptViewP
 
         <div className="flex flex-wrap items-center gap-2">
           {/* Copy Selector */}
-          <div className="inline-flex items-center rounded-lg border bg-muted/40 p-0.5 text-xs">
+          <div className="inline-flex items-center rounded-xl border bg-muted/40 p-1 text-xs">
             {(["STUDENT", "OFFICE", "AUDIT"] as const).map((type) => (
               <button
                 key={type}
                 onClick={() => setCopyType(type)}
-                className={`px-2.5 py-1 rounded-md font-semibold transition-all ${
+                className={`px-3 py-1.5 rounded-lg font-semibold transition-all ${
                   copyType === type
                     ? "bg-background text-foreground shadow-xs"
                     : "text-muted-foreground hover:text-foreground"
@@ -255,12 +289,23 @@ export function OfficialReceiptView({ payment, institute }: OfficialReceiptViewP
             ))}
           </div>
 
+          {/* Copy Link Button */}
+          <button
+            onClick={handleCopyLink}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border bg-background text-xs font-semibold hover:bg-muted/50 transition-all shadow-xs"
+            title="Copy Receipt Web Link"
+          >
+            {isCopied ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
+            <span>{isCopied ? "Link Copied!" : "Copy Link"}</span>
+          </button>
+
+          {/* Print Button */}
           <button
             onClick={() => window.print()}
-            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 transition-all shadow-xs"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 transition-all shadow-sm"
           >
-            <Printer className="h-3.5 w-3.5" />
-            <span>Print Official Receipt</span>
+            <Printer className="h-4 w-4" />
+            <span>Print Voucher</span>
           </button>
         </div>
       </div>
@@ -271,21 +316,21 @@ export function OfficialReceiptView({ payment, institute }: OfficialReceiptViewP
           __html: `
             @media print {
               body * {
-                visibility: hidden;
+                visibility: hidden !important;
               }
               .receipt-sheet-container, .receipt-sheet-container * {
-                visibility: visible;
+                visibility: visible !important;
               }
               .receipt-sheet-container {
-                position: absolute;
-                left: 0;
-                top: 0;
+                position: absolute !important;
+                left: 0 !important;
+                top: 0 !important;
                 width: 100% !important;
-                border: 2px solid #0f2b5c !important;
+                border: 2px solid ${currentCopy.themeColor} !important;
                 box-shadow: none !important;
                 border-radius: 0 !important;
                 margin: 0 !important;
-                padding: 12px 16px !important;
+                padding: 14px 18px !important;
                 page-break-inside: avoid !important;
               }
               .no-print {
@@ -297,19 +342,26 @@ export function OfficialReceiptView({ payment, institute }: OfficialReceiptViewP
       />
 
       {/* ── THE OFFICIAL A4 VOUCHER SHEET ── */}
-      <div className="receipt-sheet-container bg-white text-zinc-950 border-2 border-[#0f2b5c] rounded-2xl p-6 sm:p-8 space-y-3 relative shadow-2xl overflow-hidden print:p-3 print:space-y-2.5">
+      <div className={`receipt-sheet-container bg-white text-zinc-950 border-2 ${currentCopy.borderColor} rounded-2xl p-6 sm:p-8 space-y-3 relative shadow-2xl overflow-hidden print:p-3 print:space-y-2.5 transition-colors duration-300`}>
         
+        {/* Diagonal Security Watermark */}
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none opacity-[0.03] rotate-[-28deg] z-0">
+          <span className="text-8xl sm:text-9xl font-black font-serif tracking-widest text-zinc-950 uppercase">
+            {currentCopy.watermark}
+          </span>
+        </div>
+
         {/* Security Micro-Header */}
-        <div className="border-b border-[#0f2b5c]/20 pb-1 flex justify-between items-center text-[7.5px] font-mono uppercase tracking-widest text-zinc-600">
+        <div className="border-b border-zinc-200 pb-1 flex justify-between items-center text-[7.5px] font-mono uppercase tracking-widest text-zinc-600 relative z-10">
           <span>★ OFFICIAL FINANCIAL INSTRUMENT • COMPLIANT UNDER EDUCATION STATUTE</span>
           <span>GOVT. REG NO: REG/FL-2026/DEL • ISO 9001:2015 CERTIFIED ★</span>
         </div>
 
         {/* ── SECTION 1: MASTER LETTERHEAD ── */}
-        <div className="flex items-start justify-between gap-4 border-b-2 border-[#0f2b5c] pb-3 print:pb-2">
+        <div className="flex items-start justify-between gap-4 border-b-2 border-zinc-800 pb-3 print:pb-2 relative z-10">
           {/* Logo & Legal Header */}
           <div className="flex items-center gap-3.5">
-            <div className="h-16 w-16 sm:h-20 sm:w-20 rounded-2xl overflow-hidden bg-white p-1 border-2 border-[#0f2b5c]/40 shadow-sm shrink-0 flex items-center justify-center">
+            <div className={`h-16 w-16 sm:h-20 sm:w-20 rounded-2xl overflow-hidden bg-white p-1 border-2 ${currentCopy.borderColor} shadow-sm shrink-0 flex items-center justify-center`}>
               <img
                 src={logoUrl}
                 alt="Institute Logo"
@@ -318,7 +370,7 @@ export function OfficialReceiptView({ payment, institute }: OfficialReceiptViewP
             </div>
             <div className="space-y-0.5">
               <div className="flex items-center gap-2">
-                <h1 className="text-xl sm:text-2xl font-black tracking-tight text-[#0f2b5c] font-serif uppercase">
+                <h1 className={`text-xl sm:text-2xl font-black tracking-tight ${currentCopy.textColor} font-serif uppercase`}>
                   {instName}
                 </h1>
               </div>
@@ -336,11 +388,11 @@ export function OfficialReceiptView({ payment, institute }: OfficialReceiptViewP
 
           {/* Receipt Classification & Barcode Box */}
           <div className="text-right shrink-0 flex flex-col items-end justify-between self-stretch">
-            <div className="border border-[#0f2b5c] rounded-md px-2.5 py-0.5 bg-[#0f2b5c]/5 text-[8px] font-black tracking-wider text-[#0f2b5c] uppercase">
-              {copyLabels[copyType]}
+            <div className={`border ${currentCopy.borderColor} rounded-md px-2.5 py-0.5 bg-zinc-50 text-[8px] font-black tracking-wider ${currentCopy.textColor} uppercase`}>
+              {currentCopy.label}
             </div>
 
-            <BarcodeSvg code={payment.receiptNo} />
+            <BarcodeSvg code={payment.receiptNo} color={currentCopy.themeColor} />
 
             <div className="text-[9px] font-mono text-zinc-700">
               <span>Date: <strong>{formattedDate}</strong></span>
@@ -351,7 +403,7 @@ export function OfficialReceiptView({ payment, institute }: OfficialReceiptViewP
         </div>
 
         {/* ── SECTION 2: TAX INVOICE & TITLE RIBBON ── */}
-        <div className="bg-gradient-to-r from-[#0a192f] via-[#0f2b5c] to-[#1e3a8a] text-white px-3.5 py-1.5 rounded-lg flex justify-between items-center text-xs font-bold tracking-wider uppercase print:py-1">
+        <div className={`${currentCopy.ribbonBg} text-white px-3.5 py-1.5 rounded-lg flex justify-between items-center text-xs font-bold tracking-wider uppercase print:py-1 relative z-10 transition-colors`}>
           <div className="flex items-center gap-2">
             <FileCheck className="h-4 w-4 text-amber-400" />
             <span className="text-[11px] print:text-[10px]">Official Fee Receipt &amp; Tax Invoice Voucher</span>
@@ -362,8 +414,8 @@ export function OfficialReceiptView({ payment, institute }: OfficialReceiptViewP
         </div>
 
         {/* ── SECTION 3: CANDIDATE & PROGRAM PARTICULARS (Ruled Grid) ── */}
-        <div className="border border-zinc-800 rounded-lg overflow-hidden text-[9.5px]">
-          <div className="bg-zinc-100 border-b border-zinc-800 px-3 py-1 font-bold text-[9px] text-[#0f2b5c] uppercase tracking-wider">
+        <div className="border border-zinc-800 rounded-lg overflow-hidden text-[9.5px] relative z-10">
+          <div className={`bg-zinc-100 border-b border-zinc-800 px-3 py-1 font-bold text-[9px] ${currentCopy.textColor} uppercase tracking-wider`}>
             Student Identification &amp; Enrollment Particulars
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-y sm:divide-y-0 divide-zinc-300">
@@ -394,7 +446,7 @@ export function OfficialReceiptView({ payment, institute }: OfficialReceiptViewP
         </div>
 
         {/* ── SECTION 4: ITEMIZED FEE ACCOUNT & REALIZATION TABLE ── */}
-        <div className="border border-zinc-800 rounded-lg overflow-hidden text-[9.5px]">
+        <div className="border border-zinc-800 rounded-lg overflow-hidden text-[9.5px] relative z-10">
           <table className="w-full text-left border-collapse">
             <thead className="bg-zinc-100 border-b border-zinc-800 text-[8.5px] font-bold uppercase text-zinc-800">
               <tr>
@@ -406,7 +458,6 @@ export function OfficialReceiptView({ payment, institute }: OfficialReceiptViewP
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-200">
-              {/* Primary Realized Line */}
               <tr>
                 <td className="py-2.5 px-2.5 text-center font-mono font-bold border-r border-zinc-200">01</td>
                 <td className="py-2.5 px-3 border-r border-zinc-200">
@@ -425,7 +476,7 @@ export function OfficialReceiptView({ payment, institute }: OfficialReceiptViewP
                 <td className="py-2.5 px-3 text-right font-medium text-zinc-700 border-r border-zinc-200">
                   {formatCurrency(payment.feePlan.finalAmount)}
                 </td>
-                <td className="py-2.5 px-3 pr-3 text-right font-black text-sm text-[#0f2b5c]">
+                <td className={`py-2.5 px-3 pr-3 text-right font-black text-sm ${currentCopy.textColor}`}>
                   {formatCurrency(payment.amount)}
                 </td>
               </tr>
@@ -444,11 +495,11 @@ export function OfficialReceiptView({ payment, institute }: OfficialReceiptViewP
               </tr>
 
               {/* Net Grand Realized Total */}
-              <tr className="bg-[#0f2b5c]/5 border-t-2 border-zinc-900 font-black">
-                <td colSpan={4} className="py-2 px-3 pl-4 text-right uppercase tracking-wider text-[9.5px] text-[#0f2b5c]">
+              <tr className="bg-zinc-100 border-t-2 border-zinc-900 font-black">
+                <td colSpan={4} className={`py-2 px-3 pl-4 text-right uppercase tracking-wider text-[9.5px] ${currentCopy.textColor}`}>
                   Total Amount Realized in This Receipt (INR):
                 </td>
-                <td className="py-2 px-3 pr-3 text-right text-base font-black text-[#0f2b5c]">
+                <td className={`py-2 px-3 pr-3 text-right text-base font-black ${currentCopy.textColor}`}>
                   {formatCurrency(payment.amount)}
                 </td>
               </tr>
@@ -457,8 +508,7 @@ export function OfficialReceiptView({ payment, institute }: OfficialReceiptViewP
         </div>
 
         {/* ── SECTION 5: AMOUNT IN WORDS & TRANSACTION MODE STRIP ── */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-[9px]">
-          {/* Amount in Words */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-[9px] relative z-10">
           <div className="sm:col-span-2 border border-zinc-300 rounded-lg p-2.5 bg-zinc-50 flex items-center justify-between">
             <div>
               <span className="font-bold text-zinc-600 uppercase text-[8px]">Amount in Words: </span>
@@ -471,7 +521,6 @@ export function OfficialReceiptView({ payment, institute }: OfficialReceiptViewP
             </span>
           </div>
 
-          {/* Banking / Transaction Realization */}
           <div className="border border-zinc-300 rounded-lg p-2.5 bg-zinc-50 space-y-1">
             <div className="flex justify-between items-center">
               <span className="text-zinc-600 text-[8px] uppercase font-bold">Payment Mode:</span>
@@ -487,7 +536,7 @@ export function OfficialReceiptView({ payment, institute }: OfficialReceiptViewP
         </div>
 
         {/* ── SECTION 6: CUMULATIVE STATEMENT OF ACCOUNT ── */}
-        <div className="border-2 border-zinc-800 rounded-lg overflow-hidden">
+        <div className="border-2 border-zinc-800 rounded-lg overflow-hidden relative z-10">
           <div className="bg-zinc-800 text-white px-3 py-1 text-[8.5px] font-bold uppercase tracking-wider flex justify-between">
             <span>Cumulative Student Financial Ledger Summary</span>
             <span>Statement as on {formattedDate}</span>
@@ -519,8 +568,7 @@ export function OfficialReceiptView({ payment, institute }: OfficialReceiptViewP
         </div>
 
         {/* ── SECTION 7: LEGAL DECLARATION & AUTHORIZED AUTHENTICATION ── */}
-        <div className="grid grid-cols-12 gap-3 pt-2.5 items-center border-t border-zinc-300 print:pt-1">
-          {/* Left: Formal Terms (5 columns) */}
+        <div className="grid grid-cols-12 gap-3 pt-2.5 items-center border-t border-zinc-300 print:pt-1 relative z-10">
           <div className="col-span-5 text-[7.5px] text-zinc-600 leading-tight space-y-1">
             <p className="font-bold text-zinc-900 uppercase text-[8px] tracking-wide">Terms &amp; Official Declarations:</p>
             <ol className="list-decimal list-inside space-y-0.5 text-[7px] text-zinc-600">
@@ -531,22 +579,20 @@ export function OfficialReceiptView({ payment, institute }: OfficialReceiptViewP
             </ol>
           </div>
 
-          {/* Center: Official Accounts Seal (3 columns) */}
           <div className="col-span-3 flex justify-center items-center">
-            <OfficialAccountsSeal receiptDate={formattedDate} />
+            <OfficialAccountsSeal receiptDate={formattedDate} color={currentCopy.themeColor} />
           </div>
 
-          {/* Right: Signature & QR (4 columns) */}
           <div className="col-span-4 flex flex-col items-end text-right space-y-1">
-            <SecurityQrCode receiptNo={payment.receiptNo} studentId={payment.student.studentId} />
+            <SecurityQrCode receiptNo={payment.receiptNo} studentId={payment.student.studentId} color={currentCopy.themeColor} />
             <div className="pt-1 w-full flex justify-end">
-              <DigitizedSignature name={payment.collectedBy} />
+              <DigitizedSignature name={payment.collectedBy} color={currentCopy.themeColor} />
             </div>
           </div>
         </div>
 
         {/* Bottom Micro-Security Border */}
-        <div className="border-t border-dashed border-zinc-400 pt-1 flex justify-between items-center text-[7px] font-mono text-zinc-500 uppercase">
+        <div className="border-t border-dashed border-zinc-400 pt-1 flex justify-between items-center text-[7px] font-mono text-zinc-500 uppercase relative z-10">
           <span>Official System Document • {instName} Central ERP</span>
           <span>Security Hash: SHA256-FL-{payment.receiptNo.replace(/[^0-9]/g, "")}-DEL</span>
           <span>Page 1 of 1</span>
