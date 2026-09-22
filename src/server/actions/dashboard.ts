@@ -43,7 +43,10 @@ export async function getDashboardStats() {
       db.student.count({ where: { admissionDate: { gte: monthStart, lte: monthEnd } } }),
       db.teacher.count({ where: { status: "ACTIVE" } }),
       db.batch.count({ where: { status: "ACTIVE" } }),
-      db.attendance.findMany({ where: { date: { gte: todayStart, lte: todayEnd } } }),
+      db.attendance.findMany({
+        where: { date: { gte: todayStart, lte: todayEnd } },
+        select: { status: true },
+      }),
       db.payment.aggregate({
         where: { paymentDate: { gte: todayStart, lte: todayEnd }, status: "SUCCESS" },
         _sum: { amount: true },
@@ -59,15 +62,35 @@ export async function getDashboardStats() {
         where: { examDate: { gte: now } },
         take: 4,
         orderBy: { examDate: "asc" },
-        include: { batch: true, subject: true },
+        select: {
+          id: true,
+          title: true,
+          code: true,
+          examDate: true,
+          maxMarks: true,
+          batch: { select: { name: true, code: true } },
+          subject: { select: { name: true, code: true } },
+        },
       }),
       db.student.findMany({
         take: 5,
         orderBy: { admissionDate: "desc" },
-        include: {
+        select: {
+          id: true,
+          studentId: true,
+          admissionNo: true,
+          name: true,
+          email: true,
+          phone: true,
+          gradeClass: true,
+          photoUrl: true,
+          admissionDate: true,
           enrollments: {
             where: { status: "ACTIVE" },
-            include: { course: true, batch: true },
+            select: {
+              course: { select: { name: true, code: true } },
+              batch: { select: { name: true, code: true } },
+            },
             take: 1,
           },
         },
@@ -75,7 +98,14 @@ export async function getDashboardStats() {
       db.payment.findMany({
         take: 5,
         orderBy: { paymentDate: "desc" },
-        include: { student: true },
+        select: {
+          id: true,
+          receiptNo: true,
+          amount: true,
+          paymentMethod: true,
+          paymentDate: true,
+          student: { select: { id: true, name: true, studentId: true, admissionNo: true } },
+        },
       }),
       // Fetch 6-month revenue payments in 1 single bulk query instead of 6 loops
       db.payment.findMany({
@@ -88,7 +118,11 @@ export async function getDashboardStats() {
       db.batch.findMany({
         where: { status: "ACTIVE" },
         take: 6,
-        include: {
+        select: {
+          id: true,
+          name: true,
+          code: true,
+          capacity: true,
           _count: { select: { enrollments: { where: { status: "ACTIVE" } } } },
         },
       }),
