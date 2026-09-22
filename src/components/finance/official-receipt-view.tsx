@@ -78,6 +78,7 @@ interface OfficialReceiptViewProps {
     phone: string | null;
     email: string | null;
     website: string | null;
+    logoUrl?: string | null;
   } | null;
 }
 
@@ -399,7 +400,15 @@ export function OfficialReceiptView({ payment, institute }: OfficialReceiptViewP
         <div className="flex items-start justify-between gap-4 border-b-2 border-[#0f2b5c] pb-3 print:pb-2">
           {/* Crest & Legal Header */}
           <div className="flex items-center gap-3">
-            <InstituteCrest />
+            {institute?.logoUrl ? (
+              <img
+                src={institute.logoUrl}
+                alt="Institute Logo"
+                className="h-16 w-16 object-contain rounded-lg border border-[#0f2b5c]/30 p-1 bg-white shrink-0"
+              />
+            ) : (
+              <InstituteCrest />
+            )}
             <div className="space-y-0.5">
               <div className="flex items-center gap-2">
                 <h1 className="text-xl sm:text-2xl font-black tracking-tight text-[#0f2b5c] font-serif uppercase">

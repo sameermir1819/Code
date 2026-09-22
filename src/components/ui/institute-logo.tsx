@@ -1,8 +1,10 @@
-import Image from "next/image";
+"use client";
+
+import React, { useState } from "react";
 
 interface InstituteLogoProps {
-  logoUrl: string | null;
-  name: string;
+  logoUrl?: string | null;
+  name?: string;
   /** Size in pixels (width = height). Default: 36 */
   size?: number;
   /** Extra className on the wrapper div */
@@ -10,46 +12,50 @@ interface InstituteLogoProps {
 }
 
 /**
- * Shows the institute logo image if `logoUrl` is set,
- * otherwise falls back to the initials box (e.g. "FL").
+ * Shows the institute logo image.
+ * Defaults to the institute logo (/logo.png).
+ * Falls back gracefully to the initials box if no image is available.
  */
 export function InstituteLogo({
   logoUrl,
-  name,
+  name = "Futurex Learning",
   size = 36,
   className = "",
 }: InstituteLogoProps) {
+  const [hasError, setHasError] = useState(false);
+  const src = logoUrl?.trim() ? logoUrl.trim() : "/logo.png";
+
   const initials = name
-    .split(" ")
+    .replace(/[^a-zA-Z\s]/g, "")
+    .trim()
+    .split(/\s+/)
     .map((w) => w[0])
     .slice(0, 2)
     .join("")
-    .toUpperCase();
+    .toUpperCase() || "FL";
 
-  if (logoUrl) {
+  if (hasError) {
     return (
       <div
-        style={{ width: size, height: size }}
-        className={`rounded-lg overflow-hidden shrink-0 ${className}`}
+        style={{ width: size, height: size, fontSize: Math.max(11, size * 0.35) }}
+        className={`rounded-xl bg-primary flex items-center justify-center font-black text-white shadow-sm shrink-0 select-none ${className}`}
       >
-        <Image
-          src={logoUrl}
-          alt={`${name} logo`}
-          width={size}
-          height={size}
-          className="object-contain w-full h-full"
-          priority
-        />
+        {initials}
       </div>
     );
   }
 
   return (
     <div
-      style={{ width: size, height: size, fontSize: size * 0.33 }}
-      className={`rounded-lg bg-primary flex items-center justify-center font-bold text-white shadow-md shrink-0 ${className}`}
+      style={{ width: size, height: size }}
+      className={`rounded-xl overflow-hidden shrink-0 flex items-center justify-center bg-white border border-border/40 shadow-xs select-none ${className}`}
     >
-      {initials}
+      <img
+        src={src}
+        alt={`${name} logo`}
+        className="w-full h-full object-contain p-1"
+        onError={() => setHasError(true)}
+      />
     </div>
   );
 }

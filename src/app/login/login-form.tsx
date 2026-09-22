@@ -106,3 +106,4 @@ export function LoginForm({ logoUrl, instituteName, tagline }: LoginFormProps) {
     </div>
   );
 }
+

@@ -35,8 +35,8 @@ export default async function DashboardLayout({
       <Sidebar
         userRole={userRole}
         userName={userName}
-        logoUrl={institute?.logoUrl ?? null}
-        instituteName={institute?.name ?? "Futurex Learning"}
+        logoUrl={institute?.logoUrl || "/logo.png"}
+        instituteName={institute?.name || "Futurex Learning"}
       />
 
       {/* Main Content Area */}

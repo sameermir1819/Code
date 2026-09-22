@@ -58,7 +58,7 @@ export default function SettingsAndProfilePage() {
     state: "Delhi",
     currency: "INR",
     currencySymbol: "₹",
-    logoUrl: "",
+    logoUrl: "/logo.png",
   });
 
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(
@@ -91,7 +91,7 @@ export default function SettingsAndProfilePage() {
           state: inst.state || "Delhi",
           currency: inst.currency || "INR",
           currencySymbol: inst.currencySymbol || "₹",
-          logoUrl: inst.logoUrl || "",
+          logoUrl: inst.logoUrl || "/logo.png",
         });
       }
     }
@@ -439,10 +439,15 @@ export default function SettingsAndProfilePage() {
                               const data = await res.json();
                               if (data.success && data.fileUrl) {
                                 setInstForm((prev) => ({ ...prev, logoUrl: data.fileUrl }));
+                                await updateInstituteProfile({
+                                  ...instForm,
+                                  logoUrl: data.fileUrl,
+                                });
                                 setFeedback({
                                   type: "success",
-                                  message: "Logo uploaded successfully! Click 'Save Academy Profile' to apply.",
+                                  message: "Logo uploaded and saved successfully across all pages!",
                                 });
+                                router.refresh();
                               } else {
                                 setFeedback({
                                   type: "error",
