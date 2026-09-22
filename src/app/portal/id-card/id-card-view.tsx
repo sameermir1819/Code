@@ -190,3 +190,4 @@ export function StudentIDCardView({ student, institute }: StudentIDProps) {
     </div>
   );
 }
+

@@ -42,7 +42,22 @@ export async function middleware(request: NextRequest) {
   const session = token ? await verifyToken(token) : null;
   const isStudent = session?.role === "STUDENT";
 
-  // 1. If user is logged in and visits /login, redirect to their respective workspace
+  // 1. Dedicated Student Login (/student-login & /portal/login)
+  if (pathname === "/portal/login") {
+    return NextResponse.redirect(new URL("/student-login", request.url));
+  }
+
+  if (pathname === "/student-login") {
+    if (session) {
+      const destination = isStudent ? "/portal" : "/dashboard";
+      return NextResponse.redirect(new URL(destination, request.url));
+    }
+    const response = NextResponse.next();
+    applySecurityHeaders(response);
+    return response;
+  }
+
+  // 2. Staff Login (/login)
   if (pathname === "/login") {
     if (session) {
       const destination = isStudent ? "/portal" : "/dashboard";
@@ -53,12 +68,12 @@ export async function middleware(request: NextRequest) {
     return response;
   }
 
-  // 2. Protect Student Portal routes (/portal)
+  // 3. Protect Student Portal routes (/portal)
   if (pathname.startsWith("/portal")) {
     if (!session) {
-      const loginUrl = new URL("/login", request.url);
-      loginUrl.searchParams.set("redirect", pathname);
-      return NextResponse.redirect(loginUrl);
+      const studentLoginUrl = new URL("/student-login", request.url);
+      studentLoginUrl.searchParams.set("redirect", pathname);
+      return NextResponse.redirect(studentLoginUrl);
     }
     // Authenticated users (students, or staff previewing) can access /portal
     const response = NextResponse.next();

@@ -16,6 +16,11 @@ import {
   ArrowRight,
   CheckCircle2,
   AlertCircle,
+  GraduationCap,
+  Building2,
+  KeyRound,
+  User,
+  Info,
 } from "lucide-react";
 
 interface LoginFormProps {
@@ -24,21 +29,31 @@ interface LoginFormProps {
   tagline: string;
 }
 
+type LoginTab = "STUDENT" | "STAFF";
+
 export function LoginForm({ logoUrl, instituteName, tagline }: LoginFormProps) {
   const router = useRouter();
-  const [email, setEmail] = useState("");
+  const [activeTab, setActiveTab] = useState<LoginTab>("STUDENT");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [errorMsg, setErrorMsg] = useState("");
   const [isPending, startTransition] = useTransition();
 
+  const handleTabChange = (tab: LoginTab) => {
+    setActiveTab(tab);
+    setErrorMsg("");
+    setIdentifier("");
+    setPassword("");
+  };
+
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg("");
 
     startTransition(async () => {
-      const res = await loginUser({ email, password });
+      const res = await loginUser({ identifier, password });
       if (res.success) {
         if (res.user?.role === "STUDENT") {
           router.push("/portal");
@@ -47,7 +62,12 @@ export function LoginForm({ logoUrl, instituteName, tagline }: LoginFormProps) {
         }
         router.refresh();
       } else {
-        setErrorMsg(res.error || "Authentication failed. Invalid email or password.");
+        setErrorMsg(
+          res.error ||
+            (activeTab === "STUDENT"
+              ? "Invalid credentials. Use your Name_name (e.g. aarav_sharma) and your Student Code as password."
+              : "Authentication failed. Invalid email or password.")
+        );
       }
     });
   };
@@ -61,7 +81,7 @@ export function LoginForm({ logoUrl, instituteName, tagline }: LoginFormProps) {
         <div className="absolute top-1/3 -right-40 w-[600px] h-[600px] rounded-full bg-amber-500/10 blur-[160px]" />
       </div>
 
-      {/* ── Left Hero Panel (Enterprise SaaS Showcase) ── */}
+      {/* ── Left Hero Panel (Enterprise SaaS Showcase - No Internal Metrics) ── */}
       <div className="hidden lg:flex lg:w-7/12 p-12 xl:p-16 flex-col justify-between relative z-10 border-r border-white/10 bg-gradient-to-b from-white/[0.03] to-transparent">
         {/* Top Header */}
         <div className="flex items-center justify-between">
@@ -90,7 +110,7 @@ export function LoginForm({ logoUrl, instituteName, tagline }: LoginFormProps) {
           </div>
         </div>
 
-        {/* Center Live Enterprise Dashboard Mockup */}
+        {/* Center Live Enterprise Platform Mockup */}
         <div className="space-y-6 my-auto py-8 max-w-xl">
           <div className="space-y-3">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-gradient-to-r from-blue-500/20 to-purple-500/20 border border-blue-500/30 text-xs font-semibold text-blue-300">
@@ -199,11 +219,29 @@ export function LoginForm({ logoUrl, instituteName, tagline }: LoginFormProps) {
               Portal Authentication
             </span>
             <h3 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
-              Sign In to Your Workspace
+              {activeTab === "STUDENT" ? "Student Portal Sign In" : "Staff & Faculty Sign In"}
             </h3>
             <p className="text-xs sm:text-sm text-zinc-400">
-              Enter your authorized staff or student credentials to access your portal.
+              {activeTab === "STUDENT"
+                ? "Enter your Name_name and your Student Code to access your learning workspace."
+                : "Sign in with your registered institutional work email to access the administrative ERP."}
             </p>
+          </div>
+
+          {/* ── Segmented Role Switcher (Senior UI/UX) ── */}
+          <div className="grid grid-cols-2 p-1 rounded-2xl bg-white/[0.04] border border-white/10">
+            <a
+              href="/student-login"
+              className="py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 text-zinc-400 hover:text-white hover:bg-white/[0.04]"
+            >
+              <GraduationCap className="w-4 h-4 text-indigo-400" />
+              <span>Student Portal &rarr;</span>
+            </a>
+
+            <div className="py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 bg-primary text-primary-foreground shadow-lg shadow-primary/20">
+              <Building2 className="w-4 h-4" />
+              <span>Staff &amp; Admin</span>
+            </div>
           </div>
 
           {/* Error Message Alert */}
@@ -216,52 +254,82 @@ export function LoginForm({ logoUrl, instituteName, tagline }: LoginFormProps) {
 
           {/* Main Login Form */}
           <form onSubmit={handleLogin} className="space-y-4">
-            {/* Email Field */}
+            {/* Identifier Field (Name_name for Student, Work Email for Staff) */}
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-zinc-200 flex items-center justify-between">
-                <span>Email Address or Username</span>
-                <span className="text-[10px] text-zinc-400 font-normal">Work Email</span>
+                <span>
+                  {activeTab === "STUDENT" ? "Student Username" : "Work Email Address"}
+                </span>
+                <span className="text-[10px] text-zinc-400 font-normal">
+                  {activeTab === "STUDENT" ? "Format: Name_name" : "Official Email"}
+                </span>
               </label>
               <div className="relative">
-                <Mail className="absolute left-3.5 top-3.5 h-4 w-4 text-zinc-400" />
+                {activeTab === "STUDENT" ? (
+                  <GraduationCap className="absolute left-3.5 top-3.5 h-4 w-4 text-zinc-400" />
+                ) : (
+                  <Mail className="absolute left-3.5 top-3.5 h-4 w-4 text-zinc-400" />
+                )}
                 <Input
-                  type="email"
+                  type="text"
                   required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  value={identifier}
+                  onChange={(e) => setIdentifier(e.target.value)}
                   className="pl-10 h-11 text-xs rounded-xl bg-white/[0.04] border-white/15 text-white placeholder:text-zinc-500 focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all shadow-inner"
-                  placeholder="name@institute.com"
-                  autoComplete="email"
+                  placeholder={
+                    activeTab === "STUDENT"
+                      ? "e.g. aarav_sharma or STU-2026-0001"
+                      : "name@institute.com"
+                  }
+                  autoComplete={activeTab === "STUDENT" ? "username" : "email"}
                 />
               </div>
+              {activeTab === "STUDENT" && (
+                <p className="text-[10px] text-zinc-500 flex items-center gap-1 pl-1">
+                  <Info className="w-3 h-3 text-zinc-400" />
+                  <span>Enter your name as Firstname_Lastname (e.g. aarav_sharma) or your Student ID</span>
+                </p>
+              )}
             </div>
 
-            {/* Password Field */}
+            {/* Password Field (Student Code for Student, Password for Staff) */}
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <label className="text-xs font-semibold text-zinc-200">
-                  Password
+                  {activeTab === "STUDENT" ? "Student Code" : "Password"}
                 </label>
                 <a
                   href="#"
                   onClick={(e) => {
                     e.preventDefault();
-                    alert("Please contact your institute's Super Administrator to reset your password.");
+                    alert(
+                      activeTab === "STUDENT"
+                        ? "Your password is your Student Code (e.g. STU-2026-0001). Please check your student ID card or contact the campus front desk."
+                        : "Please contact your institute's Super Administrator to reset your password."
+                    );
                   }}
                   className="text-[11px] text-primary hover:text-primary/80 font-medium transition-colors"
                 >
-                  Forgot password?
+                  Forgot {activeTab === "STUDENT" ? "Student Code?" : "password?"}
                 </a>
               </div>
               <div className="relative">
-                <Lock className="absolute left-3.5 top-3.5 h-4 w-4 text-zinc-400" />
+                {activeTab === "STUDENT" ? (
+                  <KeyRound className="absolute left-3.5 top-3.5 h-4 w-4 text-zinc-400" />
+                ) : (
+                  <Lock className="absolute left-3.5 top-3.5 h-4 w-4 text-zinc-400" />
+                )}
                 <Input
                   type={showPassword ? "text" : "password"}
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="pl-10 pr-10 h-11 text-xs rounded-xl bg-white/[0.04] border-white/15 text-white placeholder:text-zinc-500 focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all shadow-inner"
-                  placeholder="••••••••••••"
+                  placeholder={
+                    activeTab === "STUDENT"
+                      ? "e.g. STU-2026-0001"
+                      : "••••••••••••"
+                  }
                   autoComplete="current-password"
                 />
                 <button
@@ -273,6 +341,12 @@ export function LoginForm({ logoUrl, instituteName, tagline }: LoginFormProps) {
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
+              {activeTab === "STUDENT" && (
+                <p className="text-[10px] text-zinc-500 flex items-center gap-1 pl-1">
+                  <Info className="w-3 h-3 text-zinc-400" />
+                  <span>Your default password is your Student Code (e.g. STU-2026-0001)</span>
+                </p>
+              )}
             </div>
 
             {/* Remember Me Checkbox */}
@@ -297,11 +371,19 @@ export function LoginForm({ logoUrl, instituteName, tagline }: LoginFormProps) {
               {isPending ? (
                 <>
                   <span className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  <span>Verifying Credentials &amp; Campus Scope...</span>
+                  <span>
+                    {activeTab === "STUDENT"
+                      ? "Authenticating Student Credentials..."
+                      : "Verifying Executive Access..."}
+                  </span>
                 </>
               ) : (
                 <>
-                  <span>Sign In to Workspace</span>
+                  <span>
+                    {activeTab === "STUDENT"
+                      ? "Sign In to Student Portal"
+                      : "Sign In to Staff Workspace"}
+                  </span>
                   <ArrowRight className="h-4 w-4" />
                 </>
               )}

@@ -12,20 +12,100 @@ import {
 import { logAudit } from "./audit";
 import { Role } from "@/lib/permissions";
 
-export async function loginUser(formData: { email: string; password: string }) {
+export async function loginUser(formData: {
+  email?: string;
+  identifier?: string;
+  password?: string;
+}) {
   try {
-    const email = formData.email.trim().toLowerCase();
-    const user = await db.user.findUnique({
-      where: { email },
-      include: {
-        teacher: true,
-        student: true,
-        parent: true,
-      },
-    });
+    const rawIdentifier = (formData.identifier || formData.email || "").trim();
+    const rawPassword = (formData.password || "").trim();
+
+    if (!rawIdentifier || !rawPassword) {
+      return { success: false, error: "Please enter your username/email and password" };
+    }
+
+    let user: any = null;
+    let matchedStudent: any = null;
+
+    // 1. Direct match by email
+    if (rawIdentifier.includes("@")) {
+      user = await db.user.findUnique({
+        where: { email: rawIdentifier.toLowerCase() },
+        include: { teacher: true, student: true, parent: true },
+      });
+    }
+
+    // 2. If not found by email, search as Student username / Student Code / Name
+    if (!user) {
+      // Normalize Name_name: e.g. "aarav_sharma" -> "Aarav Sharma"
+      const nameWithSpaces = rawIdentifier.replace(/_/g, " ");
+
+      matchedStudent = await db.student.findFirst({
+        where: {
+          OR: [
+            { studentId: { equals: rawIdentifier, mode: "insensitive" } },
+            { admissionNo: { equals: rawIdentifier, mode: "insensitive" } },
+            { name: { equals: rawIdentifier, mode: "insensitive" } },
+            { name: { equals: nameWithSpaces, mode: "insensitive" } },
+            { email: { equals: rawIdentifier.toLowerCase() } },
+          ],
+        },
+        include: {
+          user: true,
+          institute: true,
+        },
+      });
+
+      if (matchedStudent) {
+        if (matchedStudent.user) {
+          user = matchedStudent.user;
+        } else if (matchedStudent.email) {
+          user = await db.user.findUnique({
+            where: { email: matchedStudent.email.toLowerCase() },
+            include: { teacher: true, student: true, parent: true },
+          });
+        }
+
+        // If no User record exists yet, auto-provision one for the student
+        if (!user) {
+          const generatedEmail =
+            matchedStudent.email || `${matchedStudent.studentId.toLowerCase()}@student.local`;
+          const pwdHash = await hashPassword(matchedStudent.studentId);
+          user = await db.user.create({
+            data: {
+              name: matchedStudent.name,
+              email: generatedEmail,
+              passwordHash: pwdHash,
+              role: "STUDENT",
+              status: "ACTIVE",
+              instituteId: matchedStudent.instituteId,
+            },
+          });
+          await db.student.update({
+            where: { id: matchedStudent.id },
+            data: { userId: user.id },
+          });
+        }
+      }
+    }
+
+    // 3. Fallback: match User name directly
+    if (!user) {
+      const nameWithSpaces = rawIdentifier.replace(/_/g, " ");
+      user = await db.user.findFirst({
+        where: {
+          OR: [
+            { name: { equals: rawIdentifier, mode: "insensitive" } },
+            { name: { equals: nameWithSpaces, mode: "insensitive" } },
+          ],
+        },
+        include: { teacher: true, student: true, parent: true },
+      });
+    }
 
     if (!user) {
-      return { success: false, error: "Invalid email or password" };
+      return { success: false, error: "Invalid username/email or password" };
     }
 
     if (user.status !== "ACTIVE") {
@@ -35,20 +115,52 @@ export async function loginUser(formData: { email: string; password: string }) {
       };
     }
 
-    const isValid = await verifyPassword(formData.password, user.passwordHash);
-    if (!isValid) {
-      return { success: false, error: "Invalid email or password" };
+    // Password Validation:
+    let isValidPassword = false;
+
+    // Check Student Code match (case-insensitive studentId or admissionNo)
+    if (user.role === "STUDENT") {
+      if (!matchedStudent) {
+        matchedStudent = await db.student.findFirst({
+          where: { OR: [{ userId: user.id }, { email: user.email }] },
+        });
+      }
+
+      if (matchedStudent) {
+        const studentCode = matchedStudent.studentId?.trim().toLowerCase();
+        const admissionCode = matchedStudent.admissionNo?.trim().toLowerCase();
+        const enteredPwd = rawPassword.toLowerCase();
+
+        if (enteredPwd === studentCode || enteredPwd === admissionCode) {
+          isValidPassword = true;
+        }
+      }
     }
 
-    let studentId = user.student?.id || null;
+    // Standard hash verification if not validated by student code
+    if (!isValidPassword && user.passwordHash) {
+      isValidPassword = await verifyPassword(rawPassword, user.passwordHash);
+    }
+
+    if (!isValidPassword) {
+      return {
+        success: false,
+        error:
+          user.role === "STUDENT"
+            ? "Invalid credentials. Use your Name_name and your Student Code (e.g. STU-2026-0001) as password."
+            : "Invalid email or password",
+      };
+    }
+
+    let studentId = user.student?.id || matchedStudent?.id || null;
     if (!studentId && user.role === "STUDENT") {
-      const matchedStudent = await db.student.findFirst({
+      const s = await db.student.findFirst({
         where: { OR: [{ email: user.email }, { userId: user.id }] },
       });
-      if (matchedStudent) {
-        studentId = matchedStudent.id;
-        if (!matchedStudent.userId) {
-          db.student.update({ where: { id: matchedStudent.id }, data: { userId: user.id } }).catch(() => {});
+      if (s) {
+        studentId = s.id;
+        if (!s.userId) {
+          db.student.update({ where: { id: s.id }, data: { userId: user.id } }).catch(() => {});
         }
       }
     }
