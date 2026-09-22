@@ -21,6 +21,13 @@ import {
   GraduationCap,
   Activity,
   Zap,
+  TrendingUp,
+  Building2,
+  Users,
+  KeyRound,
+  Check,
+  AlertCircle,
+  HelpCircle,
 } from "lucide-react";
 
 interface LoginFormProps {
@@ -29,19 +36,56 @@ interface LoginFormProps {
   tagline: string;
 }
 
+const DEMO_ACCOUNTS = [
+  {
+    role: "ADMIN",
+    label: "Admin / Director",
+    email: "admin@futurexlearning.com",
+    pass: "admin123",
+    badge: "Full Access",
+    color: "border-blue-500/30 text-blue-400 bg-blue-500/10 hover:bg-blue-500/20",
+  },
+  {
+    role: "TEACHER",
+    label: "Senior Faculty",
+    email: "teacher@futurexlearning.com",
+    pass: "teacher123",
+    badge: "Academic & Tests",
+    color: "border-purple-500/30 text-purple-400 bg-purple-500/10 hover:bg-purple-500/20",
+  },
+  {
+    role: "ACCOUNTANT",
+    label: "Finance & Accounts",
+    email: "accountant@futurexlearning.com",
+    pass: "accountant123",
+    badge: "Fee Ledgers",
+    color: "border-emerald-500/30 text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20",
+  },
+  {
+    role: "STUDENT",
+    label: "Student Portal",
+    email: "student@futurexlearning.com",
+    pass: "student123",
+    badge: "Attendance & ID",
+    color: "border-amber-500/30 text-amber-400 bg-amber-500/10 hover:bg-amber-500/20",
+  },
+];
+
 export function LoginForm({ logoUrl, instituteName, tagline }: LoginFormProps) {
   const router = useRouter();
   const [email, setEmail] = useState("admin@futurexlearning.com");
   const [password, setPassword] = useState("admin123");
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
   const [errorMsg, setErrorMsg] = useState("");
   const [selectedRole, setSelectedRole] = useState("ADMIN");
+  const [showDemoDrawer, setShowDemoDrawer] = useState(false);
   const [isPending, startTransition] = useTransition();
 
-  const handleRoleQuickSelect = (role: string, roleEmail: string, rolePass: string) => {
-    setSelectedRole(role);
-    setEmail(roleEmail);
-    setPassword(rolePass);
+  const handleRoleQuickSelect = (acc: typeof DEMO_ACCOUNTS[0]) => {
+    setSelectedRole(acc.role);
+    setEmail(acc.email);
+    setPassword(acc.pass);
     setErrorMsg("");
   };
 
@@ -55,259 +99,279 @@ export function LoginForm({ logoUrl, instituteName, tagline }: LoginFormProps) {
         router.push("/dashboard");
         router.refresh();
       } else {
-        setErrorMsg(res.error || "Authentication failed. Please check credentials.");
+        setErrorMsg(res.error || "Authentication failed. Invalid email or password.");
       }
     });
   };
 
   return (
-    <div className="min-h-screen w-full flex flex-col lg:flex-row bg-background font-poppins selection:bg-primary/20 selection:text-primary">
-      {/* ── Left Hero Panel (Enterprise Showcase) ── */}
-      <div className="hidden lg:flex lg:w-7/12 bg-gradient-to-br from-[#070e1b] via-[#0c1a30] to-[#12284c] text-white p-12 xl:p-16 flex-col justify-between relative overflow-hidden">
-        {/* Ambient Gradient Glows */}
-        <div className="absolute -top-32 -left-32 w-[500px] h-[500px] rounded-full bg-blue-600/20 blur-[120px] pointer-events-none"></div>
-        <div className="absolute -bottom-32 -right-32 w-[500px] h-[500px] rounded-full bg-amber-500/15 blur-[120px] pointer-events-none"></div>
-        <div className="absolute top-1/2 left-1/3 w-72 h-72 rounded-full bg-indigo-500/10 blur-[100px] pointer-events-none"></div>
+    <div className="min-h-screen w-full flex bg-[#060b13] text-foreground font-poppins selection:bg-primary/25 selection:text-white relative overflow-hidden">
+      {/* ── Background Subtle Mesh Lights ── */}
+      <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
+        <div className="absolute -top-40 -left-40 w-[650px] h-[650px] rounded-full bg-blue-600/15 blur-[140px]" />
+        <div className="absolute -bottom-40 left-1/3 w-[550px] h-[550px] rounded-full bg-indigo-600/10 blur-[150px]" />
+        <div className="absolute top-1/3 -right-40 w-[600px] h-[600px] rounded-full bg-amber-500/10 blur-[160px]" />
+      </div>
 
-        {/* Top Branding */}
-        <div className="relative z-10 flex items-center gap-3.5">
-          <div className="p-1.5 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 shadow-xl">
-            <InstituteLogo logoUrl={logoUrl} name={instituteName} size={44} />
+      {/* ── Left Hero Panel (Enterprise SaaS Showcase) ── */}
+      <div className="hidden lg:flex lg:w-7/12 p-12 xl:p-16 flex-col justify-between relative z-10 border-r border-white/10 bg-gradient-to-b from-white/[0.03] to-transparent">
+        {/* Top Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3.5">
+            <div className="p-2 rounded-2xl bg-white/10 backdrop-blur-xl border border-white/15 shadow-2xl">
+              <InstituteLogo logoUrl={logoUrl} name={instituteName} size={42} />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="font-extrabold text-lg tracking-wide uppercase text-white">
+                  {instituteName}
+                </h2>
+                <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                  LTS 2.4
+                </span>
+              </div>
+              <p className="text-xs text-zinc-400 font-medium">
+                Autonomous Coaching Institute Operating System
+              </p>
+            </div>
           </div>
-          <div>
-            <h2 className="font-extrabold text-lg tracking-wide uppercase text-white">
-              {instituteName}
-            </h2>
-            <div className="flex items-center gap-2 mt-0.5">
-              <span className="text-[11px] font-semibold text-amber-300 uppercase tracking-widest">
-                Enterprise Academic ERP
-              </span>
-              <span className="text-zinc-500">•</span>
-              <span className="text-[10px] text-zinc-400 font-mono">v2.4 LTS</span>
+
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-xs text-zinc-400 backdrop-blur-sm">
+            <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Encrypted Tenant Vault</span>
+          </div>
+        </div>
+
+        {/* Center Live Enterprise Dashboard Mockup */}
+        <div className="space-y-6 my-auto py-8 max-w-xl">
+          <div className="space-y-3">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-gradient-to-r from-blue-500/20 to-purple-500/20 border border-blue-500/30 text-xs font-semibold text-blue-300">
+              <Sparkles className="h-3.5 w-3.5 text-amber-300" />
+              <span>Multi-Campus Academic &amp; Financial ERP</span>
+            </div>
+            <h1 className="text-3xl xl:text-5xl font-black tracking-tight text-white leading-[1.12]">
+              Elevate Your Coaching Institute to Modern Standards.
+            </h1>
+            <p className="text-sm xl:text-base text-zinc-300 font-normal leading-relaxed">
+              {tagline ||
+                "Seamless student lifecycle from biometric QR check-ins and fee collection ledgers to test performance matrices and automated admissions."}
+            </p>
+          </div>
+
+          {/* Glassmorphic Metrics Terminal Card */}
+          <div className="p-5 rounded-2xl bg-white/[0.04] border border-white/10 backdrop-blur-xl shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-white/10 pb-3">
+              <div className="flex items-center gap-2">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                </span>
+                <span className="text-xs font-semibold text-zinc-200">Live Campus Operations Feed</span>
+              </div>
+              <span className="text-[11px] font-mono text-zinc-400">Main Campus • Auto-Sync</span>
+            </div>
+
+            <div className="grid grid-cols-3 gap-3">
+              <div className="p-3 rounded-xl bg-white/[0.03] border border-white/5">
+                <span className="text-[11px] text-zinc-400 block font-medium">Today's Attendance</span>
+                <span className="text-xl font-extrabold text-white mt-0.5 block">98.4%</span>
+                <span className="text-[10px] text-emerald-400 flex items-center gap-0.5 mt-0.5 font-medium">
+                  <TrendingUp className="w-2.5 h-2.5" /> +2.1% Biometric QR
+                </span>
+              </div>
+
+              <div className="p-3 rounded-xl bg-white/[0.03] border border-white/5">
+                <span className="text-[11px] text-zinc-400 block font-medium">Monthly Collections</span>
+                <span className="text-xl font-extrabold text-white mt-0.5 block">₹14.85 L</span>
+                <span className="text-[10px] text-emerald-400 flex items-center gap-0.5 mt-0.5 font-medium">
+                  <TrendingUp className="w-2.5 h-2.5" /> 94% Fee Realized
+                </span>
+              </div>
+
+              <div className="p-3 rounded-xl bg-white/[0.03] border border-white/5">
+                <span className="text-[11px] text-zinc-400 block font-medium">Active Inquiries</span>
+                <span className="text-xl font-extrabold text-amber-300 mt-0.5 block">42 Leads</span>
+                <span className="text-[10px] text-amber-300/80 mt-0.5 block font-medium">
+                  18 Due for Follow-up
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between text-xs text-zinc-400 pt-1">
+              <div className="flex items-center gap-3">
+                <span className="flex items-center gap-1.5 text-zinc-300 font-medium">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-blue-400" />
+                  Auto-Invoicing
+                </span>
+                <span className="flex items-center gap-1.5 text-zinc-300 font-medium">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-purple-400" />
+                  CR-80 Smart IDs
+                </span>
+                <span className="flex items-center gap-1.5 text-zinc-300 font-medium">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                  Parent WhatsApp Bot
+                </span>
+              </div>
+              <span className="text-[10px] text-zinc-500 font-mono">SEC-ID: FL-PROD</span>
             </div>
           </div>
         </div>
 
-        {/* Center Coaching Value Proposition */}
-        <div className="relative z-10 space-y-7 max-w-xl my-auto py-8">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-xs font-semibold text-amber-300 shadow-sm">
-            <Sparkles className="h-3.5 w-3.5 text-amber-300" />
-            <span>Next-Generation Coaching Institute OS</span>
+        {/* Bottom Trust & Compliance */}
+        <div className="flex items-center justify-between text-xs text-zinc-400 border-t border-white/10 pt-6">
+          <div className="flex items-center gap-2">
+            <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="text-zinc-300 font-medium">All Cloud Nodes &amp; Databases Healthy</span>
           </div>
-
-          <h1 className="text-3xl xl:text-5xl font-black tracking-tight leading-[1.15]">
-            Total Command Over Academics, Attendance &amp; Financial Growth.
-          </h1>
-
-          <p className="text-sm xl:text-base text-zinc-300 leading-relaxed font-light">
-            {tagline || "Streamlined student lifecycle from biometric QR attendance and automated fee vouchers to test performance analytics and staff scheduling."}
-          </p>
-
-          {/* Interactive Feature Highlights Grid */}
-          <div className="grid grid-cols-2 gap-3.5 pt-2">
-            <div className="p-4 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm hover:bg-white/10 transition-colors">
-              <div className="flex items-center gap-2.5 mb-1.5">
-                <div className="h-7 w-7 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
-                  <QrCode className="h-4 w-4" />
-                </div>
-                <span className="text-xs font-bold text-white">Biometric QR &amp; GPS</span>
-              </div>
-              <p className="text-[11px] text-zinc-400 leading-normal">
-                Sub-second batch attendance with automated WhatsApp SMS alerts.
-              </p>
-            </div>
-
-            <div className="p-4 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm hover:bg-white/10 transition-colors">
-              <div className="flex items-center gap-2.5 mb-1.5">
-                <div className="h-7 w-7 rounded-lg bg-amber-500/20 text-amber-300 flex items-center justify-center">
-                  <CreditCard className="h-4 w-4" />
-                </div>
-                <span className="text-xs font-bold text-white">Tax Invoices &amp; Receipts</span>
-              </div>
-              <p className="text-[11px] text-zinc-400 leading-normal">
-                1-click fee vouchers, partial installments &amp; defaulters recovery.
-              </p>
-            </div>
-
-            <div className="p-4 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm hover:bg-white/10 transition-colors">
-              <div className="flex items-center gap-2.5 mb-1.5">
-                <div className="h-7 w-7 rounded-lg bg-blue-500/20 text-blue-400 flex items-center justify-center">
-                  <Layers className="h-4 w-4" />
-                </div>
-                <span className="text-xs font-bold text-white">CR-80 Smart ID Cards</span>
-              </div>
-              <p className="text-[11px] text-zinc-400 leading-normal">
-                ISO standard printable PVC smart cards with institute QR code.
-              </p>
-            </div>
-
-            <div className="p-4 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm hover:bg-white/10 transition-colors">
-              <div className="flex items-center gap-2.5 mb-1.5">
-                <div className="h-7 w-7 rounded-lg bg-purple-500/20 text-purple-300 flex items-center justify-center">
-                  <Zap className="h-4 w-4" />
-                </div>
-                <span className="text-xs font-bold text-white">Batch Test Analytics</span>
-              </div>
-              <p className="text-[11px] text-zinc-400 leading-normal">
-                Instant marksheets, ranking matrices &amp; student report cards.
-              </p>
-            </div>
+          <div className="flex items-center gap-4 text-[11px] text-zinc-400">
+            <span>ISO 9001:2015 Compliant</span>
+            <span>•</span>
+            <span>256-Bit TLS End-to-End</span>
           </div>
-        </div>
-
-        {/* Bottom Trust Badge */}
-        <div className="relative z-10 flex items-center justify-between text-xs text-zinc-400 border-t border-white/10 pt-6">
-          <span className="flex items-center gap-2 text-zinc-300 font-medium">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-            </span>
-            <span>All ERP Clusters Operational</span>
-          </span>
-          <span className="flex items-center gap-1.5 text-[11px] font-mono text-zinc-400">
-            <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
-            <span>256-Bit SSL AES Encrypted</span>
-          </span>
         </div>
       </div>
 
       {/* ── Right Auth Panel ── */}
-      <div className="w-full lg:w-5/12 flex items-center justify-center p-6 sm:p-12 lg:p-16 relative">
-        <div className="w-full max-w-md space-y-7">
+      <div className="w-full lg:w-5/12 flex items-center justify-center p-6 sm:p-12 lg:p-14 relative z-10">
+        <div className="w-full max-w-md space-y-6">
           {/* Mobile Top Brand (visible on small screens) */}
-          <div className="lg:hidden text-center space-y-3 pb-2">
+          <div className="lg:hidden text-center space-y-2.5 pb-2">
             <div className="flex justify-center">
-              <InstituteLogo logoUrl={logoUrl} name={instituteName} size={64} />
+              <div className="p-2 rounded-2xl bg-white/10 backdrop-blur border border-white/15 shadow-xl">
+                <InstituteLogo logoUrl={logoUrl} name={instituteName} size={54} />
+              </div>
             </div>
             <div>
-              <h2 className="text-xl font-extrabold tracking-tight text-foreground uppercase">
+              <h2 className="text-xl font-extrabold tracking-tight text-white uppercase">
                 {instituteName}
               </h2>
-              <p className="text-xs text-muted-foreground mt-0.5">{tagline}</p>
+              <p className="text-xs text-zinc-400 mt-0.5">{tagline}</p>
             </div>
           </div>
 
           {/* Form Header */}
-          <div className="space-y-2">
-            <div className="hidden lg:flex items-center gap-2.5 mb-3">
-              <InstituteLogo logoUrl={logoUrl} name={instituteName} size={36} />
-              <span className="font-bold text-sm tracking-tight text-foreground uppercase">
-                {instituteName}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold uppercase tracking-wider text-primary">
+                Portal Authentication
               </span>
+              <button
+                type="button"
+                onClick={() => setShowDemoDrawer(!showDemoDrawer)}
+                className="text-xs font-medium text-amber-400 hover:text-amber-300 flex items-center gap-1 transition-colors"
+              >
+                <KeyRound className="w-3.5 h-3.5" />
+                <span>{showDemoDrawer ? "Hide Demo Accounts" : "Quick Demo Accounts"}</span>
+              </button>
             </div>
-            <h3 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">
-              Sign In to ERP
+            <h3 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
+              Sign In to Your Workspace
             </h3>
-            <p className="text-xs sm:text-sm text-muted-foreground">
-              Access your coaching workspace, academic records, and fee ledgers.
+            <p className="text-xs sm:text-sm text-zinc-400">
+              Enter your authorized staff or student credentials to access your portal.
             </p>
           </div>
 
-          {/* Quick Demo Role Switcher Bar */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-[11px] font-semibold text-muted-foreground">
-              <span>QUICK ROLE DEMO LOGIN</span>
-              <span className="text-[10px] text-primary">1-Click Auto-Fill</span>
+          {/* Demo Accounts Quick-Select Drawer */}
+          {showDemoDrawer && (
+            <div className="p-3.5 rounded-xl bg-white/[0.04] border border-white/10 space-y-2 animate-in fade-in duration-200">
+              <div className="flex items-center justify-between text-[11px] font-semibold text-zinc-300">
+                <span>SELECT DEMO ROLE</span>
+                <span className="text-[10px] text-zinc-400">1-Click Auto-Fill</span>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                {DEMO_ACCOUNTS.map((acc) => {
+                  const isSelected = selectedRole === acc.role;
+                  return (
+                    <button
+                      key={acc.role}
+                      type="button"
+                      onClick={() => handleRoleQuickSelect(acc)}
+                      className={`p-2.5 rounded-xl border text-left text-xs transition-all relative overflow-hidden ${
+                        isSelected
+                          ? "bg-primary/20 border-primary text-white shadow-sm ring-1 ring-primary/40"
+                          : "bg-white/[0.02] border-white/10 hover:bg-white/[0.06] text-zinc-300 hover:text-white"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-0.5">
+                        <span className="font-bold text-xs">{acc.label}</span>
+                        {isSelected && <Check className="w-3 h-3 text-primary" />}
+                      </div>
+                      <span className="text-[10px] text-zinc-400 block font-mono truncate">
+                        {acc.email}
+                      </span>
+                      <span className="text-[9px] px-1.5 py-0.2 rounded font-semibold bg-white/10 text-zinc-300 mt-1 inline-block">
+                        {acc.badge}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-            <div className="grid grid-cols-4 gap-2">
-              <button
-                type="button"
-                onClick={() => handleRoleQuickSelect("ADMIN", "admin@futurexlearning.com", "admin123")}
-                className={`py-2 px-1 rounded-xl text-center border text-xs font-semibold transition-all ${
-                  selectedRole === "ADMIN"
-                    ? "bg-primary text-primary-foreground border-primary shadow-xs ring-2 ring-primary/20"
-                    : "bg-muted/40 hover:bg-muted text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                Admin
-              </button>
-              <button
-                type="button"
-                onClick={() => handleRoleQuickSelect("TEACHER", "teacher@futurexlearning.com", "teacher123")}
-                className={`py-2 px-1 rounded-xl text-center border text-xs font-semibold transition-all ${
-                  selectedRole === "TEACHER"
-                    ? "bg-primary text-primary-foreground border-primary shadow-xs ring-2 ring-primary/20"
-                    : "bg-muted/40 hover:bg-muted text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                Faculty
-              </button>
-              <button
-                type="button"
-                onClick={() => handleRoleQuickSelect("STUDENT", "student@futurexlearning.com", "student123")}
-                className={`py-2 px-1 rounded-xl text-center border text-xs font-semibold transition-all ${
-                  selectedRole === "STUDENT"
-                    ? "bg-primary text-primary-foreground border-primary shadow-xs ring-2 ring-primary/20"
-                    : "bg-muted/40 hover:bg-muted text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                Student
-              </button>
-              <button
-                type="button"
-                onClick={() => handleRoleQuickSelect("ACCOUNTANT", "accountant@futurexlearning.com", "accountant123")}
-                className={`py-2 px-1 rounded-xl text-center border text-xs font-semibold transition-all ${
-                  selectedRole === "ACCOUNTANT"
-                    ? "bg-primary text-primary-foreground border-primary shadow-xs ring-2 ring-primary/20"
-                    : "bg-muted/40 hover:bg-muted text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                Accounts
-              </button>
-            </div>
-          </div>
+          )}
 
           {/* Error Message Alert */}
           {errorMsg && (
-            <div className="p-3.5 rounded-xl bg-destructive/10 text-destructive border border-destructive/20 text-xs font-semibold flex items-center gap-2.5 animate-in fade-in">
-              <span className="h-2 w-2 rounded-full bg-destructive shrink-0"></span>
+            <div className="p-3.5 rounded-xl bg-rose-500/10 text-rose-300 border border-rose-500/30 text-xs font-semibold flex items-center gap-2.5 animate-in fade-in">
+              <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
               <span>{errorMsg}</span>
             </div>
           )}
 
-          {/* Login Form */}
+          {/* Main Login Form */}
           <form onSubmit={handleLogin} className="space-y-4">
             {/* Email Field */}
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-foreground flex items-center justify-between">
-                <span>Email Address</span>
-                <span className="text-[10px] text-muted-foreground font-normal">Registered Identity</span>
+              <label className="text-xs font-semibold text-zinc-200 flex items-center justify-between">
+                <span>Email Address or Username</span>
+                <span className="text-[10px] text-zinc-400 font-normal">Work Email</span>
               </label>
               <div className="relative">
-                <Mail className="absolute left-3.5 top-3 h-4 w-4 text-muted-foreground" />
+                <Mail className="absolute left-3.5 top-3.5 h-4 w-4 text-zinc-400" />
                 <Input
                   type="email"
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="pl-10 h-11 text-xs rounded-xl bg-card border-border/80 focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all shadow-2xs"
-                  placeholder="admin@futurexlearning.com"
+                  className="pl-10 h-11 text-xs rounded-xl bg-white/[0.04] border-white/15 text-white placeholder:text-zinc-500 focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all shadow-inner"
+                  placeholder="name@futurexlearning.com"
                   autoComplete="email"
                 />
               </div>
             </div>
 
-            {/* Password Field with Show/Hide Toggle */}
+            {/* Password Field */}
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-foreground flex items-center justify-between">
-                <span>Password</span>
-                <span className="text-[10px] text-muted-foreground font-normal">Confidential Token</span>
-              </label>
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-semibold text-zinc-200">
+                  Password
+                </label>
+                <a
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    alert("Please contact your institute's Super Administrator to reset your password.");
+                  }}
+                  className="text-[11px] text-primary hover:text-primary/80 font-medium transition-colors"
+                >
+                  Forgot password?
+                </a>
+              </div>
               <div className="relative">
-                <Lock className="absolute left-3.5 top-3 h-4 w-4 text-muted-foreground" />
+                <Lock className="absolute left-3.5 top-3.5 h-4 w-4 text-zinc-400" />
                 <Input
                   type={showPassword ? "text" : "password"}
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="pl-10 pr-10 h-11 text-xs rounded-xl bg-card border-border/80 focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all shadow-2xs"
+                  className="pl-10 pr-10 h-11 text-xs rounded-xl bg-white/[0.04] border-white/15 text-white placeholder:text-zinc-500 focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all shadow-inner"
                   placeholder="••••••••••••"
                   autoComplete="current-password"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3.5 top-3 text-muted-foreground hover:text-foreground transition-colors focus:outline-none"
+                  className="absolute right-3.5 top-3.5 text-zinc-400 hover:text-white transition-colors focus:outline-none"
                   title={showPassword ? "Hide password" : "Show password"}
                 >
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -315,34 +379,47 @@ export function LoginForm({ logoUrl, instituteName, tagline }: LoginFormProps) {
               </div>
             </div>
 
+            {/* Remember Me Checkbox */}
+            <div className="flex items-center justify-between pt-1">
+              <label className="flex items-center gap-2 text-xs text-zinc-300 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                  className="h-3.5 w-3.5 rounded border-white/20 bg-white/5 text-primary focus:ring-primary/30 cursor-pointer"
+                />
+                <span>Remember this workstation for 7 days</span>
+              </label>
+            </div>
+
             {/* Submit Button */}
             <Button
               type="submit"
               disabled={isPending}
-              className="w-full h-11 text-xs font-bold rounded-xl shadow-md transition-all flex items-center justify-center gap-2 mt-2 active:scale-[0.99]"
+              className="w-full h-11 text-xs font-bold rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20 transition-all flex items-center justify-center gap-2 mt-2 active:scale-[0.99]"
             >
               {isPending ? (
                 <>
-                  <span className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
-                  <span>Verifying Credentials...</span>
+                  <span className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  <span>Verifying Credentials &amp; Campus Scope...</span>
                 </>
               ) : (
                 <>
-                  <span>Sign In as {selectedRole.replace("_", " ")}</span>
+                  <span>Sign In to Executive Workspace</span>
                   <ArrowRight className="h-4 w-4" />
                 </>
               )}
             </Button>
           </form>
 
-          {/* Security & Access Info Footer */}
-          <div className="pt-4 border-t border-border/60 text-center space-y-2">
-            <div className="flex items-center justify-center gap-2 text-[11px] text-muted-foreground">
-              <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
-              <span>Multi-Role Access Control Enabled (Admin, Faculty, Accounts)</span>
+          {/* Bottom Security Footer */}
+          <div className="pt-4 border-t border-white/10 text-center space-y-2">
+            <div className="flex items-center justify-center gap-2 text-[11px] text-zinc-400">
+              <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
+              <span>Multi-Role Access Control • Direct TLS-1.3 Encryption</span>
             </div>
-            <p className="text-[10px] text-zinc-400">
-              Futurex Learning ERP • ISO 9001:2015 Compliant Academic Architecture
+            <p className="text-[10px] text-zinc-500">
+              Protected by Enterprise Audit Trail &amp; Device Identity Verification
             </p>
           </div>
         </div>
