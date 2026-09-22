@@ -3,6 +3,7 @@ const nextConfig = {
   reactStrictMode: true,
   swcMinify: true,
   compress: true,
+  serverExternalPackages: ["@prisma/client"],
   compiler: {
     removeConsole: process.env.NODE_ENV === "production" ? { exclude: ["error", "warn"] } : false,
   },
@@ -10,7 +11,6 @@ const nextConfig = {
     serverActions: {
       bodySizeLimit: "10mb",
     },
-    serverComponentsExternalPackages: ["@prisma/client"],
     optimizePackageImports: [
       "lucide-react",
       "date-fns",
@@ -21,7 +21,6 @@ const nextConfig = {
   },
   images: {
     unoptimized: true,
-    formats: ["image/avif", "image/webp"],
   },
 };
 
