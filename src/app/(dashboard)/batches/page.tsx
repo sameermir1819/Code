@@ -1,25 +1,5 @@
-import { getBatches, getCourses, getTeachers, getSubjects } from "@/server/actions/academics";
-import { getSession } from "@/lib/auth";
-import { BatchesManager } from "@/components/academics/batches-manager";
+import { redirect } from "next/navigation";
 
-export const dynamic = "force-dynamic";
-
-export default async function BatchesPage() {
-  const [batches, courses, teachers, subjects, session] = await Promise.all([
-    getBatches(),
-    getCourses(),
-    getTeachers(),
-    getSubjects(),
-    getSession(),
-  ]);
-
-  return (
-    <BatchesManager
-      initialBatches={batches}
-      courses={courses}
-      teachers={teachers}
-      allSubjects={subjects}
-      userRole={session?.role || "ADMIN"}
-    />
-  );
+export default function BatchesRedirect() {
+  redirect("/dashboard/batches");
 }

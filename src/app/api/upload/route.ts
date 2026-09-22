@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { writeFile, mkdir } from "fs/promises";
 import { join } from "path";
 import { existsSync } from "fs";
+import { getSession } from "@/lib/auth";
 
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return bytes + " B";
@@ -20,6 +21,14 @@ function detectFileType(fileName: string, mimeType: string): string {
 
 export async function POST(req: NextRequest) {
   try {
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json(
+        { success: false, message: "Unauthorized: Active session required to upload files." },
+        { status: 401 }
+      );
+    }
+
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
 

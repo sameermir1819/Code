@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
 
 export async function getAuditLogs(limit = 100) {
-  await requireAuth(["SUPER_ADMIN"]);
+  await requireAuth(["SUPER_ADMIN", "ADMIN"]);
   return await db.auditLog.findMany({
     take: limit,
     orderBy: { createdAt: "desc" },

@@ -74,10 +74,12 @@ export default function LeadsPage() {
   // ─── Metrics & Leads State ──────────────────────────────────────────
   const [metrics, setMetrics] = useState<Metrics>({
     totalLeads: 0,
+    total: 0,
     newThisMonth: 0,
     convertedCount: 0,
     followUpsDueToday: 0,
     hotLeadsCount: 0,
+    hotLeads: 0,
     conversionRate: 0,
   });
   const [leads, setLeads] = useState<Lead[]>([]);
