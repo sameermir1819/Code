@@ -91,12 +91,31 @@ export default async function StudentProfilePage({ params }: StudentProfilePageP
 
         <Card>
           <CardContent className="p-4 flex items-center gap-3">
-            <div className="h-10 w-10 rounded-lg bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 flex items-center justify-center">
+            <div className={`h-10 w-10 rounded-lg flex items-center justify-center ${
+              student.attendanceRate < 75
+                ? "bg-red-50 text-red-600 dark:bg-red-950/40"
+                : student.attendanceRate < 85
+                ? "bg-amber-50 text-amber-600 dark:bg-amber-950/40"
+                : "bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40"
+            }`}>
               <CheckSquare className="h-5 w-5" />
             </div>
             <div>
               <p className="text-xs text-muted-foreground font-medium">Attendance Rate</p>
-              <p className="text-sm font-bold text-foreground">{student.attendanceRate}%</p>
+              <div className="flex items-center gap-2">
+                <p className={`text-sm font-bold ${
+                  student.attendanceRate < 75
+                    ? "text-red-600 dark:text-red-400"
+                    : student.attendanceRate < 85
+                    ? "text-amber-600 dark:text-amber-400"
+                    : "text-foreground"
+                }`}>{student.attendanceRate}%</p>
+                {student.attendanceRate < 75 && (
+                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-800 dark:bg-red-950/60 dark:text-red-400">
+                    SHORTAGE
+                  </span>
+                )}
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -332,16 +351,35 @@ export default async function StudentProfilePage({ params }: StudentProfilePageP
         {/* 5. ATTENDANCE */}
         <TabsContent value="attendance">
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
+            <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b pb-3">
               <div>
                 <CardTitle className="text-base font-semibold">Attendance Log</CardTitle>
-                <CardDescription>Recent daily class presence records</CardDescription>
+                <CardDescription>Recent daily class presence records &amp; statutory compliance</CardDescription>
               </div>
-              <span className="text-sm font-bold text-emerald-600">
-                Overall Rate: {student.attendanceRate}%
-              </span>
+              <div className="flex items-center gap-2">
+                <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${
+                  student.attendanceRate < 75
+                    ? "bg-red-100 text-red-800 dark:bg-red-950/60 dark:text-red-400 border border-red-200"
+                    : student.attendanceRate < 85
+                    ? "bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-400 border border-amber-200"
+                    : "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-400 border border-emerald-200"
+                }`}>
+                  Attendance: {student.attendanceRate}% {student.attendanceRate < 75 ? "(Shortage Alert)" : "(Compliant)"}
+                </span>
+              </div>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-4 pt-4">
+              {student.attendanceRate < 75 && (
+                <div className="p-3.5 rounded-xl bg-red-50 dark:bg-red-950/30 border border-red-200/80 text-xs text-red-900 dark:text-red-300 flex items-start gap-3">
+                  <span className="p-1 rounded-full bg-red-100 text-red-700 font-bold shrink-0 mt-0.5">⚠️</span>
+                  <div className="space-y-0.5">
+                    <p className="font-bold">Statutory Attendance Shortage Warning (&lt; 75%)</p>
+                    <p className="text-[11px] text-red-800/80 dark:text-red-300/80">
+                      This student has attended only {student.attendanceRate}% of scheduled batch lectures. Under academic policy, minimum 75% attendance is required for test series &amp; exam eligibility.
+                    </p>
+                  </div>
+                </div>
+              )}
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
                   <thead>

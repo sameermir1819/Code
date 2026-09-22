@@ -19,6 +19,7 @@ import {
   ArrowDownLeft,
 } from "lucide-react";
 import Link from "next/link";
+import { OutstandingToolbar } from "@/components/finance/outstanding-toolbar";
 
 export const dynamic = "force-dynamic";
 
@@ -72,11 +73,8 @@ export default async function OutstandingFeesPage() {
             Track unpaid fee installments per student and dispatch WhatsApp reminders to guardians.
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 px-3.5 rounded-xl bg-amber-50 text-amber-800 dark:bg-amber-950/40 dark:text-amber-400 border border-amber-200 text-xs">
-            Total Outstanding:{" "}
-            <strong className="text-sm font-black">{formatCurrency(totalOutstanding)}</strong>
-          </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <OutstandingToolbar records={records} />
           <Link
             href="/finance/payments"
             className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl border bg-background text-xs font-semibold hover:bg-muted shadow-xs transition-colors"

@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Role } from "@/lib/permissions";
 import { logoutUser } from "@/server/actions/auth";
+import { GlobalSearchModal } from "./global-search-modal";
 import {
   Bell,
   Search,
@@ -42,16 +43,9 @@ export function Header({ currentRole, userName, unreadCount = 0 }: HeaderProps) 
 
   return (
     <header className="h-16 border-b bg-background px-6 flex items-center justify-between gap-4 sticky top-0 z-30 shadow-xs">
-      {/* Search Input */}
+      {/* Global Quick Search (Ctrl+K) */}
       <div className="flex items-center gap-3 flex-1 max-w-md">
-        <div className="relative w-full">
-          <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-          <input
-            type="text"
-            placeholder="Search students, batches, courses, receipts..."
-            className="w-full h-9 pl-9 pr-4 rounded-md border border-input bg-muted/40 text-sm focus:outline-none focus:ring-1 focus:ring-primary focus:bg-background transition-all"
-          />
-        </div>
+        <GlobalSearchModal />
       </div>
 
       {/* Right controls */}
