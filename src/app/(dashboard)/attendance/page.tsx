@@ -22,6 +22,17 @@ export default function AttendancePage() {
 
   useEffect(() => {
     getBatches({ status: "ACTIVE" }).then(setBatches);
+
+    const handleAutoRefresh = () => {
+      getBatches({ status: "ACTIVE" }).then(setBatches);
+    };
+
+    window.addEventListener("erp-campus-changed", handleAutoRefresh);
+    window.addEventListener("erp-data-refresh", handleAutoRefresh);
+    return () => {
+      window.removeEventListener("erp-campus-changed", handleAutoRefresh);
+      window.removeEventListener("erp-data-refresh", handleAutoRefresh);
+    };
   }, []);
 
   return (

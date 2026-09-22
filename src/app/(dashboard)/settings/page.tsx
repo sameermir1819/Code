@@ -199,6 +199,8 @@ export default function SettingsAndProfilePage() {
         });
         const updatedList = await getAllCampuses();
         setCampuses(updatedList);
+        window.dispatchEvent(new CustomEvent("erp-campus-changed"));
+        window.dispatchEvent(new CustomEvent("erp-data-refresh"));
         router.refresh();
       } else {
         setFeedback({ type: "error", message: res.error || "Failed to create campus." });
@@ -217,6 +219,8 @@ export default function SettingsAndProfilePage() {
           setCampuses(allC);
           setActiveCampus(activeC);
           setDeletingCampus(null);
+          window.dispatchEvent(new CustomEvent("erp-campus-changed"));
+          window.dispatchEvent(new CustomEvent("erp-data-refresh"));
           router.refresh();
         } else {
           setFeedback({ type: "error", message: res.error || "Failed to delete campus." });

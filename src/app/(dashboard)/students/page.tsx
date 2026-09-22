@@ -217,6 +217,27 @@ export default function StudentsPage() {
     fetchTable();
   }, [fetchTable]);
 
+  // ── Reactive Auto-Refetch (Campus change or data mutation) ──
+  useEffect(() => {
+    const handleReactiveRefresh = () => {
+      fetchTable();
+      setKpiLoading(true);
+      getStudents({ page: 1, limit: 9999, status: "", search: "" })
+        .then(({ students }) => {
+          setAllStudents(students);
+          setKpiLoading(false);
+        })
+        .catch(() => setKpiLoading(false));
+    };
+
+    window.addEventListener("erp-campus-changed", handleReactiveRefresh);
+    window.addEventListener("erp-data-refresh", handleReactiveRefresh);
+    return () => {
+      window.removeEventListener("erp-campus-changed", handleReactiveRefresh);
+      window.removeEventListener("erp-data-refresh", handleReactiveRefresh);
+    };
+  }, [fetchTable]);
+
   // ── KPI computations ──
   const kpis = useMemo(() => {
     const now = new Date();

@@ -67,6 +67,24 @@ export function UsersTable({
   const [data, setData] = useState(initialData);
   const [isPending, startTransition] = useTransition();
 
+  // Sync data when initialData prop changes
+  useEffect(() => {
+    setData(initialData);
+  }, [initialData]);
+
+  // Reactive auto-refresh when campus or data changes globally
+  useEffect(() => {
+    const handleReactiveRefresh = () => {
+      refreshUsers();
+    };
+    window.addEventListener("erp-campus-changed", handleReactiveRefresh);
+    window.addEventListener("erp-data-refresh", handleReactiveRefresh);
+    return () => {
+      window.removeEventListener("erp-campus-changed", handleReactiveRefresh);
+      window.removeEventListener("erp-data-refresh", handleReactiveRefresh);
+    };
+  }, []);
+
   // Active View Tab: "directory" vs "roles"
   const [activeTab, setActiveTab] = useState<"directory" | "roles">("directory");
   const [rolesList, setRolesList] = useState<any[]>(initialRoles);

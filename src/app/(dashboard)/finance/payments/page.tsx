@@ -192,6 +192,7 @@ function CollectFeeModal({
         });
         setResultReceipt(res.payment.receiptNo);
         onSuccess();
+        window.dispatchEvent(new CustomEvent("erp-data-refresh"));
       } catch (err: unknown) {
         setErrorMsg(err instanceof Error ? err.message : "Failed to record payment.");
       }
@@ -601,6 +602,23 @@ export default function PaymentsPage() {
       fetchReceipts();
     }
   }, [activeTab, fetchReceipts]);
+
+  // Reactive auto-refresh when campus or payments mutate
+  useEffect(() => {
+    const handleReactiveRefresh = () => {
+      fetchStudentAccounts();
+      if (activeTab === "receipts") {
+        fetchReceipts();
+      }
+    };
+
+    window.addEventListener("erp-campus-changed", handleReactiveRefresh);
+    window.addEventListener("erp-data-refresh", handleReactiveRefresh);
+    return () => {
+      window.removeEventListener("erp-campus-changed", handleReactiveRefresh);
+      window.removeEventListener("erp-data-refresh", handleReactiveRefresh);
+    };
+  }, [fetchStudentAccounts, fetchReceipts, activeTab]);
 
   // Open modal with pre-selected student
   const handleCollectForStudent = (s: StudentAccount) => {

@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { CampusItem, switchActiveCampus } from "@/server/actions/campus";
+import { CampusItem, switchActiveCampus, getAllCampuses, getActiveCampus } from "@/server/actions/campus";
 import { Building2, ChevronDown, Check, Plus, MapPin } from "lucide-react";
 import Link from "next/link";
 
@@ -11,11 +11,35 @@ interface CampusSelectorProps {
   activeCampus: CampusItem | null;
 }
 
-export function CampusSelector({ campuses, activeCampus }: CampusSelectorProps) {
+export function CampusSelector({ campuses: propCampuses, activeCampus: propActive }: CampusSelectorProps) {
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const [campuses, setCampuses] = useState<CampusItem[]>(propCampuses);
+  const [activeCampus, setActiveCampus] = useState<CampusItem | null>(propActive);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setCampuses(propCampuses);
+  }, [propCampuses]);
+
+  useEffect(() => {
+    setActiveCampus(propActive);
+  }, [propActive]);
+
+  useEffect(() => {
+    const handleSync = async () => {
+      try {
+        const [allC, activeC] = await Promise.all([getAllCampuses(), getActiveCampus()]);
+        setCampuses(allC);
+        setActiveCampus(activeC);
+      } catch (err) {
+        console.error("Failed to sync campuses:", err);
+      }
+    };
+    window.addEventListener("erp-campus-changed", handleSync);
+    return () => window.removeEventListener("erp-campus-changed", handleSync);
+  }, []);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -35,8 +59,14 @@ export function CampusSelector({ campuses, activeCampus }: CampusSelectorProps) 
 
     startTransition(async () => {
       const res = await switchActiveCampus(campusId);
-      if (res.success) {
+      if (res.success && res.campus) {
+        setActiveCampus(res.campus);
         setIsOpen(false);
+        // Instant global reactive sync without requiring manual page refresh
+        window.dispatchEvent(
+          new CustomEvent("erp-campus-changed", { detail: { campusId, campus: res.campus } })
+        );
+        window.dispatchEvent(new CustomEvent("erp-data-refresh"));
         router.refresh();
       }
     });

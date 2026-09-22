@@ -138,6 +138,7 @@ export default function NewAdmissionPage() {
 
         if (res.success) {
           setResult(res);
+          window.dispatchEvent(new CustomEvent("erp-data-refresh"));
         }
       } catch (err: any) {
         setErrorMsg(err.message || "Failed to process admission");

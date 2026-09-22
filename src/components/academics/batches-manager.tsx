@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useTransition, useMemo } from "react";
+import { useState, useTransition, useMemo, useEffect } from "react";
 import {
+  getBatches,
   createBatch,
   updateBatch,
   deleteBatch,
@@ -60,6 +61,29 @@ export function BatchesManager({
   const [batches, setBatches] = useState(initialBatches);
   const [teacherList, setTeacherList] = useState(teachers);
   const [isPending, startTransition] = useTransition();
+
+  // Sync state when initialBatches prop changes
+  useEffect(() => {
+    setBatches(initialBatches);
+  }, [initialBatches]);
+
+  // Reactive auto-refresh when campus or data changes globally
+  useEffect(() => {
+    const handleReactiveRefresh = async () => {
+      try {
+        const fresh = await getBatches();
+        setBatches(fresh);
+      } catch (err) {
+        console.error("Failed to auto-refresh batches:", err);
+      }
+    };
+    window.addEventListener("erp-campus-changed", handleReactiveRefresh);
+    window.addEventListener("erp-data-refresh", handleReactiveRefresh);
+    return () => {
+      window.removeEventListener("erp-campus-changed", handleReactiveRefresh);
+      window.removeEventListener("erp-data-refresh", handleReactiveRefresh);
+    };
+  }, []);
   const [errorMsg, setErrorMsg] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
 
