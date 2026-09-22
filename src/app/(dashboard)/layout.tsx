@@ -2,6 +2,7 @@ import { getSession } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
+import { RouteProgressBar } from "@/components/layout/route-progress-bar";
 import { db } from "@/lib/db";
 import { Role } from "@/lib/permissions";
 
@@ -30,7 +31,8 @@ export default async function DashboardLayout({
   ]);
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background print:h-auto print:overflow-visible print:block">
+    <div className="flex h-screen overflow-hidden bg-background print:h-auto print:overflow-visible print:block font-poppins">
+      <RouteProgressBar />
       {/* Sidebar */}
       <Sidebar
         userRole={userRole}

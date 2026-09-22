@@ -18,6 +18,9 @@ import {
   Award,
   BookOpen,
   FileText,
+  UserPlus,
+  Bell,
+  Sparkles,
 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -34,17 +37,135 @@ export default async function DashboardPage() {
     return (
       <div className="space-y-6">
         {/* Top Banner */}
-        <div className="bg-gradient-to-r from-primary/10 via-background to-background p-6 rounded-xl border">
-          <div className="flex items-center gap-2 mb-1">
-            <Badge variant="default" className="text-[10px] uppercase font-mono">
-              {data.userRole.replace("_", " ")} ACCESS
-            </Badge>
-            <span className="text-xs text-muted-foreground">Futurex Learning Administration</span>
+        <div className="bg-gradient-to-r from-primary/10 via-background to-background p-6 rounded-2xl border flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-xs">
+          <div>
+            <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+              <Badge variant="default" className="text-[10px] uppercase font-mono tracking-wider">
+                {data.userRole.replace("_", " ")} ACCESS
+              </Badge>
+              <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
+                <span className="relative flex h-1.5 w-1.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
+                </span>
+                <span>Campus Active</span>
+              </div>
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Executive ERP Hub</h1>
+            <p className="text-xs sm:text-sm text-muted-foreground mt-1">
+              Welcome back, <span className="font-semibold text-foreground">{data.userName}</span>. Institute operations, fee collections & student analytics.
+            </p>
           </div>
-          <h1 className="text-2xl font-bold tracking-tight">Executive Dashboard</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            Welcome back, <span className="font-semibold text-foreground">{data.userName}</span>. Here is today's full institute overview.
-          </p>
+
+          <div className="flex items-center gap-2 self-start md:self-center shrink-0">
+            <Link
+              href="/students"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-semibold shadow-xs hover:bg-primary/90 transition-all active:scale-95"
+            >
+              <UserPlus className="h-3.5 w-3.5" />
+              <span>+ New Admission</span>
+            </Link>
+            <Link
+              href="/attendance"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border bg-card text-foreground text-xs font-semibold shadow-2xs hover:bg-muted/50 transition-all active:scale-95"
+            >
+              <CheckSquare className="h-3.5 w-3.5 text-emerald-600" />
+              <span>Mark Attendance</span>
+            </Link>
+          </div>
+        </div>
+
+        {/* Executive Quick Actions Bar */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
+          <Link
+            href="/students"
+            className="flex items-center gap-2.5 p-3 rounded-xl border bg-card/60 hover:bg-primary/5 hover:border-primary/40 transition-all group shadow-2xs"
+          >
+            <div className="h-9 w-9 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+              <UserPlus className="h-4 w-4" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-semibold text-foreground truncate group-hover:text-primary transition-colors">
+                Admissions
+              </p>
+              <p className="text-[10px] text-muted-foreground truncate">Register Student</p>
+            </div>
+          </Link>
+
+          <Link
+            href="/attendance"
+            className="flex items-center gap-2.5 p-3 rounded-xl border bg-card/60 hover:bg-primary/5 hover:border-primary/40 transition-all group shadow-2xs"
+          >
+            <div className="h-9 w-9 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+              <CheckSquare className="h-4 w-4" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-semibold text-foreground truncate group-hover:text-primary transition-colors">
+                Attendance
+              </p>
+              <p className="text-[10px] text-muted-foreground truncate">Daily Check-in</p>
+            </div>
+          </Link>
+
+          <Link
+            href="/finance/payments"
+            className="flex items-center gap-2.5 p-3 rounded-xl border bg-card/60 hover:bg-primary/5 hover:border-primary/40 transition-all group shadow-2xs"
+          >
+            <div className="h-9 w-9 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+              <CreditCard className="h-4 w-4" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-semibold text-foreground truncate group-hover:text-primary transition-colors">
+                Collect Fee
+              </p>
+              <p className="text-[10px] text-muted-foreground truncate">Tax Receipts</p>
+            </div>
+          </Link>
+
+          <Link
+            href="/finance/outstanding"
+            className="flex items-center gap-2.5 p-3 rounded-xl border bg-card/60 hover:bg-primary/5 hover:border-primary/40 transition-all group shadow-2xs"
+          >
+            <div className="h-9 w-9 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+              <AlertCircle className="h-4 w-4" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-semibold text-foreground truncate group-hover:text-primary transition-colors">
+                Defaulters
+              </p>
+              <p className="text-[10px] text-muted-foreground truncate">1-Click CSV Export</p>
+            </div>
+          </Link>
+
+          <Link
+            href="/batches"
+            className="flex items-center gap-2.5 p-3 rounded-xl border bg-card/60 hover:bg-primary/5 hover:border-primary/40 transition-all group shadow-2xs"
+          >
+            <div className="h-9 w-9 rounded-lg bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+              <Layers className="h-4 w-4" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-semibold text-foreground truncate group-hover:text-primary transition-colors">
+                Batches
+              </p>
+              <p className="text-[10px] text-muted-foreground truncate">Rooms & Timetable</p>
+            </div>
+          </Link>
+
+          <Link
+            href="/announcements"
+            className="flex items-center gap-2.5 p-3 rounded-xl border bg-card/60 hover:bg-primary/5 hover:border-primary/40 transition-all group shadow-2xs"
+          >
+            <div className="h-9 w-9 rounded-lg bg-rose-500/10 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+              <Bell className="h-4 w-4" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-semibold text-foreground truncate group-hover:text-primary transition-colors">
+                Broadcast
+              </p>
+              <p className="text-[10px] text-muted-foreground truncate">Notice Board</p>
+            </div>
+          </Link>
         </div>
 
         {/* KPI Cards Grid */}
