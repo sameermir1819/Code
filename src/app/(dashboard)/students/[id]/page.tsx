@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { db } from "@/lib/db";
 import { getStudentById } from "@/server/actions/students";
 import { getBatches } from "@/server/actions/academics";
 import { formatCurrency, formatDate } from "@/lib/utils";
@@ -31,9 +32,10 @@ interface StudentProfilePageProps {
 
 export default async function StudentProfilePage({ params }: StudentProfilePageProps) {
   const { id } = await params;
-  const [student, batches] = await Promise.all([
+  const [student, batches, institute] = await Promise.all([
     getStudentById(id),
     getBatches({ status: "ACTIVE" }),
+    db.institute.findFirst(),
   ]);
   const activeEnrollment = student.enrollments.find((e) => e.status === "ACTIVE") || student.enrollments[0];
 
@@ -552,7 +554,11 @@ export default async function StudentProfilePage({ params }: StudentProfilePageP
         <TabsContent value="idcard">
           <Card>
             <CardContent className="p-6">
-              <StudentIdCard student={student} activeEnrollment={activeEnrollment} />
+              <StudentIdCard
+                student={student}
+                activeEnrollment={activeEnrollment}
+                institute={institute}
+              />
             </CardContent>
           </Card>
         </TabsContent>
