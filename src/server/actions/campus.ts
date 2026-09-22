@@ -174,3 +174,81 @@ export async function getActiveCampusId(): Promise<string> {
   return first ? first.id : "";
 }
 
+/**
+ * Delete a campus / branch with safety checks and automatic session recovery
+ */
+export async function deleteCampus(campusId: string) {
+  const session = await getSession();
+  if (session?.role !== "SUPER_ADMIN" && session?.role !== "ADMIN") {
+    return { success: false, error: "Unauthorized: Administrator privileges required to delete a campus." };
+  }
+
+  try {
+    const campusCount = await db.institute.count();
+    if (campusCount <= 1) {
+      return {
+        success: false,
+        error: "Cannot delete the only remaining campus. The ERP system must have at least one active campus.",
+      };
+    }
+
+    const campus = await db.institute.findUnique({
+      where: { id: campusId },
+      include: {
+        _count: {
+          select: {
+            students: true,
+            batches: true,
+            users: true,
+          },
+        },
+      },
+    });
+
+    if (!campus) {
+      return { success: false, error: "Campus not found or already deleted." };
+    }
+
+    // Unlink users attached to this campus so they revert to central access
+    await db.user.updateMany({
+      where: { instituteId: campusId },
+      data: { instituteId: null, branch: "All Campuses (Central)" },
+    });
+
+    // Delete the campus (relational cascade handles sessions, courses, batches, students, teachers)
+    await db.institute.delete({
+      where: { id: campusId },
+    });
+
+    // If the active campus in session cookie is the deleted one, switch to first remaining campus
+    const cookieStore = await cookies();
+    const activeId = cookieStore.get("erp_active_campus_id")?.value;
+    if (activeId === campusId) {
+      const remainingFirst = await db.institute.findFirst({ orderBy: { createdAt: "asc" } });
+      if (remainingFirst) {
+        cookieStore.set("erp_active_campus_id", remainingFirst.id, {
+          path: "/",
+          maxAge: 30 * 24 * 60 * 60,
+          sameSite: "lax",
+        });
+      } else {
+        cookieStore.delete("erp_active_campus_id");
+      }
+    }
+
+    revalidatePath("/", "layout");
+    revalidatePath("/settings");
+    revalidatePath("/dashboard");
+    revalidatePath("/dashboard/users");
+
+    return {
+      success: true,
+      message: `Campus "${campus.name}" (${campus.code}) has been deleted successfully.`,
+    };
+  } catch (err: any) {
+    console.error("Failed to delete campus:", err);
+    return { success: false, error: err.message || "Failed to delete campus." };
+  }
+}
+
+

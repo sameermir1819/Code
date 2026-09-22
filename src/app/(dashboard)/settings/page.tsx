@@ -13,6 +13,7 @@ import {
   getActiveCampus,
   switchActiveCampus,
   createNewCampus,
+  deleteCampus,
   CampusItem,
 } from "@/server/actions/campus";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -37,6 +38,9 @@ import {
   Plus,
   Check,
   RefreshCw,
+  Trash2,
+  AlertTriangle,
+  X,
 } from "lucide-react";
 
 export default function SettingsAndProfilePage() {
@@ -74,6 +78,7 @@ export default function SettingsAndProfilePage() {
   const [campuses, setCampuses] = useState<CampusItem[]>([]);
   const [activeCampus, setActiveCampus] = useState<CampusItem | null>(null);
   const [showAddCampus, setShowAddCampus] = useState(false);
+  const [deletingCampus, setDeletingCampus] = useState<CampusItem | null>(null);
   const [newCampusForm, setNewCampusForm] = useState({
     name: "",
     code: "",
@@ -197,6 +202,29 @@ export default function SettingsAndProfilePage() {
         router.refresh();
       } else {
         setFeedback({ type: "error", message: res.error || "Failed to create campus." });
+      }
+    });
+  };
+
+  const handleDeleteCampusConfirm = () => {
+    if (!deletingCampus) return;
+    startTransition(async () => {
+      try {
+        const res = await deleteCampus(deletingCampus.id);
+        if (res.success) {
+          setFeedback({ type: "success", message: res.message || "Campus deleted successfully!" });
+          const [allC, activeC] = await Promise.all([getAllCampuses(), getActiveCampus()]);
+          setCampuses(allC);
+          setActiveCampus(activeC);
+          setDeletingCampus(null);
+          router.refresh();
+        } else {
+          setFeedback({ type: "error", message: res.error || "Failed to delete campus." });
+          setDeletingCampus(null);
+        }
+      } catch (err: any) {
+        setFeedback({ type: "error", message: err.message || "Error deleting campus." });
+        setDeletingCampus(null);
       }
     });
   };
@@ -624,27 +652,52 @@ export default function SettingsAndProfilePage() {
                           </div>
                         </div>
 
-                        {isCurrent ? (
-                          <Badge variant="default" className="text-[9px] tracking-wide shrink-0">
-                            Active Campus
-                          </Badge>
-                        ) : (
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleSwitchCampus(c.id)}
-                            disabled={isPending}
-                            className="text-[11px] h-7 px-2.5 shrink-0"
-                          >
-                            Switch to this
-                          </Button>
-                        )}
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {isCurrent ? (
+                            <Badge variant="default" className="text-[9px] tracking-wide shrink-0">
+                              Active Campus
+                            </Badge>
+                          ) : (
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleSwitchCampus(c.id)}
+                              disabled={isPending}
+                              className="text-[11px] h-7 px-2.5 shrink-0 font-medium"
+                            >
+                              Switch to this
+                            </Button>
+                          )}
+
+                          {campuses.length > 1 && (
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => setDeletingCampus(c)}
+                              disabled={isPending}
+                              title={`Delete ${c.name}`}
+                              className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/40 h-7 w-7 p-0 shrink-0"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
+                        </div>
                       </div>
 
-                      <div className="text-[11px] text-muted-foreground border-t pt-2 space-y-0.5">
-                        <p className="truncate">{c.address || "Address not specified"}</p>
-                        <p className="font-mono text-[10px]">{c.phone || c.email || ""}</p>
+                      <div className="text-[11px] text-muted-foreground border-t pt-2 flex items-center justify-between gap-2">
+                        <div className="space-y-0.5 truncate">
+                          <p className="truncate">{c.address || "Address not specified"}</p>
+                          <p className="font-mono text-[10px]">{c.phone || c.email || ""}</p>
+                        </div>
+                        {c._count && (
+                          <div className="flex items-center gap-1.5 shrink-0 text-[10px] font-medium text-muted-foreground bg-muted/60 px-2 py-0.5 rounded-md border">
+                            <span>{c._count.students} Students</span>
+                            <span>•</span>
+                            <span>{c._count.batches} Batches</span>
+                          </div>
+                        )}
                       </div>
                     </div>
                   );
@@ -898,6 +951,71 @@ export default function SettingsAndProfilePage() {
           </form>
         </TabsContent>
       </Tabs>
+
+      {/* Delete Campus Confirmation Modal */}
+      {deletingCampus && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150">
+          <div className="bg-card border border-destructive/30 rounded-2xl shadow-2xl max-w-md w-full p-6 space-y-4 animate-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between pb-3 border-b">
+              <div className="flex items-center gap-2.5 text-destructive">
+                <div className="h-9 w-9 rounded-xl bg-destructive/10 flex items-center justify-center">
+                  <AlertTriangle className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-foreground">Delete Campus</h3>
+                  <p className="text-xs text-muted-foreground font-mono">{deletingCampus.code}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setDeletingCampus(null)}
+                className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs text-foreground">
+              <p>
+                Are you sure you want to permanently delete <strong>{deletingCampus.name}</strong>?
+              </p>
+              <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-800 dark:text-amber-300 space-y-1.5 text-[11px]">
+                <p className="font-semibold flex items-center gap-1">
+                  <AlertTriangle className="h-3.5 w-3.5 shrink-0" /> Important Notice:
+                </p>
+                <ul className="list-disc list-inside space-y-1 text-[11px] opacity-90">
+                  <li>Classrooms, batches, and records registered under this campus will be removed.</li>
+                  <li>Assigned staff and teachers will be reverted to Central HQ access.</li>
+                  <li>If this campus is currently active, your session will automatically switch to the main campus.</li>
+                </ul>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setDeletingCampus(null)}
+                disabled={isPending}
+                className="text-xs"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                size="sm"
+                onClick={handleDeleteCampusConfirm}
+                disabled={isPending}
+                className="text-xs flex items-center gap-1.5 font-bold"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                <span>{isPending ? "Deleting..." : "Confirm & Delete"}</span>
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
