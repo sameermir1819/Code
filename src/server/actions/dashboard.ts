@@ -2,6 +2,7 @@
 
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
+import { getActiveCampusId } from "./campus";
 import { startOfMonth, endOfMonth, startOfDay, endOfDay, subMonths, format } from "date-fns";
 
 export async function getDashboardStats() {
@@ -9,11 +10,12 @@ export async function getDashboardStats() {
   const role = session?.role || "SUPER_ADMIN";
   const userName = session?.name || "Administrator";
   const now = new Date();
+  const campusId = await getActiveCampusId();
 
   // Role Gate: Only Admins can see the Executive Dashboard Data
   const isAdmin = role === "SUPER_ADMIN" || role === "ADMIN";
 
-  // If Admin: Return Full Executive Data
+  // If Admin: Return Full Executive Data scoped to active campus
   if (isAdmin) {
     const monthStart = startOfMonth(now);
     const monthEnd = endOfMonth(now);
@@ -21,7 +23,12 @@ export async function getDashboardStats() {
     const todayEnd = endOfDay(now);
     const sixMonthsAgoStart = startOfMonth(subMonths(now, 5));
 
-    // Execute ALL 10 primary DB operations concurrently in parallel (1 single roundtrip)
+    // Base filter scoped to active campus
+    const campusFilter = campusId ? { instituteId: campusId } : {};
+    const studentCampusFilter = campusId ? { student: { instituteId: campusId } } : {};
+    const batchCampusFilter = campusId ? { batch: { instituteId: campusId } } : {};
+
+    // Execute ALL primary DB operations concurrently in parallel
     const [
       totalStudents,
       activeStudents,
@@ -38,28 +45,29 @@ export async function getDashboardStats() {
       allSixMonthPayments,
       batchesWithCounts,
     ] = await Promise.all([
-      db.student.count(),
-      db.student.count({ where: { status: "ACTIVE" } }),
-      db.student.count({ where: { admissionDate: { gte: monthStart, lte: monthEnd } } }),
-      db.teacher.count({ where: { status: "ACTIVE" } }),
-      db.batch.count({ where: { status: "ACTIVE" } }),
+      db.student.count({ where: campusFilter }),
+      db.student.count({ where: { ...campusFilter, status: "ACTIVE" } }),
+      db.student.count({ where: { ...campusFilter, admissionDate: { gte: monthStart, lte: monthEnd } } }),
+      db.teacher.count({ where: { ...campusFilter, status: "ACTIVE" } }),
+      db.batch.count({ where: { ...campusFilter, status: "ACTIVE" } }),
       db.attendance.findMany({
-        where: { date: { gte: todayStart, lte: todayEnd } },
+        where: { ...batchCampusFilter, date: { gte: todayStart, lte: todayEnd } },
         select: { status: true },
       }),
       db.payment.aggregate({
-        where: { paymentDate: { gte: todayStart, lte: todayEnd }, status: "SUCCESS" },
+        where: { ...studentCampusFilter, paymentDate: { gte: todayStart, lte: todayEnd }, status: "SUCCESS" },
         _sum: { amount: true },
       }),
       db.payment.aggregate({
-        where: { paymentDate: { gte: monthStart, lte: monthEnd }, status: "SUCCESS" },
+        where: { ...studentCampusFilter, paymentDate: { gte: monthStart, lte: monthEnd }, status: "SUCCESS" },
         _sum: { amount: true },
       }),
       db.feePlan.aggregate({
+        where: studentCampusFilter,
         _sum: { balanceAmount: true, totalAmount: true, paidAmount: true },
       }),
       db.exam.findMany({
-        where: { examDate: { gte: now } },
+        where: { ...batchCampusFilter, examDate: { gte: now } },
         take: 4,
         orderBy: { examDate: "asc" },
         select: {
@@ -73,6 +81,7 @@ export async function getDashboardStats() {
         },
       }),
       db.student.findMany({
+        where: campusFilter,
         take: 5,
         orderBy: { admissionDate: "desc" },
         select: {
@@ -96,6 +105,7 @@ export async function getDashboardStats() {
         },
       }),
       db.payment.findMany({
+        where: { ...studentCampusFilter, status: "SUCCESS" },
         take: 5,
         orderBy: { paymentDate: "desc" },
         select: {
@@ -107,16 +117,17 @@ export async function getDashboardStats() {
           student: { select: { id: true, name: true, studentId: true, admissionNo: true } },
         },
       }),
-      // Fetch 6-month revenue payments in 1 single bulk query instead of 6 loops
+      // Fetch 6-month revenue payments in 1 single bulk query scoped to campus
       db.payment.findMany({
         where: {
+          ...studentCampusFilter,
           paymentDate: { gte: sixMonthsAgoStart, lte: monthEnd },
           status: "SUCCESS",
         },
         select: { amount: true, paymentDate: true },
       }),
       db.batch.findMany({
-        where: { status: "ACTIVE" },
+        where: { ...campusFilter, status: "ACTIVE" },
         take: 6,
         select: {
           id: true,
@@ -298,20 +309,23 @@ export async function getDashboardStats() {
     const todayEnd = endOfDay(now);
     const monthStart = startOfMonth(now);
     const monthEnd = endOfMonth(now);
+    const studentCampusFilter = campusId ? { student: { instituteId: campusId } } : {};
 
     const [todayPayments, monthPayments, feePlanAggregates, recentPayments] = await Promise.all([
       db.payment.aggregate({
-        where: { paymentDate: { gte: todayStart, lte: todayEnd }, status: "SUCCESS" },
+        where: { ...studentCampusFilter, paymentDate: { gte: todayStart, lte: todayEnd }, status: "SUCCESS" },
         _sum: { amount: true },
       }),
       db.payment.aggregate({
-        where: { paymentDate: { gte: monthStart, lte: monthEnd }, status: "SUCCESS" },
+        where: { ...studentCampusFilter, paymentDate: { gte: monthStart, lte: monthEnd }, status: "SUCCESS" },
         _sum: { amount: true },
       }),
       db.feePlan.aggregate({
+        where: studentCampusFilter,
         _sum: { balanceAmount: true },
       }),
       db.payment.findMany({
+        where: { ...studentCampusFilter, status: "SUCCESS" },
         take: 8,
         orderBy: { paymentDate: "desc" },
         include: { student: true },

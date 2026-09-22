@@ -3,6 +3,7 @@
 import { db } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
 import { logAudit } from "./audit";
+import { getActiveCampusId } from "./campus";
 
 // ---------------------------------------------------------------------------
 // Fee Plans
@@ -14,16 +15,23 @@ export async function getFeePlans({
 }: { status?: string; search?: string } = {}) {
   await requireAuth(["SUPER_ADMIN", "ADMIN", "ACCOUNTANT"]);
 
+  const campusId = await getActiveCampusId();
   const where: Record<string, unknown> = {};
   if (status && status !== "ALL") where.status = status;
+
+  const studentFilter: Record<string, unknown> = {};
+  if (campusId) studentFilter.instituteId = campusId;
+
   if (search) {
-    where.student = {
-      OR: [
-        { name: { contains: search } },
-        { studentId: { contains: search } },
-        { admissionNo: { contains: search } },
-      ],
-    };
+    studentFilter.OR = [
+      { name: { contains: search } },
+      { studentId: { contains: search } },
+      { admissionNo: { contains: search } },
+    ];
+  }
+
+  if (Object.keys(studentFilter).length > 0) {
+    where.student = studentFilter;
   }
 
   return await db.feePlan.findMany({
@@ -273,7 +281,12 @@ export async function getPayments({
 } = {}) {
   await requireAuth(["SUPER_ADMIN", "ADMIN", "ACCOUNTANT"]);
 
+  const campusId = await getActiveCampusId();
   const where: Record<string, unknown> = {};
+
+  if (campusId) {
+    where.student = { instituteId: campusId };
+  }
 
   if (search) {
     where.OR = [
@@ -482,6 +495,7 @@ export async function getOutstandingFeesReport({
 }: { batchId?: string; statusFilter?: string } = {}) {
   await requireAuth(["SUPER_ADMIN", "ADMIN", "ACCOUNTANT"]);
 
+  const campusId = await getActiveCampusId();
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const weekEnd = new Date(today);
@@ -489,6 +503,7 @@ export async function getOutstandingFeesReport({
 
   const installmentWhere: Record<string, unknown> = {
     remainingAmount: { gt: 0 },
+    ...(campusId ? { feePlan: { student: { instituteId: campusId } } } : {}),
   };
 
   // Status filter

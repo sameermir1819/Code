@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
 import { calculateGrade } from "@/lib/utils";
 import { logAudit } from "./audit";
+import { getActiveCampusId } from "./campus";
 
 export async function getExams({
   batchId,
@@ -11,7 +12,13 @@ export async function getExams({
   status,
 }: { batchId?: string; subjectId?: string; status?: string } = {}) {
   await requireAuth();
+  const campusId = await getActiveCampusId();
   const where: Record<string, unknown> = {};
+
+  if (campusId) {
+    where.batch = { instituteId: campusId };
+  }
+
   if (batchId) where.batchId = batchId;
   if (subjectId) where.subjectId = subjectId;
   if (status && status !== "ALL") where.status = status;

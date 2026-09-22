@@ -164,3 +164,13 @@ export async function createNewCampus(data: {
   }
 }
 
+/**
+ * Helper to get only the active campus ID (string)
+ */
+export async function getActiveCampusId(): Promise<string> {
+  const activeCampus = await getActiveCampus();
+  if (activeCampus) return activeCampus.id;
+  const first = await db.institute.findFirst();
+  return first ? first.id : "";
+}
+

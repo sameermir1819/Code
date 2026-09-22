@@ -4,13 +4,16 @@ import { db } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
 import { logAudit } from "./audit";
 import { revalidatePath } from "next/cache";
+import { getActiveCampusId } from "./campus";
 
 // ==========================================
 // COURSES
 // ==========================================
 export async function getCourses() {
   await requireAuth(["SUPER_ADMIN", "ADMIN", "ACCOUNTANT", "TEACHER", "STUDENT", "PARENT"]);
+  const campusId = await getActiveCampusId();
   return await db.course.findMany({
+    where: campusId ? { instituteId: campusId } : {},
     orderBy: { createdAt: "desc" },
     include: {
       subjects: { include: { subject: true } },
@@ -31,12 +34,12 @@ export async function createCourse(data: {
   subjectIds?: string[];
 }) {
   await requireAuth(["SUPER_ADMIN", "ADMIN"]);
-  const institute = await db.institute.findFirst();
-  if (!institute) throw new Error("No institute found");
+  const campusId = await getActiveCampusId();
+  if (!campusId) throw new Error("No active campus found");
 
   const course = await db.course.create({
     data: {
-      instituteId: institute.id,
+      instituteId: campusId,
       name: data.name,
       code: data.code.toUpperCase(),
       description: data.description || null,
@@ -239,8 +242,12 @@ export async function getTeachers() {
     console.error("Auto-syncing teachers warning:", syncErr);
   }
 
+  const campusId = await getActiveCampusId();
   return await db.teacher.findMany({
-    where: { status: "ACTIVE" },
+    where: {
+      status: "ACTIVE",
+      ...(campusId ? { instituteId: campusId } : {}),
+    },
     orderBy: { name: "asc" },
     include: {
       subjects: { include: { subject: true } },
@@ -256,7 +263,9 @@ export async function getBatches({
   status,
 }: { courseId?: string; status?: string } = {}) {
   await requireAuth();
+  const campusId = await getActiveCampusId();
   const where: Record<string, unknown> = {};
+  if (campusId) where.instituteId = campusId;
   if (courseId) where.courseId = courseId;
   if (status && status !== "ALL") where.status = status;
 
@@ -447,18 +456,20 @@ export async function createBatch(data: {
   teacherIds?: string[];
 }) {
   await requireAuth(["SUPER_ADMIN", "ADMIN"]);
-  const institute = await db.institute.findFirst();
-  if (!institute) throw new Error("No institute found");
+  const campusId = await getActiveCampusId();
+  if (!campusId) throw new Error("No active campus found");
 
   let resolvedCourseId = data.courseId;
   if (!resolvedCourseId) {
-    const defaultCourse = await db.course.findFirst();
+    const defaultCourse = await db.course.findFirst({
+      where: { instituteId: campusId },
+    });
     if (defaultCourse) {
       resolvedCourseId = defaultCourse.id;
     } else {
       const created = await db.course.create({
         data: {
-          instituteId: institute.id,
+          instituteId: campusId,
           name: "General Academic Program",
           code: "GEN-PROG",
           duration: "1 Year",
@@ -474,7 +485,7 @@ export async function createBatch(data: {
 
   const batch = await db.batch.create({
     data: {
-      instituteId: institute.id,
+      instituteId: campusId,
       name: data.name,
       code: data.code.toUpperCase(),
       courseId: resolvedCourseId,

@@ -3,6 +3,7 @@
 import { db } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
 import { logAudit } from "./audit";
+import { getActiveCampusId } from "./campus";
 
 export async function getStudents({
   search = "",
@@ -19,7 +20,12 @@ export async function getStudents({
 } = {}) {
   await requireAuth(["SUPER_ADMIN", "ADMIN", "ACCOUNTANT", "TEACHER"]);
 
+  const campusId = await getActiveCampusId();
   const where: Record<string, unknown> = {};
+
+  if (campusId) {
+    where.instituteId = campusId;
+  }
 
   if (search) {
     where.OR = [
@@ -172,9 +178,9 @@ export async function createStudent(data: {
 }) {
   await requireAuth(["SUPER_ADMIN", "ADMIN"]);
 
-  // Get default institute
-  const institute = await db.institute.findFirst();
-  if (!institute) throw new Error("No institute found. Run seed script first.");
+  // Get active campus
+  const campusId = await getActiveCampusId();
+  if (!campusId) throw new Error("No active campus found.");
 
   // Generate unique Student ID & Admission No
   const count = await db.student.count();
@@ -206,7 +212,7 @@ export async function createStudent(data: {
 
   const student = await db.student.create({
     data: {
-      instituteId: institute.id,
+      instituteId: campusId,
       studentId,
       admissionNo,
       name: data.name,
