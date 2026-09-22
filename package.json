@@ -14,6 +14,11 @@
     "prisma:studio": "prisma studio",
     "seed": "node prisma/seed.js"
   },
+  "allowScripts": {
+    "@prisma/client": true,
+    "@prisma/engines": true,
+    "prisma": true
+  },
   "dependencies": {
     "@prisma/client": "5.22.0",
     "bcryptjs": "^2.4.3",
