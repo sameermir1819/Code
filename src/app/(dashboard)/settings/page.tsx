@@ -348,9 +348,17 @@ export default function SettingsAndProfilePage() {
             <Card className="bg-gradient-to-r from-primary/10 via-card to-card border-2 border-primary/30">
               <CardContent className="p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
-                  <div className="h-14 w-14 rounded-xl bg-primary text-white font-black text-xl flex items-center justify-center shadow-md">
-                    FL
-                  </div>
+                  {instForm.logoUrl ? (
+                    <img
+                      src={instForm.logoUrl}
+                      alt={instForm.name}
+                      className="h-16 w-16 rounded-xl object-cover border-2 border-primary shadow-md bg-white"
+                    />
+                  ) : (
+                    <div className="h-16 w-16 rounded-xl bg-primary text-white font-black text-xl flex items-center justify-center shadow-md">
+                      {instForm.name ? instForm.name.slice(0, 2).toUpperCase() : "FL"}
+                    </div>
+                  )}
                   <div>
                     <div className="flex items-center gap-2">
                       <h3 className="text-xl font-black tracking-tight text-foreground">
@@ -372,6 +380,94 @@ export default function SettingsAndProfilePage() {
                   <span className="px-2.5 py-1 rounded bg-emerald-50 text-emerald-700 font-semibold border border-emerald-200 block">
                     ✓ Live Institute Branding
                   </span>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Institute Logo / Profile Photo Upload Card */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base font-semibold flex items-center gap-2">
+                  <Camera className="h-4 w-4 text-primary" />
+                  <span>Institute Logo & Profile Image</span>
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  Upload an image file or paste a web URL link for your official institute logo.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4 text-xs">
+                <div className="flex flex-col sm:flex-row items-center gap-4 p-4 rounded-lg bg-muted/20 border">
+                  {instForm.logoUrl ? (
+                    <img
+                      src={instForm.logoUrl}
+                      alt="Institute Logo Preview"
+                      className="h-20 w-20 rounded-xl object-cover border-2 border-primary/50 shadow"
+                    />
+                  ) : (
+                    <div className="h-20 w-20 rounded-xl bg-muted border-2 border-dashed flex flex-col items-center justify-center text-muted-foreground">
+                      <Building2 className="h-8 w-8 mb-1 opacity-50" />
+                      <span className="text-[10px]">No Logo</span>
+                    </div>
+                  )}
+                  <div className="flex-1 space-y-3 w-full">
+                    <div>
+                      <label className="font-semibold block mb-1">Logo Image Web URL Link</label>
+                      <Input
+                        value={instForm.logoUrl}
+                        onChange={(e) => setInstForm({ ...instForm, logoUrl: e.target.value })}
+                        placeholder="https://example.com/institute-logo.png"
+                      />
+                    </div>
+                    <div className="flex flex-wrap items-center gap-3">
+                      <label className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-secondary hover:bg-secondary/80 text-secondary-foreground text-xs font-semibold border">
+                        <Camera className="h-3.5 w-3.5" />
+                        <span>Upload Logo File</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            const formData = new FormData();
+                            formData.append("file", file);
+                            try {
+                              const res = await fetch("/api/upload", {
+                                method: "POST",
+                                body: formData,
+                              });
+                              const data = await res.json();
+                              if (data.success && data.fileUrl) {
+                                setInstForm((prev) => ({ ...prev, logoUrl: data.fileUrl }));
+                                setFeedback({
+                                  type: "success",
+                                  message: "Logo uploaded successfully! Click 'Save Academy Profile' to apply.",
+                                });
+                              } else {
+                                setFeedback({
+                                  type: "error",
+                                  message: data.message || "Failed to upload logo image.",
+                                });
+                              }
+                            } catch (err: any) {
+                              setFeedback({ type: "error", message: err.message || "Upload failed" });
+                            }
+                          }}
+                        />
+                      </label>
+                      {instForm.logoUrl && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="text-xs text-destructive hover:text-destructive"
+                          onClick={() => setInstForm({ ...instForm, logoUrl: "" })}
+                        >
+                          Remove Logo
+                        </Button>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </CardContent>
             </Card>
