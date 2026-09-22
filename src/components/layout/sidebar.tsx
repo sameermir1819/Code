@@ -11,6 +11,7 @@ import {
   Layers,
   CheckSquare,
   ClipboardList,
+  ClipboardCheck,
   Award,
   CreditCard,
   AlertCircle,
@@ -88,6 +89,12 @@ const NAV_GROUPS: NavGroup[] = [
         label: "Exams & Tests",
         href: "/exams",
         icon: ClipboardList,
+      },
+      {
+        label: "Offline Test Series",
+        href: "/dashboard/test-series",
+        icon: ClipboardCheck,
+        altHrefs: ["/test-series"],
       },
       {
         label: "Results",

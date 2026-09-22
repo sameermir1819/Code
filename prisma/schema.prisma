@@ -38,6 +38,7 @@ model Institute {
   teachers         Teacher[]
   auditLogs        AuditLog[]
   leads            Lead[]
+  testSeries       TestSeries[]
 }
 
 model AcademicSession {
@@ -262,6 +263,7 @@ model Student {
   marks               Marks[]
   documents           Document[]
   studyMaterials      StudentStudyMaterial[]
+  testSeriesRegistrations TestSeriesRegistration[]
 
   @@index([instituteId])
   @@index([status])
@@ -765,4 +767,116 @@ model LeadFollowUp {
 
   @@index([leadId])
 }
+
+// -------------------------------------------------------------
+// OFFLINE TEST SERIES & ONE-TIME FEE REGISTRATION & RESULTS
+// -------------------------------------------------------------
+model TestSeries {
+  id              String                   @id @default(cuid())
+  instituteId     String
+  title           String                   // e.g. "NEET 2026 All India Major Mock Series"
+  code            String                   @unique // e.g. "TS-2026-NEET-01"
+  description     String?
+  targetExam      String                   @default("NEET") // NEET, JEE_MAIN, JEE_ADVANCED, FOUNDATION, UPSC, BOARDS, OTHER
+  fee             Float                    @default(2500) // One-time registration fee
+  totalTests      Int                      @default(10)
+  startDate       DateTime
+  endDate         DateTime
+  testCenterVenue String?                  @default("Main Campus Exam Center, Hall A & B")
+  status          String                   @default("ACTIVE") // UPCOMING, ACTIVE, COMPLETED, ARCHIVED
+  createdAt       DateTime                 @default(now())
+  updatedAt       DateTime                 @updatedAt
+
+  institute       Institute                @relation(fields: [instituteId], references: [id], onDelete: Cascade)
+  exams           TestSeriesExam[]
+  registrations   TestSeriesRegistration[]
+
+  @@index([instituteId])
+  @@index([status])
+  @@index([targetExam])
+}
+
+model TestSeriesExam {
+  id              String             @id @default(cuid())
+  testSeriesId    String
+  testNumber      Int                @default(1)
+  title           String             // e.g. "Major Mock Test 01 - Full Physics & Chemistry"
+  code            String             @unique // e.g. "TS-NEET-T01"
+  examDate        DateTime
+  durationMinutes Int                @default(180)
+  maxMarks        Float              @default(720)
+  passingMarks    Float              @default(250)
+  syllabus        String?            // Topics / chapters covered
+  venueRoom       String?            @default("Exam Hall 1, Desk 1-40")
+  paperType       String?            @default("OMR Pen-Paper Offline")
+  questionPaperUrl String?
+  answerKeyUrl    String?
+  status          String             @default("SCHEDULED") // SCHEDULED, CONDUCTED, RESULTS_PUBLISHED
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  testSeries      TestSeries         @relation(fields: [testSeriesId], references: [id], onDelete: Cascade)
+  results         TestSeriesResult[]
+
+  @@index([testSeriesId])
+  @@index([examDate])
+  @@index([status])
+}
+
+model TestSeriesRegistration {
+  id                   String             @id @default(cuid())
+  testSeriesId         String
+  studentId            String?            // If existing enrolled student
+  externalStudentName  String?            // If external/guest student
+  externalStudentPhone String?
+  externalStudentEmail String?
+  rollNumber           String             @unique // e.g. "TS-2026-ROLL-001"
+  feeAmount            Float              // One-time fee charged
+  paymentStatus        String             @default("PAID") // PAID, PENDING, EXEMPTED
+  paymentMethod        String             @default("UPI") // CASH, UPI, CARD, BANK_TRANSFER
+  receiptNo            String             @unique // e.g. "TS-REC-2026-0001"
+  paidAt               DateTime?          @default(now())
+  status               String             @default("CONFIRMED") // CONFIRMED, CANCELLED
+  remarks              String?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+
+  testSeries           TestSeries         @relation(fields: [testSeriesId], references: [id], onDelete: Cascade)
+  student              Student?           @relation(fields: [studentId], references: [id], onDelete: SetNull)
+  results              TestSeriesResult[]
+
+  @@index([testSeriesId])
+  @@index([studentId])
+  @@index([rollNumber])
+  @@index([paymentStatus])
+}
+
+model TestSeriesResult {
+  id               String                 @id @default(cuid())
+  testSeriesExamId String
+  registrationId   String
+  marksObtained    Float
+  maxMarks         Float                  @default(720)
+  percentage       Float
+  rank             Int?                   // Overall test rank
+  percentile       Float?
+  attendance       String                 @default("PRESENT") // PRESENT, ABSENT
+  subjectBreakup   String?                // JSON string e.g. {"Physics": 140, "Chemistry": 150, "Biology": 310}
+  negativeMarks    Float?                 @default(0)
+  correctCount     Int?
+  incorrectCount   Int?
+  unattemptedCount Int?
+  remarks          String?
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
+
+  testSeriesExam   TestSeriesExam         @relation(fields: [testSeriesExamId], references: [id], onDelete: Cascade)
+  registration     TestSeriesRegistration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+
+  @@unique([testSeriesExamId, registrationId])
+  @@index([testSeriesExamId])
+  @@index([registrationId])
+  @@index([rank])
+}
+
 
