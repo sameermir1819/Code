@@ -9,13 +9,13 @@ const nextConfig = {
     serverActions: {
       bodySizeLimit: "10mb",
     },
+    serverComponentsExternalPackages: ["@prisma/client"],
     optimizePackageImports: [
       "lucide-react",
       "recharts",
       "date-fns",
       "clsx",
       "tailwind-merge",
-      "@prisma/client",
     ],
   },
   images: {
