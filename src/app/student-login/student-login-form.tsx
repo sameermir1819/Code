@@ -13,16 +13,12 @@ import {
   ShieldCheck,
   Sparkles,
   ArrowRight,
-  CheckCircle2,
   AlertCircle,
   GraduationCap,
-  KeyRound,
-  Info,
   CalendarCheck2,
   Award,
   BookOpen,
   QrCode,
-  ArrowLeft,
 } from "lucide-react";
 
 interface StudentLoginFormProps {
@@ -60,7 +56,7 @@ export function StudentLoginForm({
       } else {
         setErrorMsg(
           res.error ||
-            "Authentication failed. Please verify your Name_name (e.g. aarav_sharma) and your Student Code."
+            "Authentication failed. Please verify your Student Code and password."
         );
       }
     });
@@ -215,24 +211,8 @@ export function StudentLoginForm({
               Student Sign In
             </h3>
             <p className="text-xs sm:text-sm text-zinc-400">
-              Enter your student username in format <code className="text-indigo-300 bg-white/5 px-1 py-0.5 rounded font-mono">Name_name</code> and your Student Code.
+              Enter your Student Code and password to access your student portal.
             </p>
-          </div>
-
-          {/* Instructions Box */}
-          <div className="p-3.5 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-xs text-indigo-200 space-y-1">
-            <div className="flex items-center gap-1.5 font-bold text-white text-[11px]">
-              <Info className="w-3.5 h-3.5 text-indigo-400" />
-              <span>How to Sign In:</span>
-            </div>
-            <ul className="text-[11px] text-indigo-200/90 list-disc list-inside space-y-0.5 pl-1">
-              <li>
-                <strong>Username:</strong> Your Name as <span className="font-mono text-white">firstname_lastname</span> (e.g. <span className="font-mono text-white">aarav_sharma</span>) or Student ID
-              </li>
-              <li>
-                <strong>Password:</strong> Your official <strong>Student Code</strong> (e.g. <span className="font-mono text-white">STU-2026-0001</span>)
-              </li>
-            </ul>
           </div>
 
           {/* Error Message Alert */}
@@ -245,11 +225,11 @@ export function StudentLoginForm({
 
           {/* Main Login Form */}
           <form onSubmit={handleLogin} className="space-y-4">
-            {/* Username Field */}
+            {/* Student Code Field */}
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-zinc-200 flex items-center justify-between">
-                <span>Student Username</span>
-                <span className="text-[10px] text-indigo-300 font-mono">format: Name_name</span>
+                <span>Student Code</span>
+                <span className="text-[10px] text-zinc-400 font-mono">Student ID or Roll No</span>
               </label>
               <div className="relative">
                 <GraduationCap className="absolute left-3.5 top-3.5 h-4 w-4 text-zinc-400" />
@@ -259,40 +239,40 @@ export function StudentLoginForm({
                   value={identifier}
                   onChange={(e) => setIdentifier(e.target.value)}
                   className="pl-10 h-11 text-xs rounded-xl bg-white/[0.04] border-white/15 text-white placeholder:text-zinc-500 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all shadow-inner"
-                  placeholder="e.g. aarav_sharma or STU-2026-0001"
+                  placeholder="e.g. STU-2026-0001"
                   autoComplete="username"
                 />
               </div>
             </div>
 
-            {/* Password Field (Student Code) */}
+            {/* Password Field */}
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <label className="text-xs font-semibold text-zinc-200">
-                  Student Code (Password)
+                  Password
                 </label>
                 <a
                   href="#"
                   onClick={(e) => {
                     e.preventDefault();
                     alert(
-                      "Your password is your Student Code (e.g. STU-2026-0001) as printed on your ID card or admission slip. If you don't know your code, please contact the campus desk."
+                      "First-time sign in uses your default campus password. If you forgot or need to reset your password, please contact the campus administration desk."
                     );
                   }}
                   className="text-[11px] text-indigo-400 hover:text-indigo-300 font-medium transition-colors"
                 >
-                  Forgot Student Code?
+                  Forgot Password?
                 </a>
               </div>
               <div className="relative">
-                <KeyRound className="absolute left-3.5 top-3.5 h-4 w-4 text-zinc-400" />
+                <Lock className="absolute left-3.5 top-3.5 h-4 w-4 text-zinc-400" />
                 <Input
                   type={showPassword ? "text" : "password"}
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="pl-10 pr-10 h-11 text-xs rounded-xl bg-white/[0.04] border-white/15 text-white placeholder:text-zinc-500 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all shadow-inner"
-                  placeholder="e.g. STU-2026-0001"
+                  placeholder="••••••••••••"
                   autoComplete="current-password"
                 />
                 <button
@@ -304,6 +284,9 @@ export function StudentLoginForm({
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
+              <p className="text-[11px] text-zinc-400 pt-0.5">
+                First time logging in? Use the default password assigned by your campus, then change it in your profile.
+              </p>
             </div>
 
             {/* Remember Me Checkbox */}

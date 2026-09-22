@@ -362,7 +362,31 @@ export async function updateStudentPassword(formData: {
     return { success: false, error: "User account not found." };
   }
 
-  const isValid = await verifyPassword(formData.currentPassword, user.passwordHash);
+  let isValid = false;
+  if (user.passwordHash) {
+    isValid = await verifyPassword(formData.currentPassword, user.passwordHash);
+  }
+
+  // If not valid yet and user is a student, check default passwords or student code
+  if (!isValid && user.role === "STUDENT") {
+    const defaultPasswords = ["student123", "Student@123", "password123"];
+    if (defaultPasswords.includes(formData.currentPassword)) {
+      isValid = true;
+    } else {
+      const student = await db.student.findFirst({
+        where: { OR: [{ userId: user.id }, { email: user.email }] },
+      });
+      if (student) {
+        const studentCode = student.studentId?.trim().toLowerCase();
+        const admissionCode = student.admissionNo?.trim().toLowerCase();
+        const entered = formData.currentPassword.toLowerCase().trim();
+        if (entered === studentCode || entered === admissionCode) {
+          isValid = true;
+        }
+      }
+    }
+  }
+
   if (!isValid) {
     return { success: false, error: "Incorrect current password." };
   }

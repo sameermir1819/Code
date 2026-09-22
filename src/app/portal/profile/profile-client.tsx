@@ -219,14 +219,14 @@ export function StudentProfileClient({ student }: ProfileProps) {
 
             <form onSubmit={handlePasswordChange} className="space-y-3 text-xs">
               <div className="space-y-1">
-                <label className="text-[11px] font-semibold text-zinc-300">Current Password</label>
+                <label className="text-[11px] font-semibold text-zinc-300">Current or Default Password</label>
                 <input
                   type="password"
                   required
                   value={currentPassword}
                   onChange={(e) => setCurrentPassword(e.target.value)}
                   className="w-full px-3 py-2 rounded-xl bg-white/[0.03] border border-white/10 text-white placeholder:text-zinc-600 focus:outline-none focus:border-primary"
-                  placeholder="••••••••"
+                  placeholder="Enter current or default password"
                 />
               </div>
 
