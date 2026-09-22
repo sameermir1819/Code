@@ -76,10 +76,12 @@ export async function getSession(): Promise<SessionUser | null> {
   return await verifySessionToken(token);
 }
 
+import { redirect } from "next/navigation";
+
 export async function requireAuth(allowedRoles?: Role[]): Promise<SessionUser> {
   const session = await getSession();
   if (!session) {
-    throw new Error("UNAUTHORIZED: Authentication required");
+    redirect("/login");
   }
 
   if (allowedRoles && allowedRoles.length > 0 && !allowedRoles.includes(session.role)) {

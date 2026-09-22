@@ -1,4 +1,5 @@
 import { getSession } from "@/lib/auth";
+import { redirect } from "next/navigation";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 import { getUserNotifications } from "@/server/actions/announcements";
@@ -11,9 +12,12 @@ export default async function DashboardLayout({
 }) {
   const session = await getSession();
 
-  // If no session yet in development, default to Super Admin for seamless testing
-  const userRole: Role = session?.role || "SUPER_ADMIN";
-  const userName = session?.name || "Dev Administrator";
+  if (!session) {
+    redirect("/login");
+  }
+
+  const userRole: Role = session.role || "SUPER_ADMIN";
+  const userName = session.name || "Administrator";
 
   const { unreadCount } = await getUserNotifications();
 
