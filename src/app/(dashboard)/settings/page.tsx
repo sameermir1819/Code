@@ -8,6 +8,13 @@ import {
   getInstituteProfile,
   updateInstituteProfile,
 } from "@/server/actions/auth";
+import {
+  getAllCampuses,
+  getActiveCampus,
+  switchActiveCampus,
+  createNewCampus,
+  CampusItem,
+} from "@/server/actions/campus";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,6 +34,9 @@ import {
   Mail,
   MapPin,
   Sparkles,
+  Plus,
+  Check,
+  RefreshCw,
 } from "lucide-react";
 
 export default function SettingsAndProfilePage() {
@@ -61,13 +71,32 @@ export default function SettingsAndProfilePage() {
     logoUrl: "/logo.png",
   });
 
+  const [campuses, setCampuses] = useState<CampusItem[]>([]);
+  const [activeCampus, setActiveCampus] = useState<CampusItem | null>(null);
+  const [showAddCampus, setShowAddCampus] = useState(false);
+  const [newCampusForm, setNewCampusForm] = useState({
+    name: "",
+    code: "",
+    city: "Srinagar",
+    address: "",
+    phone: "",
+    email: "",
+    tagline: "Academic Coaching & Test Prep Campus",
+  });
+
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(
     null
   );
 
   useEffect(() => {
     async function loadProfiles() {
-      const [u, inst] = await Promise.all([getUserProfile(), getInstituteProfile()]);
+      const [u, inst, allC, activeC] = await Promise.all([
+        getUserProfile(),
+        getInstituteProfile(),
+        getAllCampuses(),
+        getActiveCampus(),
+      ]);
+
       if (u) {
         setUserForm((prev) => ({
           ...prev,
@@ -78,25 +107,99 @@ export default function SettingsAndProfilePage() {
           role: u.role || "SUPER_ADMIN",
         }));
       }
-      if (inst) {
+
+      if (allC) {
+        setCampuses(allC);
+      }
+
+      if (activeC) {
+        setActiveCampus(activeC);
+      }
+
+      const activeInst = activeC || inst;
+      if (activeInst) {
         setInstForm({
-          name: inst.name || "Futurex Learning",
-          tagline: inst.tagline || "",
-          code: inst.code || "FL-CAMPUS-01",
-          phone: inst.phone || "",
-          email: inst.email || "",
-          website: inst.website || "",
-          address: inst.address || "",
-          city: inst.city || "New Delhi",
-          state: inst.state || "Delhi",
-          currency: inst.currency || "INR",
-          currencySymbol: inst.currencySymbol || "₹",
-          logoUrl: inst.logoUrl || "/logo.png",
+          name: activeInst.name || "Futurex Learning",
+          tagline: activeInst.tagline || "",
+          code: activeInst.code || "FL-CAMPUS-01",
+          phone: activeInst.phone || "",
+          email: activeInst.email || "",
+          website: (activeInst as any).website || "",
+          address: activeInst.address || "",
+          city: activeInst.city || "New Delhi",
+          state: (activeInst as any).state || "Delhi",
+          currency: (activeInst as any).currency || "INR",
+          currencySymbol: (activeInst as any).currencySymbol || "₹",
+          logoUrl: activeInst.logoUrl || "/logo.png",
         });
       }
     }
     loadProfiles();
   }, []);
+
+  const handleSwitchCampus = (campusId: string) => {
+    startTransition(async () => {
+      const res = await switchActiveCampus(campusId);
+      if (res.success) {
+        setFeedback({ type: "success", message: "Active campus switched successfully!" });
+        const [updatedActive, allC] = await Promise.all([getActiveCampus(), getAllCampuses()]);
+        setActiveCampus(updatedActive);
+        setCampuses(allC);
+        if (updatedActive) {
+          setInstForm((prev) => ({
+            ...prev,
+            name: updatedActive.name,
+            tagline: updatedActive.tagline || "",
+            code: updatedActive.code,
+            phone: updatedActive.phone || "",
+            email: updatedActive.email || "",
+            website: (updatedActive as any).website || "",
+            address: updatedActive.address || "",
+            city: updatedActive.city || "",
+            state: (updatedActive as any).state || "",
+            currency: (updatedActive as any).currency || "INR",
+            currencySymbol: (updatedActive as any).currencySymbol || "₹",
+            logoUrl: updatedActive.logoUrl || "/logo.png",
+          }));
+        }
+        router.refresh();
+      }
+    });
+  };
+
+  const handleCreateCampus = (e: React.FormEvent) => {
+    e.preventDefault();
+    setFeedback(null);
+
+    if (!newCampusForm.name.trim() || !newCampusForm.code.trim()) {
+      return setFeedback({ type: "error", message: "Campus Name and Campus Code are required" });
+    }
+
+    startTransition(async () => {
+      const res = await createNewCampus(newCampusForm);
+      if (res.success && res.campus) {
+        setFeedback({
+          type: "success",
+          message: `New campus "${res.campus.name}" registered successfully! You can select it anytime.`,
+        });
+        setShowAddCampus(false);
+        setNewCampusForm({
+          name: "",
+          code: "",
+          city: "Srinagar",
+          address: "",
+          phone: "",
+          email: "",
+          tagline: "Academic Coaching & Test Prep Campus",
+        });
+        const updatedList = await getAllCampuses();
+        setCampuses(updatedList);
+        router.refresh();
+      } else {
+        setFeedback({ type: "error", message: res.error || "Failed to create campus." });
+      }
+    });
+  };
 
   const handleUserSave = (e: React.FormEvent) => {
     e.preventDefault();
@@ -203,15 +306,15 @@ export default function SettingsAndProfilePage() {
         </div>
       )}
 
-      <Tabs defaultValue="my-profile">
+      <Tabs defaultValue="institute-profile">
         <TabsList className="w-full justify-start border-b">
+          <TabsTrigger value="institute-profile" className="flex items-center gap-2">
+            <Building2 className="h-3.5 w-3.5" />
+            <span>Campuses &amp; Branches ({campuses.length})</span>
+          </TabsTrigger>
           <TabsTrigger value="my-profile" className="flex items-center gap-2">
             <User className="h-3.5 w-3.5" />
             <span>My Profile</span>
-          </TabsTrigger>
-          <TabsTrigger value="institute-profile" className="flex items-center gap-2">
-            <Building2 className="h-3.5 w-3.5" />
-            <span>Academy Profile (Futurex Learning)</span>
           </TabsTrigger>
         </TabsList>
 
@@ -341,8 +444,215 @@ export default function SettingsAndProfilePage() {
           </form>
         </TabsContent>
 
-        {/* 2. INSTITUTE PROFILE TAB */}
+        {/* 2. CAMPUSES & ACADEMY PROFILE TAB */}
         <TabsContent value="institute-profile" className="space-y-6">
+          {/* Campuses & Branches Directory Card */}
+          <Card className="rounded-2xl border bg-card/60 shadow-2xs">
+            <CardHeader className="pb-3 flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="text-base font-bold flex items-center gap-2">
+                  <Building2 className="h-4 w-4 text-primary" />
+                  <span>Campuses &amp; Branches Directory</span>
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  Manage multiple coaching branches, centers, and choose which campus is active across the ERP.
+                </CardDescription>
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => setShowAddCampus(!showAddCampus)}
+                className="text-xs flex items-center gap-1.5 rounded-xl font-bold shadow-xs"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                <span>{showAddCampus ? "Close Form" : "+ Add Campus"}</span>
+              </Button>
+            </CardHeader>
+
+            <CardContent className="space-y-4">
+              {/* Add New Campus Form (Collapsible) */}
+              {showAddCampus && (
+                <form
+                  onSubmit={handleCreateCampus}
+                  className="p-4 rounded-xl border-2 border-primary/20 bg-primary/5 space-y-4 animate-in fade-in"
+                >
+                  <div className="flex items-center justify-between border-b border-primary/10 pb-2">
+                    <span className="text-xs font-bold text-foreground">Register New Campus / Branch</span>
+                    <Badge variant="outline" className="text-[10px] font-mono">
+                      Multi-Campus System
+                    </Badge>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                    <div>
+                      <label className="font-semibold block mb-1">Campus Name *</label>
+                      <Input
+                        required
+                        value={newCampusForm.name}
+                        onChange={(e) =>
+                          setNewCampusForm({ ...newCampusForm, name: e.target.value })
+                        }
+                        placeholder="e.g. Futurex Learning - Rajbagh Branch"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-semibold block mb-1">Campus Code * (Unique)</label>
+                      <Input
+                        required
+                        value={newCampusForm.code}
+                        onChange={(e) =>
+                          setNewCampusForm({ ...newCampusForm, code: e.target.value })
+                        }
+                        placeholder="e.g. FL-RAJ-02"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-semibold block mb-1">City / Region</label>
+                      <Input
+                        value={newCampusForm.city}
+                        onChange={(e) =>
+                          setNewCampusForm({ ...newCampusForm, city: e.target.value })
+                        }
+                        placeholder="e.g. Srinagar"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-semibold block mb-1">Contact Phone</label>
+                      <Input
+                        value={newCampusForm.phone}
+                        onChange={(e) =>
+                          setNewCampusForm({ ...newCampusForm, phone: e.target.value })
+                        }
+                        placeholder="+91 98..."
+                      />
+                    </div>
+                    <div className="sm:col-span-2">
+                      <label className="font-semibold block mb-1">Physical Address</label>
+                      <Input
+                        value={newCampusForm.address}
+                        onChange={(e) =>
+                          setNewCampusForm({ ...newCampusForm, address: e.target.value })
+                        }
+                        placeholder="e.g. Near Zero Bridge, Rajbagh Commercial Complex"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-semibold block mb-1">Admissions Email</label>
+                      <Input
+                        type="email"
+                        value={newCampusForm.email}
+                        onChange={(e) =>
+                          setNewCampusForm({ ...newCampusForm, email: e.target.value })
+                        }
+                        placeholder="branch@futurexlearning.com"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-semibold block mb-1">Tagline</label>
+                      <Input
+                        value={newCampusForm.tagline}
+                        onChange={(e) =>
+                          setNewCampusForm({ ...newCampusForm, tagline: e.target.value })
+                        }
+                        placeholder="Academic Coaching Center"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end gap-2 pt-1">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowAddCampus(false)}
+                      className="text-xs"
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      type="submit"
+                      disabled={isPending}
+                      size="sm"
+                      className="text-xs flex items-center gap-1.5 font-bold"
+                    >
+                      <Save className="h-3.5 w-3.5" />
+                      <span>{isPending ? "Registering..." : "Save Campus"}</span>
+                    </Button>
+                  </div>
+                </form>
+              )}
+
+              {/* Campuses Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                {campuses.map((c) => {
+                  const isCurrent = activeCampus?.id === c.id;
+                  return (
+                    <div
+                      key={c.id}
+                      className={`p-3.5 rounded-xl border transition-all flex flex-col justify-between gap-3 ${
+                        isCurrent
+                          ? "bg-primary/5 border-primary/40 shadow-xs"
+                          : "bg-muted/20 hover:bg-muted/40"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2.5">
+                          <div
+                            className={`h-9 w-9 rounded-xl flex items-center justify-center shrink-0 ${
+                              isCurrent
+                                ? "bg-primary text-white shadow-xs"
+                                : "bg-muted text-muted-foreground"
+                            }`}
+                          >
+                            <Building2 className="h-4 w-4" />
+                          </div>
+                          <div>
+                            <p className="font-bold text-foreground text-sm leading-tight">
+                              {c.name}
+                            </p>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              <Badge variant="outline" className="font-mono text-[9px] font-bold">
+                                {c.code}
+                              </Badge>
+                              {c.city && (
+                                <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+                                  <MapPin className="h-2.5 w-2.5" />
+                                  {c.city}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {isCurrent ? (
+                          <Badge variant="default" className="text-[9px] tracking-wide shrink-0">
+                            Active Campus
+                          </Badge>
+                        ) : (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleSwitchCampus(c.id)}
+                            disabled={isPending}
+                            className="text-[11px] h-7 px-2.5 shrink-0"
+                          >
+                            Switch to this
+                          </Button>
+                        )}
+                      </div>
+
+                      <div className="text-[11px] text-muted-foreground border-t pt-2 space-y-0.5">
+                        <p className="truncate">{c.address || "Address not specified"}</p>
+                        <p className="font-mono text-[10px]">{c.phone || c.email || ""}</p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+
           <form onSubmit={handleInstituteSave} className="space-y-6">
             {/* Live Branding Preview Card */}
             <Card className="bg-gradient-to-r from-primary/10 via-card to-card border-2 border-primary/30">
