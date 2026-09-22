@@ -2,7 +2,7 @@ import { getSession } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
-import { getUserNotifications } from "@/server/actions/announcements";
+import { db } from "@/lib/db";
 import { Role } from "@/lib/permissions";
 
 export default async function DashboardLayout({
@@ -19,7 +19,10 @@ export default async function DashboardLayout({
   const userRole: Role = session.role || "SUPER_ADMIN";
   const userName = session.name || "Administrator";
 
-  const { unreadCount } = await getUserNotifications();
+  // Only count unread notifications — lightweight single query, no heavy payload
+  const unreadCount = await db.notification.count({
+    where: { userId: session.id, isRead: false },
+  });
 
   return (
     <div className="flex h-screen overflow-hidden bg-background print:h-auto print:overflow-visible print:block">

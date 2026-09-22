@@ -11,15 +11,25 @@ export async function getUserNotifications() {
   const session = await getSession();
   if (!session) return { notifications: [], unreadCount: 0 };
 
-  const notifications = await db.notification.findMany({
-    where: { userId: session.id },
-    orderBy: { createdAt: "desc" },
-    take: 20,
-  });
-
-  const unreadCount = await db.notification.count({
-    where: { userId: session.id, isRead: false },
-  });
+  const [notifications, unreadCount] = await Promise.all([
+    db.notification.findMany({
+      where: { userId: session.id },
+      orderBy: { createdAt: "desc" },
+      take: 20,
+      select: {
+        id: true,
+        title: true,
+        message: true,
+        type: true,
+        link: true,
+        isRead: true,
+        createdAt: true,
+      },
+    }),
+    db.notification.count({
+      where: { userId: session.id, isRead: false },
+    }),
+  ]);
 
   return { notifications, unreadCount };
 }
