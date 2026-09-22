@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { Role } from "@/lib/permissions";
+import { InstituteLogo } from "@/components/ui/institute-logo";
 import {
   LayoutDashboard,
   Users,
@@ -26,6 +27,8 @@ import {
 interface SidebarProps {
   userRole: Role;
   userName: string;
+  logoUrl?: string | null;
+  instituteName?: string;
 }
 
 interface NavItem {
@@ -177,7 +180,7 @@ function canSeeGroup(group: NavGroup, role: Role): boolean {
   return group.roles.includes(role);
 }
 
-export function Sidebar({ userRole, userName }: SidebarProps) {
+export function Sidebar({ userRole, userName, logoUrl, instituteName = "Futurex Learning" }: SidebarProps) {
   const pathname = usePathname();
 
   const isActive = (item: NavItem): boolean => {
@@ -192,16 +195,13 @@ export function Sidebar({ userRole, userName }: SidebarProps) {
     <aside className="w-64 bg-sidebar border-r border-sidebar-border flex flex-col h-screen text-sidebar-foreground select-none shrink-0">
       {/* ── Brand Header ────────────────────────────── */}
       <div className="h-16 flex items-center px-5 border-b border-sidebar-border gap-3 shrink-0">
-        <div className="h-9 w-9 rounded-lg bg-primary flex items-center justify-center font-bold text-white shadow-md text-sm">
-          FL
-        </div>
+        <InstituteLogo logoUrl={logoUrl ?? null} name={instituteName} size={36} />
         <div className="flex flex-col">
           <span className="font-bold text-sm tracking-tight text-white">
-            FUTUREX LEARNING
+            {instituteName.toUpperCase()}
           </span>
           <span className="text-[10px] text-zinc-400 font-medium tracking-wider uppercase">
             Institute ERP
-            Backend ERP Console
           </span>
         </div>
       </div>

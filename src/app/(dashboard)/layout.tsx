@@ -19,15 +19,25 @@ export default async function DashboardLayout({
   const userRole: Role = session.role || "SUPER_ADMIN";
   const userName = session.name || "Administrator";
 
-  // Only count unread notifications — lightweight single query, no heavy payload
-  const unreadCount = await db.notification.count({
-    where: { userId: session.id, isRead: false },
-  });
+  // Fetch unread count + institute logo in parallel
+  const [unreadCount, institute] = await Promise.all([
+    db.notification.count({
+      where: { userId: session.id, isRead: false },
+    }),
+    db.institute.findFirst({
+      select: { name: true, logoUrl: true },
+    }),
+  ]);
 
   return (
     <div className="flex h-screen overflow-hidden bg-background print:h-auto print:overflow-visible print:block">
       {/* Sidebar */}
-      <Sidebar userRole={userRole} userName={userName} />
+      <Sidebar
+        userRole={userRole}
+        userName={userName}
+        logoUrl={institute?.logoUrl ?? null}
+        instituteName={institute?.name ?? "Futurex Learning"}
+      />
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col h-screen overflow-hidden print:h-auto print:overflow-visible print:block">
