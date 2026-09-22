@@ -1,10 +1,25 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  swcMinify: true,
+  compiler: {
+    removeConsole: process.env.NODE_ENV === "production" ? { exclude: ["error", "warn"] } : false,
+  },
   experimental: {
     serverActions: {
-      bodySizeLimit: '10mb',
+      bodySizeLimit: "10mb",
     },
+    optimizePackageImports: [
+      "lucide-react",
+      "recharts",
+      "date-fns",
+      "clsx",
+      "tailwind-merge",
+      "@prisma/client",
+    ],
+  },
+  images: {
+    unoptimized: true,
   },
 };
 

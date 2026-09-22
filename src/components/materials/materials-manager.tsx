@@ -526,3 +526,4 @@ export function MaterialsManager({ initialMaterials, subjects, userRole }: Mater
     </div>
   );
 }
+

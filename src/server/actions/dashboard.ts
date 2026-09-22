@@ -19,22 +19,82 @@ export async function getDashboardStats() {
     const monthEnd = endOfMonth(now);
     const todayStart = startOfDay(now);
     const todayEnd = endOfDay(now);
+    const sixMonthsAgoStart = startOfMonth(subMonths(now, 5));
 
-    // 1. Student stats
-    const totalStudents = await db.student.count();
-    const activeStudents = await db.student.count({ where: { status: "ACTIVE" } });
-    const newAdmissionsThisMonth = await db.student.count({
-      where: { admissionDate: { gte: monthStart, lte: monthEnd } },
-    });
+    // Execute ALL 10 primary DB operations concurrently in parallel (1 single roundtrip)
+    const [
+      totalStudents,
+      activeStudents,
+      newAdmissionsThisMonth,
+      totalTeachers,
+      activeBatches,
+      todayAttendanceRecords,
+      todayPayments,
+      monthPayments,
+      feePlanAggregates,
+      upcomingExams,
+      recentAdmissions,
+      recentPayments,
+      allSixMonthPayments,
+      batchesWithCounts,
+    ] = await Promise.all([
+      db.student.count(),
+      db.student.count({ where: { status: "ACTIVE" } }),
+      db.student.count({ where: { admissionDate: { gte: monthStart, lte: monthEnd } } }),
+      db.teacher.count({ where: { status: "ACTIVE" } }),
+      db.batch.count({ where: { status: "ACTIVE" } }),
+      db.attendance.findMany({ where: { date: { gte: todayStart, lte: todayEnd } } }),
+      db.payment.aggregate({
+        where: { paymentDate: { gte: todayStart, lte: todayEnd }, status: "SUCCESS" },
+        _sum: { amount: true },
+      }),
+      db.payment.aggregate({
+        where: { paymentDate: { gte: monthStart, lte: monthEnd }, status: "SUCCESS" },
+        _sum: { amount: true },
+      }),
+      db.feePlan.aggregate({
+        _sum: { balanceAmount: true, totalAmount: true, paidAmount: true },
+      }),
+      db.exam.findMany({
+        where: { examDate: { gte: now } },
+        take: 4,
+        orderBy: { examDate: "asc" },
+        include: { batch: true, subject: true },
+      }),
+      db.student.findMany({
+        take: 5,
+        orderBy: { admissionDate: "desc" },
+        include: {
+          enrollments: {
+            where: { status: "ACTIVE" },
+            include: { course: true, batch: true },
+            take: 1,
+          },
+        },
+      }),
+      db.payment.findMany({
+        take: 5,
+        orderBy: { paymentDate: "desc" },
+        include: { student: true },
+      }),
+      // Fetch 6-month revenue payments in 1 single bulk query instead of 6 loops
+      db.payment.findMany({
+        where: {
+          paymentDate: { gte: sixMonthsAgoStart, lte: monthEnd },
+          status: "SUCCESS",
+        },
+        select: { amount: true, paymentDate: true },
+      }),
+      db.batch.findMany({
+        where: { status: "ACTIVE" },
+        take: 6,
+        include: {
+          _count: { select: { enrollments: { where: { status: "ACTIVE" } } } },
+        },
+      }),
+    ]);
 
-    // 2. Teachers and Batches
-    const totalTeachers = await db.teacher.count({ where: { status: "ACTIVE" } });
-    const activeBatches = await db.batch.count({ where: { status: "ACTIVE" } });
-
-    // 3. Today's Attendance
-    const todayAttendanceRecords = await db.attendance.findMany({
-      where: { date: { gte: todayStart, lte: todayEnd } },
-    });
+    // Attendance Rate Calculation
     const totalTodayAttendance = todayAttendanceRecords.length;
     const presentToday = todayAttendanceRecords.filter((a) => a.status === "PRESENT").length;
     const absentToday = todayAttendanceRecords.filter((a) => a.status === "ABSENT").length;
@@ -44,58 +104,11 @@ export async function getDashboardStats() {
         ? Math.round((presentToday / totalTodayAttendance) * 100)
         : 0;
 
-    // 4. Financial metrics (Restricted to Admins)
-    const todayPayments = await db.payment.aggregate({
-      where: { paymentDate: { gte: todayStart, lte: todayEnd }, status: "SUCCESS" },
-      _sum: { amount: true },
-    });
     const todayCollections = todayPayments._sum.amount || 0;
-
-    const monthPayments = await db.payment.aggregate({
-      where: { paymentDate: { gte: monthStart, lte: monthEnd }, status: "SUCCESS" },
-      _sum: { amount: true },
-    });
     const monthCollections = monthPayments._sum.amount || 0;
-
-    const feePlanAggregates = await db.feePlan.aggregate({
-      _sum: { balanceAmount: true, totalAmount: true, paidAmount: true },
-    });
     const totalOutstandingFees = feePlanAggregates._sum.balanceAmount || 0;
 
-    // 5. Upcoming tests/exams
-    const upcomingExams = await db.exam.findMany({
-      where: { examDate: { gte: now } },
-      take: 4,
-      orderBy: { examDate: "asc" },
-      include: {
-        batch: true,
-        subject: true,
-      },
-    });
-
-    // 6. Recent admissions (Restricted to Admins)
-    const recentAdmissions = await db.student.findMany({
-      take: 5,
-      orderBy: { admissionDate: "desc" },
-      include: {
-        enrollments: {
-          where: { status: "ACTIVE" },
-          include: { course: true, batch: true },
-          take: 1,
-        },
-      },
-    });
-
-    // 7. Recent payments (Restricted to Admins)
-    const recentPayments = await db.payment.findMany({
-      take: 5,
-      orderBy: { paymentDate: "desc" },
-      include: {
-        student: true,
-      },
-    });
-
-    // 8. Monthly revenue chart data (past 6 months)
+    // Process 6-month revenue data in memory (0 DB roundtrips)
     const monthlyRevenueData = [];
     for (let i = 5; i >= 0; i--) {
       const mDate = subMonths(now, i);
@@ -103,31 +116,14 @@ export async function getDashboardStats() {
       const mEnd = endOfMonth(mDate);
       const label = format(mDate, "MMM yyyy");
 
-      const agg = await db.payment.aggregate({
-        where: {
-          paymentDate: { gte: mStart, lte: mEnd },
-          status: "SUCCESS",
-        },
-        _sum: { amount: true },
-      });
+      const collections = allSixMonthPayments
+        .filter((p) => p.paymentDate >= mStart && p.paymentDate <= mEnd)
+        .reduce((sum, p) => sum + p.amount, 0);
 
-      monthlyRevenueData.push({
-        month: label,
-        collections: agg._sum.amount || 0,
-      });
+      monthlyRevenueData.push({ month: label, collections });
     }
 
-    // 9. Batch distribution data
-    const batchesWithCounts = await db.batch.findMany({
-      where: { status: "ACTIVE" },
-      take: 6,
-      include: {
-        _count: {
-          select: { enrollments: { where: { status: "ACTIVE" } } },
-        },
-      },
-    });
-
+    // Batch Distribution
     const batchDistribution = batchesWithCounts.map((b) => ({
       name: b.name,
       code: b.code,
@@ -264,31 +260,29 @@ export async function getDashboardStats() {
 
   // Non-Admin: ACCOUNTANT
   if (role === "ACCOUNTANT") {
-    const now = new Date();
     const todayStart = startOfDay(now);
     const todayEnd = endOfDay(now);
     const monthStart = startOfMonth(now);
     const monthEnd = endOfMonth(now);
 
-    const todayPayments = await db.payment.aggregate({
-      where: { paymentDate: { gte: todayStart, lte: todayEnd }, status: "SUCCESS" },
-      _sum: { amount: true },
-    });
-
-    const monthPayments = await db.payment.aggregate({
-      where: { paymentDate: { gte: monthStart, lte: monthEnd }, status: "SUCCESS" },
-      _sum: { amount: true },
-    });
-
-    const feePlanAggregates = await db.feePlan.aggregate({
-      _sum: { balanceAmount: true },
-    });
-
-    const recentPayments = await db.payment.findMany({
-      take: 8,
-      orderBy: { paymentDate: "desc" },
-      include: { student: true },
-    });
+    const [todayPayments, monthPayments, feePlanAggregates, recentPayments] = await Promise.all([
+      db.payment.aggregate({
+        where: { paymentDate: { gte: todayStart, lte: todayEnd }, status: "SUCCESS" },
+        _sum: { amount: true },
+      }),
+      db.payment.aggregate({
+        where: { paymentDate: { gte: monthStart, lte: monthEnd }, status: "SUCCESS" },
+        _sum: { amount: true },
+      }),
+      db.feePlan.aggregate({
+        _sum: { balanceAmount: true },
+      }),
+      db.payment.findMany({
+        take: 8,
+        orderBy: { paymentDate: "desc" },
+        include: { student: true },
+      }),
+    ]);
 
     return {
       isAdmin: false,
@@ -303,7 +297,7 @@ export async function getDashboardStats() {
     };
   }
 
-  // Fallback for Parent or generic user
+  // Fallback
   return {
     isAdmin: false,
     userRole: role,
