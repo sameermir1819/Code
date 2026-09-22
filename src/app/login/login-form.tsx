@@ -12,11 +12,15 @@ import {
   Eye,
   EyeOff,
   ShieldCheck,
-  GraduationCap,
   Sparkles,
-  Award,
-  CheckCircle2,
   ArrowRight,
+  CheckCircle2,
+  QrCode,
+  CreditCard,
+  Layers,
+  GraduationCap,
+  Activity,
+  Zap,
 } from "lucide-react";
 
 interface LoginFormProps {
@@ -27,11 +31,19 @@ interface LoginFormProps {
 
 export function LoginForm({ logoUrl, instituteName, tagline }: LoginFormProps) {
   const router = useRouter();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [email, setEmail] = useState("admin@futurexlearning.com");
+  const [password, setPassword] = useState("admin123");
   const [showPassword, setShowPassword] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+  const [selectedRole, setSelectedRole] = useState("ADMIN");
   const [isPending, startTransition] = useTransition();
+
+  const handleRoleQuickSelect = (role: string, roleEmail: string, rolePass: string) => {
+    setSelectedRole(role);
+    setEmail(roleEmail);
+    setPassword(rolePass);
+    setErrorMsg("");
+  };
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -43,94 +55,132 @@ export function LoginForm({ logoUrl, instituteName, tagline }: LoginFormProps) {
         router.push("/dashboard");
         router.refresh();
       } else {
-        setErrorMsg(res.error || "Authentication failed. Please verify credentials.");
+        setErrorMsg(res.error || "Authentication failed. Please check credentials.");
       }
     });
   };
 
   return (
-    <div className="min-h-screen w-full flex flex-col lg:flex-row bg-background">
-      {/* ── Left Hero Panel (Coaching Prestige Showcase) ── */}
-      <div className="hidden lg:flex lg:w-7/12 bg-gradient-to-br from-[#0a192f] via-[#0f2b5c] to-[#1e3a8a] text-white p-12 flex-col justify-between relative overflow-hidden">
+    <div className="min-h-screen w-full flex flex-col lg:flex-row bg-background font-poppins selection:bg-primary/20 selection:text-primary">
+      {/* ── Left Hero Panel (Enterprise Showcase) ── */}
+      <div className="hidden lg:flex lg:w-7/12 bg-gradient-to-br from-[#070e1b] via-[#0c1a30] to-[#12284c] text-white p-12 xl:p-16 flex-col justify-between relative overflow-hidden">
         {/* Ambient Gradient Glows */}
-        <div className="absolute -top-24 -left-24 w-96 h-96 rounded-full bg-blue-500/20 blur-3xl pointer-events-none"></div>
-        <div className="absolute -bottom-24 -right-24 w-96 h-96 rounded-full bg-amber-500/15 blur-3xl pointer-events-none"></div>
+        <div className="absolute -top-32 -left-32 w-[500px] h-[500px] rounded-full bg-blue-600/20 blur-[120px] pointer-events-none"></div>
+        <div className="absolute -bottom-32 -right-32 w-[500px] h-[500px] rounded-full bg-amber-500/15 blur-[120px] pointer-events-none"></div>
+        <div className="absolute top-1/2 left-1/3 w-72 h-72 rounded-full bg-indigo-500/10 blur-[100px] pointer-events-none"></div>
 
         {/* Top Branding */}
-        <div className="relative z-10 flex items-center gap-3">
-          <div className="p-1 rounded-xl bg-white/10 backdrop-blur-md border border-white/20 shadow-lg">
+        <div className="relative z-10 flex items-center gap-3.5">
+          <div className="p-1.5 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 shadow-xl">
             <InstituteLogo logoUrl={logoUrl} name={instituteName} size={44} />
           </div>
           <div>
-            <h2 className="font-black text-lg tracking-wider uppercase font-serif text-white">
+            <h2 className="font-extrabold text-lg tracking-wide uppercase text-white">
               {instituteName}
             </h2>
-            <span className="text-[11px] font-semibold text-amber-300 uppercase tracking-widest block">
-              Enterprise Academic ERP Portal
-            </span>
+            <div className="flex items-center gap-2 mt-0.5">
+              <span className="text-[11px] font-semibold text-amber-300 uppercase tracking-widest">
+                Enterprise Academic ERP
+              </span>
+              <span className="text-zinc-500">•</span>
+              <span className="text-[10px] text-zinc-400 font-mono">v2.4 LTS</span>
+            </div>
           </div>
         </div>
 
         {/* Center Coaching Value Proposition */}
-        <div className="relative z-10 space-y-6 max-w-lg my-auto">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-xs font-semibold text-amber-300">
-            <Sparkles className="h-3.5 w-3.5" />
-            <span>Next-Gen Coaching &amp; Test Prep Management</span>
+        <div className="relative z-10 space-y-7 max-w-xl my-auto py-8">
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-xs font-semibold text-amber-300 shadow-sm">
+            <Sparkles className="h-3.5 w-3.5 text-amber-300" />
+            <span>Next-Generation Coaching Institute OS</span>
           </div>
 
-          <h1 className="text-3xl xl:text-4xl font-black tracking-tight leading-tight">
-            Excellence in Academic Coaching, Attendance &amp; Financial Governance.
+          <h1 className="text-3xl xl:text-5xl font-black tracking-tight leading-[1.15]">
+            Total Command Over Academics, Attendance &amp; Financial Growth.
           </h1>
 
-          <p className="text-sm text-zinc-300 leading-relaxed">
-            {tagline || "Streamlined student lifecycle from admissions and biometric QR attendance to automated fee receipts and real-time performance analytics."}
+          <p className="text-sm xl:text-base text-zinc-300 leading-relaxed font-light">
+            {tagline || "Streamlined student lifecycle from biometric QR attendance and automated fee vouchers to test performance analytics and staff scheduling."}
           </p>
 
-          {/* Key Feature Stats Grid */}
-          <div className="grid grid-cols-3 gap-4 pt-4 border-t border-white/10">
-            <div className="p-3 rounded-xl bg-white/5 border border-white/10 backdrop-blur-xs">
-              <span className="text-xl font-black text-white block">100%</span>
-              <span className="text-[10px] text-zinc-400 uppercase font-semibold">
-                Paperless Receipts
-              </span>
+          {/* Interactive Feature Highlights Grid */}
+          <div className="grid grid-cols-2 gap-3.5 pt-2">
+            <div className="p-4 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm hover:bg-white/10 transition-colors">
+              <div className="flex items-center gap-2.5 mb-1.5">
+                <div className="h-7 w-7 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+                  <QrCode className="h-4 w-4" />
+                </div>
+                <span className="text-xs font-bold text-white">Biometric QR &amp; GPS</span>
+              </div>
+              <p className="text-[11px] text-zinc-400 leading-normal">
+                Sub-second batch attendance with automated WhatsApp SMS alerts.
+              </p>
             </div>
-            <div className="p-3 rounded-xl bg-white/5 border border-white/10 backdrop-blur-xs">
-              <span className="text-xl font-black text-amber-300 block">CR-80</span>
-              <span className="text-[10px] text-zinc-400 uppercase font-semibold">
-                Smart PVC ID Cards
-              </span>
+
+            <div className="p-4 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm hover:bg-white/10 transition-colors">
+              <div className="flex items-center gap-2.5 mb-1.5">
+                <div className="h-7 w-7 rounded-lg bg-amber-500/20 text-amber-300 flex items-center justify-center">
+                  <CreditCard className="h-4 w-4" />
+                </div>
+                <span className="text-xs font-bold text-white">Tax Invoices &amp; Receipts</span>
+              </div>
+              <p className="text-[11px] text-zinc-400 leading-normal">
+                1-click fee vouchers, partial installments &amp; defaulters recovery.
+              </p>
             </div>
-            <div className="p-3 rounded-xl bg-white/5 border border-white/10 backdrop-blur-xs">
-              <span className="text-xl font-black text-emerald-400 block">Real-time</span>
-              <span className="text-[10px] text-zinc-400 uppercase font-semibold">
-                Batch Analytics
-              </span>
+
+            <div className="p-4 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm hover:bg-white/10 transition-colors">
+              <div className="flex items-center gap-2.5 mb-1.5">
+                <div className="h-7 w-7 rounded-lg bg-blue-500/20 text-blue-400 flex items-center justify-center">
+                  <Layers className="h-4 w-4" />
+                </div>
+                <span className="text-xs font-bold text-white">CR-80 Smart ID Cards</span>
+              </div>
+              <p className="text-[11px] text-zinc-400 leading-normal">
+                ISO standard printable PVC smart cards with institute QR code.
+              </p>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm hover:bg-white/10 transition-colors">
+              <div className="flex items-center gap-2.5 mb-1.5">
+                <div className="h-7 w-7 rounded-lg bg-purple-500/20 text-purple-300 flex items-center justify-center">
+                  <Zap className="h-4 w-4" />
+                </div>
+                <span className="text-xs font-bold text-white">Batch Test Analytics</span>
+              </div>
+              <p className="text-[11px] text-zinc-400 leading-normal">
+                Instant marksheets, ranking matrices &amp; student report cards.
+              </p>
             </div>
           </div>
         </div>
 
         {/* Bottom Trust Badge */}
         <div className="relative z-10 flex items-center justify-between text-xs text-zinc-400 border-t border-white/10 pt-6">
-          <span className="flex items-center gap-1.5 text-zinc-300 font-medium">
-            <ShieldCheck className="h-4 w-4 text-emerald-400" />
-            <span>Bank-Grade 256-Bit SSL Encryption</span>
+          <span className="flex items-center gap-2 text-zinc-300 font-medium">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            </span>
+            <span>All ERP Clusters Operational</span>
           </span>
-          <span className="text-[11px] font-mono text-zinc-400">
-            ISO 9001:2015 Verified
+          <span className="flex items-center gap-1.5 text-[11px] font-mono text-zinc-400">
+            <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
+            <span>256-Bit SSL AES Encrypted</span>
           </span>
         </div>
       </div>
 
       {/* ── Right Auth Panel ── */}
-      <div className="w-full lg:w-5/12 flex items-center justify-center p-6 sm:p-12 relative">
-        <div className="w-full max-w-md space-y-8">
+      <div className="w-full lg:w-5/12 flex items-center justify-center p-6 sm:p-12 lg:p-16 relative">
+        <div className="w-full max-w-md space-y-7">
           {/* Mobile Top Brand (visible on small screens) */}
           <div className="lg:hidden text-center space-y-3 pb-2">
             <div className="flex justify-center">
               <InstituteLogo logoUrl={logoUrl} name={instituteName} size={64} />
             </div>
             <div>
-              <h2 className="text-xl font-black tracking-tight text-foreground uppercase">
+              <h2 className="text-xl font-extrabold tracking-tight text-foreground uppercase">
                 {instituteName}
               </h2>
               <p className="text-xs text-muted-foreground mt-0.5">{tagline}</p>
@@ -139,18 +189,72 @@ export function LoginForm({ logoUrl, instituteName, tagline }: LoginFormProps) {
 
           {/* Form Header */}
           <div className="space-y-2">
-            <div className="hidden lg:flex items-center gap-2 mb-4">
-              <InstituteLogo logoUrl={logoUrl} name={instituteName} size={40} />
+            <div className="hidden lg:flex items-center gap-2.5 mb-3">
+              <InstituteLogo logoUrl={logoUrl} name={instituteName} size={36} />
               <span className="font-bold text-sm tracking-tight text-foreground uppercase">
                 {instituteName}
               </span>
             </div>
-            <h3 className="text-2xl font-bold tracking-tight text-foreground">
-              Sign In to Your Account
+            <h3 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">
+              Sign In to ERP
             </h3>
-            <p className="text-xs text-muted-foreground">
-              Enter your registered credentials to access your administrative workspace.
+            <p className="text-xs sm:text-sm text-muted-foreground">
+              Access your coaching workspace, academic records, and fee ledgers.
             </p>
+          </div>
+
+          {/* Quick Demo Role Switcher Bar */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-[11px] font-semibold text-muted-foreground">
+              <span>QUICK ROLE DEMO LOGIN</span>
+              <span className="text-[10px] text-primary">1-Click Auto-Fill</span>
+            </div>
+            <div className="grid grid-cols-4 gap-2">
+              <button
+                type="button"
+                onClick={() => handleRoleQuickSelect("ADMIN", "admin@futurexlearning.com", "admin123")}
+                className={`py-2 px-1 rounded-xl text-center border text-xs font-semibold transition-all ${
+                  selectedRole === "ADMIN"
+                    ? "bg-primary text-primary-foreground border-primary shadow-xs ring-2 ring-primary/20"
+                    : "bg-muted/40 hover:bg-muted text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Admin
+              </button>
+              <button
+                type="button"
+                onClick={() => handleRoleQuickSelect("TEACHER", "teacher@futurexlearning.com", "teacher123")}
+                className={`py-2 px-1 rounded-xl text-center border text-xs font-semibold transition-all ${
+                  selectedRole === "TEACHER"
+                    ? "bg-primary text-primary-foreground border-primary shadow-xs ring-2 ring-primary/20"
+                    : "bg-muted/40 hover:bg-muted text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Faculty
+              </button>
+              <button
+                type="button"
+                onClick={() => handleRoleQuickSelect("STUDENT", "student@futurexlearning.com", "student123")}
+                className={`py-2 px-1 rounded-xl text-center border text-xs font-semibold transition-all ${
+                  selectedRole === "STUDENT"
+                    ? "bg-primary text-primary-foreground border-primary shadow-xs ring-2 ring-primary/20"
+                    : "bg-muted/40 hover:bg-muted text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Student
+              </button>
+              <button
+                type="button"
+                onClick={() => handleRoleQuickSelect("ACCOUNTANT", "accountant@futurexlearning.com", "accountant123")}
+                className={`py-2 px-1 rounded-xl text-center border text-xs font-semibold transition-all ${
+                  selectedRole === "ACCOUNTANT"
+                    ? "bg-primary text-primary-foreground border-primary shadow-xs ring-2 ring-primary/20"
+                    : "bg-muted/40 hover:bg-muted text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Accounts
+              </button>
+            </div>
           </div>
 
           {/* Error Message Alert */}
@@ -167,7 +271,7 @@ export function LoginForm({ logoUrl, instituteName, tagline }: LoginFormProps) {
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-foreground flex items-center justify-between">
                 <span>Email Address</span>
-                <span className="text-[10px] text-muted-foreground">Registered User</span>
+                <span className="text-[10px] text-muted-foreground font-normal">Registered Identity</span>
               </label>
               <div className="relative">
                 <Mail className="absolute left-3.5 top-3 h-4 w-4 text-muted-foreground" />
@@ -176,7 +280,7 @@ export function LoginForm({ logoUrl, instituteName, tagline }: LoginFormProps) {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="pl-10 h-10 text-xs bg-muted/30 focus:bg-background transition-all"
+                  className="pl-10 h-11 text-xs rounded-xl bg-card border-border/80 focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all shadow-2xs"
                   placeholder="admin@futurexlearning.com"
                   autoComplete="email"
                 />
@@ -187,7 +291,7 @@ export function LoginForm({ logoUrl, instituteName, tagline }: LoginFormProps) {
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-foreground flex items-center justify-between">
                 <span>Password</span>
-                <span className="text-[10px] text-muted-foreground">Confidential</span>
+                <span className="text-[10px] text-muted-foreground font-normal">Confidential Token</span>
               </label>
               <div className="relative">
                 <Lock className="absolute left-3.5 top-3 h-4 w-4 text-muted-foreground" />
@@ -196,7 +300,7 @@ export function LoginForm({ logoUrl, instituteName, tagline }: LoginFormProps) {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="pl-10 pr-10 h-10 text-xs bg-muted/30 focus:bg-background transition-all"
+                  className="pl-10 pr-10 h-11 text-xs rounded-xl bg-card border-border/80 focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all shadow-2xs"
                   placeholder="••••••••••••"
                   autoComplete="current-password"
                 />
@@ -215,16 +319,16 @@ export function LoginForm({ logoUrl, instituteName, tagline }: LoginFormProps) {
             <Button
               type="submit"
               disabled={isPending}
-              className="w-full h-11 text-xs font-bold rounded-xl shadow-md transition-all flex items-center justify-center gap-2 mt-2"
+              className="w-full h-11 text-xs font-bold rounded-xl shadow-md transition-all flex items-center justify-center gap-2 mt-2 active:scale-[0.99]"
             >
               {isPending ? (
                 <>
                   <span className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
-                  <span>Authenticating Session...</span>
+                  <span>Verifying Credentials...</span>
                 </>
               ) : (
                 <>
-                  <span>Sign In to ERP</span>
+                  <span>Sign In as {selectedRole.replace("_", " ")}</span>
                   <ArrowRight className="h-4 w-4" />
                 </>
               )}
@@ -233,12 +337,12 @@ export function LoginForm({ logoUrl, instituteName, tagline }: LoginFormProps) {
 
           {/* Security & Access Info Footer */}
           <div className="pt-4 border-t border-border/60 text-center space-y-2">
-            <div className="flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground">
-              <ShieldCheck className="h-3.5 w-3.5 text-primary" />
-              <span>Multi-Role Access Control (Admin, Faculty, Accounts)</span>
+            <div className="flex items-center justify-center gap-2 text-[11px] text-muted-foreground">
+              <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
+              <span>Multi-Role Access Control Enabled (Admin, Faculty, Accounts)</span>
             </div>
             <p className="text-[10px] text-zinc-400">
-              For credentials assistance, contact campus IT desk.
+              Futurex Learning ERP • ISO 9001:2015 Compliant Academic Architecture
             </p>
           </div>
         </div>

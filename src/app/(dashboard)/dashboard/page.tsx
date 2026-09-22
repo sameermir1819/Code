@@ -171,82 +171,85 @@ export default async function DashboardPage() {
         {/* KPI Cards Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <Link href="/students" className="block group">
-            <Card className="transition-all hover:border-primary/50 hover:shadow-md cursor-pointer">
+            <Card className="rounded-2xl border bg-card/60 transition-all duration-200 hover:border-primary/50 hover:shadow-md hover:-translate-y-0.5 cursor-pointer shadow-2xs">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                   Total Students
                 </CardTitle>
-                <div className="h-8 w-8 rounded-lg bg-blue-50 text-blue-600 dark:bg-blue-950/50 dark:text-blue-400 flex items-center justify-center">
+                <div className="h-9 w-9 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center transition-transform group-hover:scale-110">
                   <Users className="h-4 w-4" />
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{stats.totalStudents}</div>
-                <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-                  <span className="text-emerald-600 font-semibold">{stats.activeStudents} Active</span>
-                  <span>• {stats.newAdmissionsThisMonth} new this month</span>
+                <div className="text-3xl font-extrabold tracking-tight">{stats.totalStudents}</div>
+                <p className="text-xs text-muted-foreground mt-1.5 flex items-center gap-1.5">
+                  <span className="inline-flex items-center px-1.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-semibold text-[11px]">
+                    {stats.activeStudents} Active
+                  </span>
+                  <span>• {stats.newAdmissionsThisMonth} new</span>
                 </p>
               </CardContent>
             </Card>
           </Link>
 
           <Link href="/batches" className="block group">
-            <Card className="transition-all hover:border-primary/50 hover:shadow-md cursor-pointer">
+            <Card className="rounded-2xl border bg-card/60 transition-all duration-200 hover:border-primary/50 hover:shadow-md hover:-translate-y-0.5 cursor-pointer shadow-2xs">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                   Active Batches
                 </CardTitle>
-                <div className="h-8 w-8 rounded-lg bg-violet-50 text-violet-600 dark:bg-violet-950/50 dark:text-violet-400 flex items-center justify-center">
+                <div className="h-9 w-9 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center transition-transform group-hover:scale-110">
                   <Layers className="h-4 w-4" />
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{stats.activeBatches}</div>
-                <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-                  <span>Managed by</span>
-                  <span className="font-semibold text-foreground">{stats.totalTeachers} Faculty Members</span>
+                <div className="text-3xl font-extrabold tracking-tight">{stats.activeBatches}</div>
+                <p className="text-xs text-muted-foreground mt-1.5 flex items-center gap-1">
+                  <span>Instructed by</span>
+                  <span className="font-semibold text-foreground">{stats.totalTeachers} Faculty</span>
                 </p>
               </CardContent>
             </Card>
           </Link>
 
           <Link href="/finance/payments" className="block group">
-            <Card className="transition-all hover:border-primary/50 hover:shadow-md cursor-pointer">
+            <Card className="rounded-2xl border bg-card/60 transition-all duration-200 hover:border-primary/50 hover:shadow-md hover:-translate-y-0.5 cursor-pointer shadow-2xs">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                   Today's Collection
                 </CardTitle>
-                <div className="h-8 w-8 rounded-lg bg-emerald-50 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-400 flex items-center justify-center">
+                <div className="h-9 w-9 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center transition-transform group-hover:scale-110">
                   <CreditCard className="h-4 w-4" />
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
+                <div className="text-3xl font-extrabold tracking-tight text-emerald-600 dark:text-emerald-400">
                   {formatCurrency(stats.todayCollections)}
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Month: {formatCurrency(stats.monthCollections)}
+                <p className="text-xs text-muted-foreground mt-1.5">
+                  Month Total: <span className="font-medium text-foreground">{formatCurrency(stats.monthCollections)}</span>
                 </p>
               </CardContent>
             </Card>
           </Link>
 
           <Link href="/finance/outstanding" className="block group">
-            <Card className="transition-all hover:border-primary/50 hover:shadow-md cursor-pointer">
+            <Card className="rounded-2xl border bg-card/60 transition-all duration-200 hover:border-primary/50 hover:shadow-md hover:-translate-y-0.5 cursor-pointer shadow-2xs">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                   Outstanding Dues
                 </CardTitle>
-                <div className="h-8 w-8 rounded-lg bg-amber-50 text-amber-600 dark:bg-amber-950/50 dark:text-amber-400 flex items-center justify-center">
+                <div className="h-9 w-9 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center transition-transform group-hover:scale-110">
                   <AlertCircle className="h-4 w-4" />
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-amber-600 dark:text-amber-400">
+                <div className="text-3xl font-extrabold tracking-tight text-amber-600 dark:text-amber-400">
                   {formatCurrency(stats.totalOutstandingFees)}
                 </div>
-                <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-                  <span>View unpaid installments</span>
+                <p className="text-xs text-muted-foreground mt-1.5 flex items-center gap-1">
+                  <span className="text-amber-600 font-medium">Action:</span>
+                  <span>View defaulters list</span>
                   <ArrowUpRight className="h-3 w-3" />
                 </p>
               </CardContent>
@@ -260,14 +263,14 @@ export default async function DashboardPage() {
           return (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               {/* Monthly Collection Trend */}
-              <Card className="lg:col-span-2">
+              <Card className="lg:col-span-2 rounded-2xl border bg-card/60 shadow-2xs">
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     <div>
                       <CardTitle className="text-base font-semibold">Fee Collection Trend</CardTitle>
                       <CardDescription>Monthly realized fee collections (past 6 months)</CardDescription>
                     </div>
-                    <div className="flex items-center gap-1.5 text-xs text-primary font-semibold bg-primary/10 px-2.5 py-1 rounded">
+                    <div className="flex items-center gap-1.5 text-xs text-primary font-semibold bg-primary/10 px-2.5 py-1 rounded-xl">
                       <TrendingUp className="h-3.5 w-3.5" />
                       <span>6-Mo Total: {formatCurrency(total6MonthRevenue)}</span>
                     </div>
@@ -285,13 +288,13 @@ export default async function DashboardPage() {
                             {formatCurrency(item.collections)}
                           </span>
                           <div
-                            className={`w-full transition-all rounded-t-md relative flex items-end justify-center ${
-                              item.collections > 0 ? "bg-primary/20 hover:bg-primary" : "bg-muted/30"
+                            className={`w-full transition-all rounded-t-lg relative flex items-end justify-center ${
+                              item.collections > 0 ? "bg-primary/20 hover:bg-primary/40" : "bg-muted/30"
                             }`}
                             style={{ height: `${heightPercent}%`, minHeight: item.collections > 0 ? "8px" : "3px" }}
                           >
                             {item.collections > 0 && (
-                              <div className="w-full bg-primary h-2 rounded-t-md opacity-80" />
+                              <div className="w-full bg-primary h-2 rounded-t-lg opacity-90 shadow-xs" />
                             )}
                           </div>
                           <span className="text-[11px] font-medium text-muted-foreground whitespace-nowrap">
@@ -305,7 +308,7 @@ export default async function DashboardPage() {
               </Card>
 
               {/* Attendance Summary */}
-              <Card>
+              <Card className="rounded-2xl border bg-card/60 shadow-2xs">
                 <CardHeader>
                   <CardTitle className="text-base font-semibold">Today's Attendance</CardTitle>
                   <CardDescription>Aggregate student presence across active batches</CardDescription>
@@ -383,7 +386,7 @@ export default async function DashboardPage() {
 
         {/* Batch Distribution & Upcoming Exams */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <Card className="lg:col-span-2">
+          <Card className="lg:col-span-2 rounded-2xl border bg-card/60 shadow-2xs">
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div>
@@ -433,7 +436,7 @@ export default async function DashboardPage() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="rounded-2xl border bg-card/60 shadow-2xs">
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle className="text-base font-semibold">Upcoming Tests</CardTitle>
@@ -450,7 +453,7 @@ export default async function DashboardPage() {
                 upcomingExams?.map((exam: any) => (
                   <div
                     key={exam.id}
-                    className="p-3 rounded-lg border bg-muted/30 flex items-start justify-between gap-3 text-xs"
+                    className="p-3 rounded-xl border bg-muted/30 flex items-start justify-between gap-3 text-xs hover:bg-muted/50 transition-colors"
                   >
                     <div className="space-y-1">
                       <p className="font-semibold text-foreground">{exam.title}</p>
@@ -463,7 +466,7 @@ export default async function DashboardPage() {
                         <span>• {exam.maxMarks} Marks</span>
                       </div>
                     </div>
-                    <Badge variant="outline" className="text-[10px] shrink-0">
+                    <Badge variant="outline" className="text-[10px] shrink-0 font-mono">
                       {exam.type}
                     </Badge>
                   </div>
@@ -475,7 +478,7 @@ export default async function DashboardPage() {
 
         {/* Recent Admissions & Payments Tables */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Card>
+          <Card className="rounded-2xl border bg-card/60 shadow-2xs">
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div>
@@ -520,7 +523,7 @@ export default async function DashboardPage() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="rounded-2xl border bg-card/60 shadow-2xs">
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div>
