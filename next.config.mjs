@@ -2,6 +2,7 @@
 const nextConfig = {
   reactStrictMode: true,
   swcMinify: true,
+  compress: true,
   compiler: {
     removeConsole: process.env.NODE_ENV === "production" ? { exclude: ["error", "warn"] } : false,
   },
@@ -12,14 +13,15 @@ const nextConfig = {
     serverComponentsExternalPackages: ["@prisma/client"],
     optimizePackageImports: [
       "lucide-react",
-      "recharts",
       "date-fns",
       "clsx",
       "tailwind-merge",
+      "zod",
     ],
   },
   images: {
     unoptimized: true,
+    formats: ["image/avif", "image/webp"],
   },
 };
 
