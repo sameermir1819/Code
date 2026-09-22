@@ -234,11 +234,20 @@ export function UserDetailsDrawer({
 
                   <div className="p-3.5 rounded-lg border bg-muted/20 space-y-1">
                     <span className="text-muted-foreground flex items-center gap-1.5 text-[11px]">
-                      <Building className="h-3.5 w-3.5" /> Campus Branch
+                      <Building className="h-3.5 w-3.5" /> Allotted Campus / Branch
                     </span>
                     <strong className="text-foreground block text-sm font-semibold">
-                      {userDetails.branch || "Main Campus"}
+                      {userDetails.institute?.name || userDetails.branch || "All Campuses"}
                     </strong>
+                    {userDetails.institute?.code ? (
+                      <span className="text-[10px] font-mono text-muted-foreground block">
+                        Code: {userDetails.institute.code} {userDetails.institute.city ? `• ${userDetails.institute.city}` : ""}
+                      </span>
+                    ) : !userDetails.instituteId ? (
+                      <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium block">
+                        🌐 Global / Central Access
+                      </span>
+                    ) : null}
                   </div>
 
                   <div className="p-3.5 rounded-lg border bg-muted/20 space-y-1">

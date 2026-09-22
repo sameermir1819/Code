@@ -14,6 +14,7 @@ interface CreateUserModalProps {
   actorRole: Role;
   availableSubjects?: any[];
   availableRoles?: any[];
+  availableCampuses?: any[];
 }
 
 export function CreateUserModal({
@@ -23,6 +24,7 @@ export function CreateUserModal({
   actorRole,
   availableSubjects = [],
   availableRoles = [],
+  availableCampuses = [],
 }: CreateUserModalProps) {
   const [isPending, startTransition] = useTransition();
   const [errorMsg, setErrorMsg] = useState("");
@@ -72,7 +74,8 @@ export function CreateUserModal({
     phone: "",
     role: (actorRole === "SUPER_ADMIN" ? "ADMIN" : "TEACHER") as Role,
     status: "ACTIVE" as "ACTIVE" | "INACTIVE" | "SUSPENDED",
-    branch: "Main Campus",
+    instituteId: availableCampuses[0]?.id || "",
+    branch: availableCampuses[0]?.name || "Main Campus",
     notes: "",
     password: "",
     confirmPassword: "",
@@ -114,6 +117,7 @@ export function CreateUserModal({
           phone: formData.phone,
           role: formData.role,
           status: formData.status,
+          instituteId: formData.instituteId || undefined,
           branch: formData.branch,
           notes: formData.notes,
           password: formData.password,
@@ -246,12 +250,27 @@ export function CreateUserModal({
               </div>
 
               <div>
-                <label className="font-semibold block mb-1">Branch / Campus</label>
-                <Input
-                  value={formData.branch}
-                  onChange={(e) => setFormData({ ...formData, branch: e.target.value })}
-                  placeholder="e.g. Main Campus"
-                />
+                <label className="font-semibold block mb-1">Allotted Campus *</label>
+                <select
+                  value={formData.instituteId}
+                  onChange={(e) => {
+                    const selId = e.target.value;
+                    const selectedCamp = availableCampuses.find((c: any) => c.id === selId);
+                    setFormData({
+                      ...formData,
+                      instituteId: selId,
+                      branch: selectedCamp ? selectedCamp.name : (selId === "GLOBAL" ? "All Campuses (Central)" : "Main Campus"),
+                    });
+                  }}
+                  className="w-full h-9 px-2.5 rounded-md border border-input bg-background text-foreground text-xs font-medium"
+                >
+                  <option value="GLOBAL">🌐 All Campuses / Central Access</option>
+                  {availableCampuses.map((c: any) => (
+                    <option key={c.id} value={c.id}>
+                      🏢 {c.name} ({c.code}){c.city ? ` — ${c.city}` : ""}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
 

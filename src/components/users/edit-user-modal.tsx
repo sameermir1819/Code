@@ -15,6 +15,7 @@ interface EditUserModalProps {
   actorRole: Role;
   availableSubjects?: any[];
   availableRoles?: any[];
+  availableCampuses?: any[];
 }
 
 export function EditUserModal({
@@ -25,6 +26,7 @@ export function EditUserModal({
   actorRole,
   availableSubjects = [],
   availableRoles = [],
+  availableCampuses = [],
 }: EditUserModalProps) {
   const [isPending, startTransition] = useTransition();
   const [errorMsg, setErrorMsg] = useState("");
@@ -66,6 +68,7 @@ export function EditUserModal({
     phone: user?.phone || "",
     role: (user?.role || "STUDENT") as Role,
     status: (user?.status || "ACTIVE") as "ACTIVE" | "INACTIVE" | "SUSPENDED",
+    instituteId: user?.instituteId || (user?.branch?.includes("Central") ? "GLOBAL" : ""),
     branch: user?.branch || "Main Campus",
     notes: user?.notes || "",
     newPassword: "",
@@ -82,6 +85,7 @@ export function EditUserModal({
         phone: user.phone || "",
         role: (user.role || "STUDENT") as Role,
         status: (user.status || "ACTIVE") as "ACTIVE" | "INACTIVE" | "SUSPENDED",
+        instituteId: user.instituteId || (user.branch?.includes("Central") ? "GLOBAL" : (availableCampuses[0]?.id || "")),
         branch: user.branch || "Main Campus",
         notes: user.notes || "",
         newPassword: "",
@@ -130,6 +134,7 @@ export function EditUserModal({
           role: formData.role,
           status: formData.status,
           branch: formData.branch,
+          instituteId: formData.instituteId === "GLOBAL" ? "GLOBAL" : (formData.instituteId || null),
           notes: formData.notes,
           newPassword: formData.newPassword || undefined,
           subjectIds: formData.role === "TEACHER" ? selectedSubjectIds : undefined,
@@ -243,11 +248,27 @@ export function EditUserModal({
                 </div>
 
                 <div className="sm:col-span-2">
-                  <label className="font-semibold block mb-1">Branch / Campus</label>
-                  <Input
-                    value={formData.branch}
-                    onChange={(e) => setFormData({ ...formData, branch: e.target.value })}
-                  />
+                  <label className="font-semibold block mb-1">Allotted Campus / Branch *</label>
+                  <select
+                    value={formData.instituteId}
+                    onChange={(e) => {
+                      const selId = e.target.value;
+                      const selectedCamp = availableCampuses.find((c: any) => c.id === selId);
+                      setFormData({
+                        ...formData,
+                        instituteId: selId,
+                        branch: selectedCamp ? selectedCamp.name : (selId === "GLOBAL" ? "All Campuses (Central)" : "Main Campus"),
+                      });
+                    }}
+                    className="w-full h-9 px-3 rounded-md border border-input bg-background text-foreground text-xs font-medium"
+                  >
+                    <option value="GLOBAL">🌐 All Campuses / Central Access</option>
+                    {availableCampuses.map((c: any) => (
+                      <option key={c.id} value={c.id}>
+                        🏢 {c.name} ({c.code}){c.city ? ` — ${c.city}` : ""}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 {/* Faculty Academic Subjects & Specialization (Shown when Role is TEACHER) */}

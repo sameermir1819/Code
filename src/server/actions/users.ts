@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { hashPassword, requirePermission } from "@/lib/auth";
 import { Role, PermissionCode, ROLE_PERMISSIONS } from "@/lib/permissions";
 import { logAudit } from "./audit";
+import { getActiveCampusId } from "./campus";
 import { revalidatePath } from "next/cache";
 
 // =========================================================================
@@ -14,6 +15,7 @@ export async function getUsers({
   role = "ALL",
   status = "ALL",
   branch = "ALL",
+  campusId = "ALL",
   page = 1,
   limit = 20,
   sortBy = "createdAt",
@@ -26,6 +28,7 @@ export async function getUsers({
   role?: string;
   status?: string;
   branch?: string;
+  campusId?: string;
   page?: number;
   limit?: number;
   sortBy?: "name" | "createdAt" | "lastLoginAt" | "status" | "email";
@@ -66,6 +69,15 @@ export async function getUsers({
     where.branch = branch;
   }
 
+  // Filter by Campus
+  if (campusId && campusId !== "ALL") {
+    if (campusId === "GLOBAL") {
+      where.instituteId = null;
+    } else {
+      where.instituteId = campusId;
+    }
+  }
+
   // Filter by Created Date range
   if (createdFrom || createdTo) {
     where.createdAt = {};
@@ -97,6 +109,15 @@ export async function getUsers({
         role: true,
         status: true,
         branch: true,
+        instituteId: true,
+        institute: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+            city: true,
+          },
+        },
         avatarUrl: true,
         lastLoginAt: true,
         createdAt: true,
@@ -139,6 +160,9 @@ export async function getUser(id: string) {
   const user = await db.user.findUnique({
     where: { id },
     include: {
+      institute: {
+        select: { id: true, name: true, code: true, city: true },
+      },
       userRoles: { include: { role: true } },
       userPermissions: { include: { permission: true } },
       teacher: {
@@ -291,6 +315,7 @@ export async function createUser(data: {
   role: Role;
   status?: "ACTIVE" | "INACTIVE" | "SUSPENDED";
   branch?: string;
+  instituteId?: string | null;
   notes?: string;
   password: string;
   confirmPassword?: string;
@@ -337,18 +362,39 @@ export async function createUser(data: {
 
   // Atomic creation: User + UserRole + Teacher (if TEACHER) + AuditLog
   const createdUser = await db.$transaction(async (tx) => {
-    const institute = await tx.institute.findFirst();
+    let resolvedInstituteId: string | null = null;
+    let resolvedBranchName = data.branch?.trim() || "Main Campus";
+
+    if (data.instituteId && data.instituteId !== "GLOBAL") {
+      const targetInst = await tx.institute.findUnique({ where: { id: data.instituteId } });
+      if (targetInst) {
+        resolvedInstituteId = targetInst.id;
+        resolvedBranchName = targetInst.name;
+      }
+    } else if (data.instituteId === "GLOBAL") {
+      resolvedInstituteId = null;
+      resolvedBranchName = "All Campuses (Central)";
+    } else {
+      const activeCampusId = await getActiveCampusId();
+      if (activeCampusId) {
+        const targetInst = await tx.institute.findUnique({ where: { id: activeCampusId } });
+        if (targetInst) {
+          resolvedInstituteId = targetInst.id;
+          resolvedBranchName = targetInst.name;
+        }
+      }
+    }
 
     const user = await tx.user.create({
       data: {
-        instituteId: institute?.id || null,
+        instituteId: resolvedInstituteId,
         name: fullName,
         email,
         phone: data.phone?.trim() || null,
         passwordHash,
         role: data.role,
         status: data.status || "ACTIVE",
-        branch: data.branch?.trim() || "Main Campus",
+        branch: resolvedBranchName,
         notes: data.notes?.trim() || null,
         avatarUrl: data.avatarUrl || null,
       },
@@ -375,7 +421,7 @@ export async function createUser(data: {
     action: "USER_CREATED",
     entity: "User",
     entityId: createdUser.id,
-    details: `${actor.name} (${actor.role}) created user ${createdUser.name} with role ${createdUser.role}`,
+    details: `${actor.name} (${actor.role}) created user ${createdUser.name} with role ${createdUser.role} (Campus: ${createdUser.branch || "Central"})`,
   });
 
   revalidatePath("/dashboard/users");
@@ -398,6 +444,7 @@ export async function updateUser(
     role?: Role;
     status?: "ACTIVE" | "INACTIVE" | "SUSPENDED";
     branch?: string;
+    instituteId?: string | null;
     notes?: string;
     avatarUrl?: string;
     newPassword?: string;
@@ -443,6 +490,22 @@ export async function updateUser(
   if (data.avatarUrl !== undefined) updateData.avatarUrl = data.avatarUrl || null;
   if (data.status) updateData.status = data.status;
   if (data.role) updateData.role = data.role;
+
+  // Handle campus / institute allotment
+  if (data.instituteId !== undefined) {
+    if (!data.instituteId || data.instituteId === "GLOBAL") {
+      updateData.instituteId = null;
+      if (data.branch === undefined) {
+        updateData.branch = "All Campuses (Central)";
+      }
+    } else {
+      updateData.instituteId = data.instituteId;
+      if (data.branch === undefined) {
+        const inst = await db.institute.findUnique({ where: { id: data.instituteId } });
+        if (inst) updateData.branch = inst.name;
+      }
+    }
+  }
 
   if (data.email && data.email.trim().toLowerCase() !== targetUser.email) {
     const email = data.email.trim().toLowerCase();

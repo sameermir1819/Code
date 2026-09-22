@@ -53,6 +53,7 @@ interface UsersTableProps {
   availableSubjects?: any[];
   initialRoles?: any[];
   allPermissions?: any[];
+  availableCampuses?: any[];
 }
 
 export function UsersTable({
@@ -61,6 +62,7 @@ export function UsersTable({
   availableSubjects = [],
   initialRoles = [],
   allPermissions = [],
+  availableCampuses = [],
 }: UsersTableProps) {
   const [data, setData] = useState(initialData);
   const [isPending, startTransition] = useTransition();
@@ -85,6 +87,7 @@ export function UsersTable({
   const [roleFilter, setRoleFilter] = useState("ALL");
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [branchFilter, setBranchFilter] = useState("ALL");
+  const [campusFilter, setCampusFilter] = useState("ALL");
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(20);
   const [sortBy, setSortBy] = useState<"name" | "createdAt" | "lastLoginAt" | "status">("createdAt");
@@ -130,6 +133,7 @@ export function UsersTable({
           role: roleFilter,
           status: statusFilter,
           branch: branchFilter,
+          campusId: campusFilter,
           page: newPage,
           limit,
           sortBy,
@@ -163,6 +167,7 @@ export function UsersTable({
         role: roleFilter,
         status: statusFilter,
         branch: branchFilter,
+        campusId: campusFilter,
         page: 1,
         limit,
         sortBy: field,
@@ -447,6 +452,27 @@ export function UsersTable({
           </div>
 
           <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+            {/* Campus Filter */}
+            {availableCampuses.length > 0 && (
+              <select
+                value={campusFilter}
+                onChange={(e) => {
+                  setCampusFilter(e.target.value);
+                  setPage(1);
+                  setTimeout(() => refreshUsers(1), 50);
+                }}
+                className="h-9 px-2.5 rounded-md border border-input bg-background text-xs text-foreground font-medium"
+              >
+                <option value="ALL">🏢 All Campuses</option>
+                <option value="GLOBAL">🌐 Central / Global (No Campus)</option>
+                {availableCampuses.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name} ({c.code})
+                  </option>
+                ))}
+              </select>
+            )}
+
             {/* Role Filter */}
             <select
               value={roleFilter}
@@ -496,7 +522,7 @@ export function UsersTable({
               Apply
             </Button>
 
-            {(search || roleFilter !== "ALL" || statusFilter !== "ALL") && (
+            {(search || roleFilter !== "ALL" || statusFilter !== "ALL" || campusFilter !== "ALL") && (
               <Button
                 type="button"
                 variant="ghost"
@@ -505,6 +531,7 @@ export function UsersTable({
                   setSearch("");
                   setRoleFilter("ALL");
                   setStatusFilter("ALL");
+                  setCampusFilter("ALL");
                   setPage(1);
                   startTransition(async () => {
                     const res = await getUsers({ page: 1, limit, sortBy, sortOrder });
@@ -604,7 +631,7 @@ export function UsersTable({
                       <ArrowUpDown className="h-3 w-3" />
                     </div>
                   </th>
-                  <th className="p-3">Branch</th>
+                  <th className="p-3">Allotted Campus</th>
                   <th
                     onClick={() => toggleSort("lastLoginAt")}
                     className="p-3 cursor-pointer hover:text-foreground select-none"
@@ -685,7 +712,7 @@ export function UsersTable({
                         <Badge
                           variant={
                             u.status === "ACTIVE"
-                              ? "success"
+                               ? "success"
                               : u.status === "SUSPENDED"
                               ? "destructive"
                               : "secondary"
@@ -696,8 +723,28 @@ export function UsersTable({
                         </Badge>
                       </td>
 
-                      {/* Branch */}
-                      <td className="p-3 text-muted-foreground">{u.branch || "Main Campus"}</td>
+                      {/* Allotted Campus */}
+                      <td className="p-3">
+                        <div className="flex items-center gap-2">
+                          <div className="h-7 w-7 rounded-md bg-muted/70 flex items-center justify-center shrink-0 text-muted-foreground border">
+                            <Building className="h-3.5 w-3.5" />
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="font-semibold text-foreground text-xs">
+                              {u.institute?.name || u.branch || "All Campuses"}
+                            </span>
+                            {u.institute?.code ? (
+                              <span className="text-[10px] font-mono text-muted-foreground">
+                                {u.institute.code} {u.institute.city ? `• ${u.institute.city}` : ""}
+                              </span>
+                            ) : !u.instituteId ? (
+                              <span className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
+                                Global / Central Admin
+                              </span>
+                            ) : null}
+                          </div>
+                        </div>
+                      </td>
 
                       {/* Last Login */}
                       <td className="p-3 text-muted-foreground">
@@ -849,6 +896,7 @@ export function UsersTable({
         actorRole={actorRole}
         availableSubjects={availableSubjects}
         availableRoles={rolesList}
+        availableCampuses={availableCampuses}
       />
 
       <EditUserModal
@@ -862,6 +910,7 @@ export function UsersTable({
         actorRole={actorRole}
         availableSubjects={availableSubjects}
         availableRoles={rolesList}
+        availableCampuses={availableCampuses}
       />
 
       <UserDetailsDrawer
