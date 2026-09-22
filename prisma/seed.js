@@ -50,15 +50,15 @@ async function main() {
   // 1. Institute
   const institute = await prisma.institute.create({
     data: {
-      name: "Apex Academy",
-      code: "APEX-HQ-01",
-      tagline: "Premier Coaching for IIT-JEE, NEET-UG & CBSE Boards",
+      name: "Futurex_Learning",
+      code: "FL-CAMPUS-01",
+      tagline: "Premier Coaching for IIT-JEE, NEET-UG & Competitive Exams",
       address: "Plot 42, Knowledge Park, Central Avenue",
       city: "New Delhi",
       state: "Delhi",
       phone: "+91 98765 43210",
-      email: "admissions@apexacademy.edu",
-      website: "https://apexacademy.edu",
+      email: "admissions@futurexlearning.com",
+      website: "https://futurexlearning.com",
       currency: "INR",
       currencySymbol: "₹",
       timezone: "Asia/Kolkata",
@@ -84,7 +84,7 @@ async function main() {
     data: {
       instituteId: institute.id,
       name: "Director Dr. S. K. Mehta",
-      email: "superadmin@apexacademy.edu",
+      email: "superadmin@futurexlearning.com",
       passwordHash: defaultPasswordHash,
       role: "SUPER_ADMIN",
       status: "ACTIVE",
@@ -95,7 +95,7 @@ async function main() {
     data: {
       instituteId: institute.id,
       name: "Academic Coordinator Ritu Sharma",
-      email: "admin@apexacademy.edu",
+      email: "admin@futurexlearning.com",
       passwordHash: defaultPasswordHash,
       role: "ADMIN",
       status: "ACTIVE",
@@ -106,7 +106,7 @@ async function main() {
     data: {
       instituteId: institute.id,
       name: "Senior Accountant Rashid Ali",
-      email: "accounts@apexacademy.edu",
+      email: "accounts@futurexlearning.com",
       passwordHash: defaultPasswordHash,
       role: "ACCOUNTANT",
       status: "ACTIVE",
@@ -117,7 +117,7 @@ async function main() {
   const teacherData = [
     {
       name: "Dr. Rajesh Verma",
-      email: "rajesh.verma@apexacademy.edu",
+      email: "rajesh.verma@futurexlearning.com",
       phone: "+91 98110 12345",
       teacherId: "TCH-001",
       gender: "MALE",
@@ -126,7 +126,7 @@ async function main() {
     },
     {
       name: "Dr. Preeti Deshmukh",
-      email: "preeti.deshmukh@apexacademy.edu",
+      email: "preeti.deshmukh@futurexlearning.com",
       phone: "+91 98220 23456",
       teacherId: "TCH-002",
       gender: "FEMALE",
@@ -135,7 +135,7 @@ async function main() {
     },
     {
       name: "Er. Amitav Sen",
-      email: "amitav.sen@apexacademy.edu",
+      email: "amitav.sen@futurexlearning.com",
       phone: "+91 98330 34567",
       teacherId: "TCH-003",
       gender: "MALE",
@@ -714,10 +714,10 @@ async function main() {
   console.log("✅ Seed completed successfully!");
   console.log("-----------------------------------------");
   console.log("Credentials:");
-  console.log("Super Admin : superadmin@apexacademy.edu / Admin@123");
-  console.log("Admin       : admin@apexacademy.edu / Admin@123");
-  console.log("Accountant  : accounts@apexacademy.edu / Admin@123");
-  console.log("Teacher     : rajesh.verma@apexacademy.edu / Admin@123");
+  console.log("Super Admin : superadmin@futurexlearning.com / Admin@123");
+  console.log("Admin       : admin@futurexlearning.com / Admin@123");
+  console.log("Accountant  : accounts@futurexlearning.com / Admin@123");
+  console.log("Teacher     : rajesh.verma@futurexlearning.com / Admin@123");
   console.log("Student     : aarav.sharma@example.com / Admin@123");
   console.log("-----------------------------------------");
 }
