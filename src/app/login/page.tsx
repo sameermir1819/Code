@@ -6,12 +6,12 @@ import { loginUser } from "@/server/actions/auth";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Shield, Lock, Mail, CheckCircle2 } from "lucide-react";
+import { Lock, Mail } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState("superadmin@futurexlearning.com");
-  const [password, setPassword] = useState("Admin@123");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
   const [isPending, startTransition] = useTransition();
 
@@ -30,11 +30,6 @@ export default function LoginPage() {
     });
   };
 
-  const setPreset = (presetEmail: string) => {
-    setEmail(presetEmail);
-    setPassword("Admin@123");
-  };
-
   return (
     <div className="min-h-screen bg-muted/30 flex flex-col justify-center items-center p-4">
       <div className="w-full max-w-md space-y-6">
@@ -51,7 +46,7 @@ export default function LoginPage() {
           <CardHeader className="pb-4">
             <CardTitle className="text-base font-semibold">Sign In</CardTitle>
             <CardDescription className="text-xs">
-              Enter credentials or select a 1-click active system account
+              Enter your registered credentials to access your account
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -72,7 +67,7 @@ export default function LoginPage() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="pl-9"
-                    placeholder="user@futurexlearning.com"
+                    placeholder="name@example.com"
                   />
                 </div>
               </div>
@@ -87,6 +82,7 @@ export default function LoginPage() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     className="pl-9"
+                    placeholder="••••••••"
                   />
                 </div>
               </div>
@@ -95,47 +91,9 @@ export default function LoginPage() {
                 {isPending ? "Authenticating..." : "Sign In to Futurex ERP"}
               </Button>
             </form>
-
-            {/* Quick 1-Click Role Presets */}
-            <div className="pt-4 border-t space-y-2">
-              <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block">
-                1-Click Active Accounts (Password: Admin@123):
-              </span>
-              <div className="grid grid-cols-2 gap-1.5 text-[11px]">
-                <button
-                  type="button"
-                  onClick={() => setPreset("superadmin@futurexlearning.com")}
-                  className="p-1.5 rounded border text-left hover:bg-muted font-medium transition-colors"
-                >
-                  👑 Super Admin (Sameer Mir)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPreset("admin@futurexlearning.com")}
-                  className="p-1.5 rounded border text-left hover:bg-muted font-medium transition-colors"
-                >
-                  🛡️ Admin Officer
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPreset("accountant@futurexlearning.com")}
-                  className="p-1.5 rounded border text-left hover:bg-muted font-medium transition-colors"
-                >
-                  💼 Accountant Desk
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPreset("user1@futurex.com")}
-                  className="p-1.5 rounded border text-left hover:bg-muted font-medium transition-colors"
-                >
-                  🎓 Faculty (Teacher 1)
-                </button>
-              </div>
-            </div>
           </CardContent>
         </Card>
       </div>
     </div>
   );
 }
-

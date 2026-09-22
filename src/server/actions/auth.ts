@@ -95,53 +95,10 @@ export async function getCurrentUser() {
   return await getSession();
 }
 
-export async function switchDevRole(newRole: Role) {
-  // For instant development switching between Super Admin, Admin, Accountant, Teacher, Student, Parent
-  const user = await db.user.findFirst({
-    where: { role: newRole, status: "ACTIVE" },
-    include: {
-      teacher: true,
-      student: true,
-      parent: true,
-    },
-  });
-
-  if (!user) {
-    return { success: false, error: `No active user found with role ${newRole}` };
-  }
-
-  const sessionUser = {
-    id: user.id,
-    name: user.name,
-    email: user.email,
-    role: user.role as Role,
-    instituteId: user.instituteId,
-    teacherId: user.teacher?.id || null,
-    studentId: user.student?.id || null,
-    parentId: user.parent?.id || null,
-  };
-
-  const token = await createSessionToken(sessionUser);
-  await setSessionCookie(token);
-
-  await logAudit({
-    action: "DEV_ROLE_SWITCH",
-    entity: "User",
-    entityId: user.id,
-    details: `Dev switched active session to ${newRole} (${user.email})`,
-  });
-
-  return { success: true, user: sessionUser };
-}
-
 export async function getUserProfile() {
   const session = await getSession();
   if (!session) {
-    // Return first active user if session not yet set in dev
-    const user = await db.user.findFirst({
-      where: { role: "SUPER_ADMIN" },
-    });
-    return user;
+    return null;
   }
   return await db.user.findUnique({
     where: { id: session.id },
@@ -157,17 +114,11 @@ export async function updateUserProfile(data: {
   newPassword?: string;
 }) {
   const session = await getSession();
-  const userId = session?.id;
-
-  let targetUserId = userId;
-  if (!targetUserId) {
-    const adminUser = await db.user.findFirst({ where: { role: "SUPER_ADMIN" } });
-    targetUserId = adminUser?.id;
+  if (!session) {
+    throw new Error("UNAUTHORIZED: You must be logged in to update your profile");
   }
 
-  if (!targetUserId) {
-    throw new Error("No user found to update");
-  }
+  const targetUserId = session.id;
 
   const existing = await db.user.findUnique({ where: { id: targetUserId } });
   if (!existing) throw new Error("User record not found");

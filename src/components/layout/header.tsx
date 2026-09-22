@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Role } from "@/lib/permissions";
-import { switchDevRole, logoutUser } from "@/server/actions/auth";
+import { logoutUser } from "@/server/actions/auth";
 import {
   Bell,
   Search,
@@ -13,8 +13,6 @@ import {
   Shield,
   GraduationCap,
   Briefcase,
-  Users,
-  Check,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -24,28 +22,10 @@ interface HeaderProps {
   unreadCount?: number;
 }
 
-const ROLES_LIST: { role: Role; label: string; icon: React.ReactNode; badge: string }[] = [
-  { role: "SUPER_ADMIN", label: "Super Admin", icon: <Shield className="h-3.5 w-3.5" />, badge: "Full Access" },
-  { role: "ADMIN", label: "Admin", icon: <Shield className="h-3.5 w-3.5" />, badge: "Operations" },
-  { role: "ACCOUNTANT", label: "Accountant", icon: <Briefcase className="h-3.5 w-3.5" />, badge: "Finance" },
-  { role: "TEACHER", label: "Teacher / Faculty", icon: <GraduationCap className="h-3.5 w-3.5" />, badge: "Academic" },
-];
-
 export function Header({ currentRole, userName, unreadCount = 0 }: HeaderProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
-  const [isRoleDropdownOpen, setIsRoleDropdownOpen] = useState(false);
   const [isDark, setIsDark] = useState(false);
-
-  const handleRoleSwitch = (newRole: Role) => {
-    setIsRoleDropdownOpen(false);
-    startTransition(async () => {
-      const res = await switchDevRole(newRole);
-      if (res.success) {
-        router.refresh();
-      }
-    });
-  };
 
   const handleLogout = () => {
     startTransition(async () => {
@@ -76,45 +56,10 @@ export function Header({ currentRole, userName, unreadCount = 0 }: HeaderProps) 
 
       {/* Right controls */}
       <div className="flex items-center gap-3">
-        {/* Live Role Switcher */}
-        <div className="relative">
-          <button
-            onClick={() => setIsRoleDropdownOpen(!isRoleDropdownOpen)}
-            disabled={isPending}
-            className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-primary/30 bg-primary/5 hover:bg-primary/10 text-xs font-semibold text-primary transition-all shadow-xs cursor-pointer"
-            title="Switch user role for live testing and preview"
-          >
-            <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
-            <span className="hidden sm:inline text-muted-foreground font-normal">Role:</span>
-            <span>{currentRole.replace("_", " ")}</span>
-          </button>
-
-          {isRoleDropdownOpen && (
-            <div className="absolute right-0 mt-2 w-56 rounded-xl border bg-card text-card-foreground shadow-xl p-1.5 z-50 text-xs animate-in fade-in zoom-in-95">
-              <div className="px-2.5 py-1.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider border-b mb-1">
-                Switch Live Role (RBAC)
-              </div>
-              {ROLES_LIST.map((item) => (
-                <button
-                  key={item.role}
-                  onClick={() => handleRoleSwitch(item.role)}
-                  className="w-full flex items-center justify-between px-2.5 py-2 rounded-md hover:bg-accent text-left transition-colors cursor-pointer"
-                >
-                  <div className="flex items-center gap-2">
-                    {item.icon}
-                    <span className="font-medium">{item.label}</span>
-                  </div>
-                  {currentRole === item.role ? (
-                    <Check className="h-3.5 w-3.5 text-primary" />
-                  ) : (
-                    <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
-                      {item.badge}
-                    </span>
-                  )}
-                </button>
-              ))}
-            </div>
-          )}
+        {/* Active User Role Badge */}
+        <div className="flex items-center gap-2 px-2.5 py-1 rounded-lg border bg-muted/50 text-xs font-semibold text-foreground">
+          <Shield className="h-3.5 w-3.5 text-primary" />
+          <span>{currentRole.replace("_", " ")}</span>
         </div>
 
         {/* Theme Toggle */}
@@ -149,6 +94,7 @@ export function Header({ currentRole, userName, unreadCount = 0 }: HeaderProps) 
           variant="ghost"
           size="sm"
           onClick={handleLogout}
+          disabled={isPending}
           className="text-xs text-muted-foreground hover:text-destructive flex items-center gap-1.5 px-2"
           title="Sign out"
         >

@@ -55,22 +55,6 @@ export async function getSession(): Promise<SessionUser | null> {
   const cookieStore = await cookies();
   const token = cookieStore.get(COOKIE_NAME)?.value;
   if (!token) {
-    // Seamless local dev preview fallback
-    try {
-      const superAdmin = await db.user.findFirst({
-        where: { role: "SUPER_ADMIN" },
-      });
-      if (superAdmin) {
-        return {
-          id: superAdmin.id,
-          email: superAdmin.email,
-          name: superAdmin.name,
-          role: superAdmin.role as Role,
-        };
-      }
-    } catch {
-      return null;
-    }
     return null;
   }
   return await verifySessionToken(token);
