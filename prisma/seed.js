@@ -1,12 +1,19 @@
 const { PrismaClient } = require("@prisma/client");
 const bcrypt = require("bcryptjs");
 
-const prisma = new PrismaClient();
+const prisma = new PrismaClient({
+  datasources: {
+    db: {
+      url: process.env.DIRECT_URL || process.env.DATABASE_URL
+    }
+  }
+});
 
 async function main() {
   console.log("🌱 Starting Apex Academy ERP Database Seed...");
 
   // Clean existing data in reverse order of foreign keys
+  console.log("🧹 Cleaning existing database records...");
   try {
     await prisma.auditLog.deleteMany();
     await prisma.notification.deleteMany();
@@ -35,6 +42,7 @@ async function main() {
     await prisma.user.deleteMany();
     await prisma.academicSession.deleteMany();
     await prisma.institute.deleteMany();
+    console.log("✨ Existing records cleaned!");
   } catch (e) {
     console.log("Clean up notice:", e.message);
   }
