@@ -108,6 +108,22 @@ export async function loginUser(formData: {
       return { success: false, error: "Invalid username/email or password" };
     }
 
+    // If student is enrolled & ACTIVE in institutional records, ensure User status is synced to ACTIVE
+    if (user.role === "STUDENT") {
+      if (!matchedStudent) {
+        matchedStudent = await db.student.findFirst({
+          where: { OR: [{ userId: user.id }, { email: user.email }] },
+        });
+      }
+      if (matchedStudent && matchedStudent.status === "ACTIVE" && user.status !== "ACTIVE") {
+        await db.user.update({
+          where: { id: user.id },
+          data: { status: "ACTIVE" },
+        });
+        user.status = "ACTIVE";
+      }
+    }
+
     if (user.status !== "ACTIVE") {
       return {
         success: false,
