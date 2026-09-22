@@ -1,0 +1,55 @@
+import React from "react";
+import { redirect } from "next/navigation";
+import { getSession } from "@/lib/auth";
+import { resolveCurrentStudent } from "@/server/actions/portal";
+import { getActiveCampus } from "@/server/actions/campus";
+import { PortalShell } from "@/components/portal/portal-shell";
+
+export const metadata = {
+  title: "Student Portal - Futurex Learning",
+  description: "Student Academic, Attendance & Examination Self-Service Portal",
+};
+
+export default async function PortalLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const session = await getSession();
+
+  if (!session) {
+    redirect("/login?redirect=/portal");
+  }
+
+  const [{ student }, activeCampus] = await Promise.all([
+    resolveCurrentStudent(),
+    getActiveCampus(),
+  ]);
+
+  const instituteName = activeCampus?.name || student?.institute?.name || "Futurex Learning";
+  const instituteLogoUrl = activeCampus?.logoUrl || student?.institute?.logoUrl || "/logo.png";
+  const isPreview = session.role === "SUPER_ADMIN" || session.role === "ADMIN";
+
+  return (
+    <PortalShell
+      student={
+        student
+          ? {
+              id: student.id,
+              name: student.name,
+              studentId: student.studentId,
+              admissionNo: student.admissionNo,
+              email: student.email,
+              photoUrl: student.photoUrl,
+              gradeClass: student.gradeClass,
+            }
+          : null
+      }
+      instituteName={instituteName}
+      instituteLogoUrl={instituteLogoUrl}
+      isPreview={isPreview}
+    >
+      {children}
+    </PortalShell>
+  );
+}

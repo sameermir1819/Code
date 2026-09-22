@@ -15,7 +15,6 @@ import {
   Sparkles,
   ArrowRight,
   CheckCircle2,
-  TrendingUp,
   AlertCircle,
 } from "lucide-react";
 
@@ -41,7 +40,11 @@ export function LoginForm({ logoUrl, instituteName, tagline }: LoginFormProps) {
     startTransition(async () => {
       const res = await loginUser({ email, password });
       if (res.success) {
-        router.push("/dashboard");
+        if (res.user?.role === "STUDENT") {
+          router.push("/portal");
+        } else {
+          router.push("/dashboard");
+        }
         router.refresh();
       } else {
         setErrorMsg(res.error || "Authentication failed. Invalid email or password.");
@@ -103,41 +106,38 @@ export function LoginForm({ logoUrl, instituteName, tagline }: LoginFormProps) {
             </p>
           </div>
 
-          {/* Glassmorphic Metrics Terminal Card */}
-          <div className="p-5 rounded-2xl bg-white/[0.04] border border-white/10 backdrop-blur-xl shadow-2xl space-y-4">
+          {/* Enterprise Capabilities Showcase (Public, Zero Internal Data Exposure) */}
+          <div className="p-6 rounded-2xl bg-white/[0.04] border border-white/10 backdrop-blur-xl shadow-2xl space-y-4">
             <div className="flex items-center justify-between border-b border-white/10 pb-3">
               <div className="flex items-center gap-2">
                 <span className="relative flex h-2 w-2">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                 </span>
-                <span className="text-xs font-semibold text-zinc-200">Live Campus Operations Feed</span>
+                <span className="text-xs font-semibold text-zinc-200">Unified Cloud Architecture</span>
               </div>
-              <span className="text-[11px] font-mono text-zinc-400">Main Campus • Auto-Sync</span>
+              <span className="text-[11px] font-mono text-zinc-400">Enterprise High-Availability</span>
             </div>
 
             <div className="grid grid-cols-3 gap-3">
-              <div className="p-3 rounded-xl bg-white/[0.03] border border-white/5">
-                <span className="text-[11px] text-zinc-400 block font-medium">Today's Attendance</span>
-                <span className="text-xl font-extrabold text-white mt-0.5 block">98.4%</span>
-                <span className="text-[10px] text-emerald-400 flex items-center gap-0.5 mt-0.5 font-medium">
-                  <TrendingUp className="w-2.5 h-2.5" /> +2.1% Biometric QR
+              <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/5 space-y-1">
+                <span className="text-xs font-bold text-white block">Multi-Campus</span>
+                <span className="text-[11px] text-zinc-400 leading-tight block">
+                  Centralized academic &amp; batch administration
                 </span>
               </div>
 
-              <div className="p-3 rounded-xl bg-white/[0.03] border border-white/5">
-                <span className="text-[11px] text-zinc-400 block font-medium">Monthly Collections</span>
-                <span className="text-xl font-extrabold text-white mt-0.5 block">₹14.85 L</span>
-                <span className="text-[10px] text-emerald-400 flex items-center gap-0.5 mt-0.5 font-medium">
-                  <TrendingUp className="w-2.5 h-2.5" /> 94% Fee Realized
+              <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/5 space-y-1">
+                <span className="text-xs font-bold text-white block">Dedicated Portals</span>
+                <span className="text-[11px] text-zinc-400 leading-tight block">
+                  Separate staff &amp; student workspaces
                 </span>
               </div>
 
-              <div className="p-3 rounded-xl bg-white/[0.03] border border-white/5">
-                <span className="text-[11px] text-zinc-400 block font-medium">Active Inquiries</span>
-                <span className="text-xl font-extrabold text-amber-300 mt-0.5 block">42 Leads</span>
-                <span className="text-[10px] text-amber-300/80 mt-0.5 block font-medium">
-                  18 Due for Follow-up
+              <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/5 space-y-1">
+                <span className="text-xs font-bold text-white block">Real-Time Sync</span>
+                <span className="text-[11px] text-zinc-400 leading-tight block">
+                  Encrypted attendance &amp; test records
                 </span>
               </div>
             </div>
@@ -146,18 +146,17 @@ export function LoginForm({ logoUrl, instituteName, tagline }: LoginFormProps) {
               <div className="flex items-center gap-3">
                 <span className="flex items-center gap-1.5 text-zinc-300 font-medium">
                   <CheckCircle2 className="w-3.5 h-3.5 text-blue-400" />
-                  Auto-Invoicing
+                  Role-Based Isolation
                 </span>
                 <span className="flex items-center gap-1.5 text-zinc-300 font-medium">
                   <CheckCircle2 className="w-3.5 h-3.5 text-purple-400" />
-                  CR-80 Smart IDs
+                  Biometric QR Verification
                 </span>
                 <span className="flex items-center gap-1.5 text-zinc-300 font-medium">
                   <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                  Parent WhatsApp Bot
+                  TLS 256-Bit Protection
                 </span>
               </div>
-              <span className="text-[10px] text-zinc-500 font-mono">SEC-ID: FL-PROD</span>
             </div>
           </div>
         </div>

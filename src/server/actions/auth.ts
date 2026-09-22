@@ -40,6 +40,19 @@ export async function loginUser(formData: { email: string; password: string }) {
       return { success: false, error: "Invalid email or password" };
     }
 
+    let studentId = user.student?.id || null;
+    if (!studentId && user.role === "STUDENT") {
+      const matchedStudent = await db.student.findFirst({
+        where: { OR: [{ email: user.email }, { userId: user.id }] },
+      });
+      if (matchedStudent) {
+        studentId = matchedStudent.id;
+        if (!matchedStudent.userId) {
+          db.student.update({ where: { id: matchedStudent.id }, data: { userId: user.id } }).catch(() => {});
+        }
+      }
+    }
+
     const sessionUser = {
       id: user.id,
       name: user.name,
@@ -47,7 +60,7 @@ export async function loginUser(formData: { email: string; password: string }) {
       role: user.role as Role,
       instituteId: user.instituteId,
       teacherId: user.teacher?.id || null,
-      studentId: user.student?.id || null,
+      studentId: studentId,
       parentId: user.parent?.id || null,
     };
 

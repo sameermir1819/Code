@@ -6,8 +6,8 @@ const SECRET_KEY = process.env.JWT_SECRET || "coaching-erp-default-secret-key-mi
 const key = new TextEncoder().encode(SECRET_KEY);
 const COOKIE_NAME = "erp_session_token";
 
-// Protected route prefixes
-const PROTECTED_PREFIXES = [
+// Staff-only backend route prefixes (Students must NEVER access these)
+const STAFF_BACKEND_PREFIXES = [
   "/dashboard",
   "/students",
   "/batches",
@@ -40,20 +40,35 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const token = request.cookies.get(COOKIE_NAME)?.value;
   const session = token ? await verifyToken(token) : null;
+  const isStudent = session?.role === "STUDENT";
 
-  // 1. If user is logged in and visits /login, redirect to /dashboard
+  // 1. If user is logged in and visits /login, redirect to their respective workspace
   if (pathname === "/login") {
     if (session) {
-      return NextResponse.redirect(new URL("/dashboard", request.url));
+      const destination = isStudent ? "/portal" : "/dashboard";
+      return NextResponse.redirect(new URL(destination, request.url));
     }
     const response = NextResponse.next();
     applySecurityHeaders(response);
     return response;
   }
 
-  // 2. Protect dashboard routes
-  const isProtected = PROTECTED_PREFIXES.some((prefix) => pathname.startsWith(prefix));
-  if (isProtected) {
+  // 2. Protect Student Portal routes (/portal)
+  if (pathname.startsWith("/portal")) {
+    if (!session) {
+      const loginUrl = new URL("/login", request.url);
+      loginUrl.searchParams.set("redirect", pathname);
+      return NextResponse.redirect(loginUrl);
+    }
+    // Authenticated users (students, or staff previewing) can access /portal
+    const response = NextResponse.next();
+    applySecurityHeaders(response);
+    return response;
+  }
+
+  // 3. Protect staff-only backend routes
+  const isStaffRoute = STAFF_BACKEND_PREFIXES.some((prefix) => pathname.startsWith(prefix));
+  if (isStaffRoute) {
     if (!session) {
       const loginUrl = new URL("/login", request.url);
       if (pathname !== "/dashboard") {
@@ -61,12 +76,18 @@ export async function middleware(request: NextRequest) {
       }
       return NextResponse.redirect(loginUrl);
     }
+
+    // CRITICAL: Students are strictly blocked from the backend administration panel
+    if (isStudent) {
+      return NextResponse.redirect(new URL("/portal", request.url));
+    }
   }
 
-  // 3. For root path `/`, redirect to dashboard or login
+  // 4. For root path `/`, redirect to student portal, admin dashboard, or login
   if (pathname === "/") {
     if (session) {
-      return NextResponse.redirect(new URL("/dashboard", request.url));
+      const destination = isStudent ? "/portal" : "/dashboard";
+      return NextResponse.redirect(new URL(destination, request.url));
     } else {
       return NextResponse.redirect(new URL("/login", request.url));
     }

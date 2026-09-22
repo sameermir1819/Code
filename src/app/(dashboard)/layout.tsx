@@ -19,6 +19,11 @@ export default async function DashboardLayout({
     redirect("/login");
   }
 
+  // Strictly block students from accessing backend admin layout
+  if (session.role === "STUDENT") {
+    redirect("/portal");
+  }
+
   const userRole: Role = session.role || "SUPER_ADMIN";
   const userName = session.name || "Administrator";
 
