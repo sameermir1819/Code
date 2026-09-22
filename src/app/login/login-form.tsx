@@ -15,19 +15,8 @@ import {
   Sparkles,
   ArrowRight,
   CheckCircle2,
-  QrCode,
-  CreditCard,
-  Layers,
-  GraduationCap,
-  Activity,
-  Zap,
   TrendingUp,
-  Building2,
-  Users,
-  KeyRound,
-  Check,
   AlertCircle,
-  HelpCircle,
 } from "lucide-react";
 
 interface LoginFormProps {
@@ -36,58 +25,14 @@ interface LoginFormProps {
   tagline: string;
 }
 
-const DEMO_ACCOUNTS = [
-  {
-    role: "ADMIN",
-    label: "Admin / Director",
-    email: "admin@futurexlearning.com",
-    pass: "admin123",
-    badge: "Full Access",
-    color: "border-blue-500/30 text-blue-400 bg-blue-500/10 hover:bg-blue-500/20",
-  },
-  {
-    role: "TEACHER",
-    label: "Senior Faculty",
-    email: "teacher@futurexlearning.com",
-    pass: "teacher123",
-    badge: "Academic & Tests",
-    color: "border-purple-500/30 text-purple-400 bg-purple-500/10 hover:bg-purple-500/20",
-  },
-  {
-    role: "ACCOUNTANT",
-    label: "Finance & Accounts",
-    email: "accountant@futurexlearning.com",
-    pass: "accountant123",
-    badge: "Fee Ledgers",
-    color: "border-emerald-500/30 text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20",
-  },
-  {
-    role: "STUDENT",
-    label: "Student Portal",
-    email: "student@futurexlearning.com",
-    pass: "student123",
-    badge: "Attendance & ID",
-    color: "border-amber-500/30 text-amber-400 bg-amber-500/10 hover:bg-amber-500/20",
-  },
-];
-
 export function LoginForm({ logoUrl, instituteName, tagline }: LoginFormProps) {
   const router = useRouter();
-  const [email, setEmail] = useState("admin@futurexlearning.com");
-  const [password, setPassword] = useState("admin123");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [errorMsg, setErrorMsg] = useState("");
-  const [selectedRole, setSelectedRole] = useState("ADMIN");
-  const [showDemoDrawer, setShowDemoDrawer] = useState(false);
   const [isPending, startTransition] = useTransition();
-
-  const handleRoleQuickSelect = (acc: typeof DEMO_ACCOUNTS[0]) => {
-    setSelectedRole(acc.role);
-    setEmail(acc.email);
-    setPassword(acc.pass);
-    setErrorMsg("");
-  };
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -251,19 +196,9 @@ export function LoginForm({ logoUrl, instituteName, tagline }: LoginFormProps) {
 
           {/* Form Header */}
           <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold uppercase tracking-wider text-primary">
-                Portal Authentication
-              </span>
-              <button
-                type="button"
-                onClick={() => setShowDemoDrawer(!showDemoDrawer)}
-                className="text-xs font-medium text-amber-400 hover:text-amber-300 flex items-center gap-1 transition-colors"
-              >
-                <KeyRound className="w-3.5 h-3.5" />
-                <span>{showDemoDrawer ? "Hide Demo Accounts" : "Quick Demo Accounts"}</span>
-              </button>
-            </div>
+            <span className="text-xs font-semibold uppercase tracking-wider text-primary">
+              Portal Authentication
+            </span>
             <h3 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
               Sign In to Your Workspace
             </h3>
@@ -271,44 +206,6 @@ export function LoginForm({ logoUrl, instituteName, tagline }: LoginFormProps) {
               Enter your authorized staff or student credentials to access your portal.
             </p>
           </div>
-
-          {/* Demo Accounts Quick-Select Drawer */}
-          {showDemoDrawer && (
-            <div className="p-3.5 rounded-xl bg-white/[0.04] border border-white/10 space-y-2 animate-in fade-in duration-200">
-              <div className="flex items-center justify-between text-[11px] font-semibold text-zinc-300">
-                <span>SELECT DEMO ROLE</span>
-                <span className="text-[10px] text-zinc-400">1-Click Auto-Fill</span>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                {DEMO_ACCOUNTS.map((acc) => {
-                  const isSelected = selectedRole === acc.role;
-                  return (
-                    <button
-                      key={acc.role}
-                      type="button"
-                      onClick={() => handleRoleQuickSelect(acc)}
-                      className={`p-2.5 rounded-xl border text-left text-xs transition-all relative overflow-hidden ${
-                        isSelected
-                          ? "bg-primary/20 border-primary text-white shadow-sm ring-1 ring-primary/40"
-                          : "bg-white/[0.02] border-white/10 hover:bg-white/[0.06] text-zinc-300 hover:text-white"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between mb-0.5">
-                        <span className="font-bold text-xs">{acc.label}</span>
-                        {isSelected && <Check className="w-3 h-3 text-primary" />}
-                      </div>
-                      <span className="text-[10px] text-zinc-400 block font-mono truncate">
-                        {acc.email}
-                      </span>
-                      <span className="text-[9px] px-1.5 py-0.2 rounded font-semibold bg-white/10 text-zinc-300 mt-1 inline-block">
-                        {acc.badge}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
 
           {/* Error Message Alert */}
           {errorMsg && (
@@ -334,7 +231,7 @@ export function LoginForm({ logoUrl, instituteName, tagline }: LoginFormProps) {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="pl-10 h-11 text-xs rounded-xl bg-white/[0.04] border-white/15 text-white placeholder:text-zinc-500 focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all shadow-inner"
-                  placeholder="name@futurexlearning.com"
+                  placeholder="name@institute.com"
                   autoComplete="email"
                 />
               </div>
@@ -405,7 +302,7 @@ export function LoginForm({ logoUrl, instituteName, tagline }: LoginFormProps) {
                 </>
               ) : (
                 <>
-                  <span>Sign In to Executive Workspace</span>
+                  <span>Sign In to Workspace</span>
                   <ArrowRight className="h-4 w-4" />
                 </>
               )}
