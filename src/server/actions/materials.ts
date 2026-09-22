@@ -63,12 +63,14 @@ export async function createStudyMaterial(data: {
 }) {
   const session = await requireAuth(["SUPER_ADMIN", "ADMIN", "TEACHER"]);
 
+  const safeFileUrl = data.fileUrl?.trim() || "/uploads/materials/default-notes.pdf";
+
   const material = await db.studyMaterial.create({
     data: {
-      title: data.title,
-      description: data.description || null,
+      title: data.title.trim(),
+      description: data.description?.trim() || null,
       fileType: data.fileType || "PDF",
-      fileUrl: data.fileUrl,
+      fileUrl: safeFileUrl,
       fileSize: data.fileSize || "1.5 MB",
       courseId: data.courseId || null,
       batchId: data.batchId || null,

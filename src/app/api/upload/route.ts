@@ -64,8 +64,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       success: true,
       fileUrl: publicUrl,
+      url: publicUrl,
       fileName: file.name,
       fileSize: formattedSize,
+      size: formattedSize,
       fileType,
       message: "File uploaded successfully.",
     });

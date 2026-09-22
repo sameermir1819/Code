@@ -194,9 +194,16 @@ export function BatchDetailView({
           throw new Error("File upload failed on server.");
         }
         const data = await res.json();
-        finalFileUrl = data.url;
-        finalFileSize = data.size;
+        if (!data.success && !data.fileUrl && !data.url) {
+          throw new Error(data.message || "File upload failed on server.");
+        }
+        finalFileUrl = data.fileUrl || data.url || "";
+        finalFileSize = data.fileSize || data.size || "1.5 MB";
         finalFileType = data.fileType || finalFileType;
+      }
+
+      if (!finalFileUrl.trim()) {
+        throw new Error("File upload incomplete. Please choose a valid file or provide a link.");
       }
 
       const chosenSubjectId = newMaterial.subjectId || defaultSubjectId;
