@@ -44,6 +44,8 @@ export async function getAllCampuses(): Promise<CampusItem[]> {
   }
 }
 
+export const getCampuses = getAllCampuses;
+
 /**
  * Get active campus based on session cookie or fallback to first
  */

@@ -1,19 +1,28 @@
 "use client";
 
-import { useState, useEffect, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, useTransition, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { processAdmission } from "@/server/actions/admissions";
 import { getCourses, getBatches } from "@/server/actions/academics";
+import { updateLead } from "@/server/actions/leads";
 import { formatCurrency } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, CheckCircle2, UserPlus, CreditCard, Layers, Phone } from "lucide-react";
+import { ArrowLeft, CheckCircle2, UserPlus, CreditCard, Layers, Phone, Sparkles } from "lucide-react";
 import Link from "next/link";
 
-export default function NewAdmissionPage() {
+function AdmissionForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
+
+  const leadId = searchParams.get("leadId");
+  const queryName = searchParams.get("name");
+  const queryPhone = searchParams.get("phone");
+  const queryParentName = searchParams.get("parentName");
+  const queryParentPhone = searchParams.get("parentPhone");
+  const queryCourse = searchParams.get("courseInterest");
 
   // Courses & Batches list
   const [courses, setCourses] = useState<any[]>([]);
@@ -23,9 +32,9 @@ export default function NewAdmissionPage() {
 
   // Form State
   const [formData, setFormData] = useState({
-    name: "",
+    name: queryName || "",
     email: "",
-    phone: "",
+    phone: queryPhone || "",
     dob: "2008-01-01",
     gender: "MALE",
     address: "",
@@ -33,8 +42,8 @@ export default function NewAdmissionPage() {
     state: "Delhi",
     schoolCollege: "CBSE School",
     gradeClass: "Class 11",
-    parentName: "",
-    parentPhone: "",
+    parentName: queryParentName || "",
+    parentPhone: queryParentPhone || "",
     parentRelation: "Father",
     parentOccupation: "Business / Professional",
     admissionFee: 10000,
@@ -47,7 +56,7 @@ export default function NewAdmissionPage() {
     initialPaymentAmount: 50000,
     paymentMethod: "UPI",
     referenceNo: "",
-    notes: "Admitted after counseling",
+    notes: leadId ? `Converted from Admissions Inquiry Lead #${leadId.slice(0, 8)}` : "Admitted after counseling",
   });
 
   const [result, setResult] = useState<any>(null);
@@ -138,6 +147,17 @@ export default function NewAdmissionPage() {
 
         if (res.success) {
           setResult(res);
+          if (leadId) {
+            try {
+              await updateLead(leadId, {
+                status: "CONVERTED",
+                isConverted: true,
+                convertedStudentId: res.studentId,
+              });
+            } catch (err) {
+              console.error("Failed to update lead status:", err);
+            }
+          }
           window.dispatchEvent(new CustomEvent("erp-data-refresh"));
         }
       } catch (err: any) {
@@ -208,6 +228,15 @@ export default function NewAdmissionPage() {
           </p>
         </div>
       </div>
+
+      {leadId && (
+        <div className="p-3.5 rounded-xl bg-primary/10 border border-primary/30 flex items-center gap-2.5 text-xs text-primary font-medium">
+          <Sparkles className="w-4 h-4 shrink-0 text-primary" />
+          <span>
+            Converting Inquiry for <strong>{formData.name || "Lead"}</strong>. Academic interest and contact info have been auto-filled from the CRM inquiry.
+          </span>
+        </div>
+      )}
 
       {errorMsg && (
         <div className="p-3 rounded-lg bg-destructive/10 text-destructive border border-destructive/20 text-xs font-semibold">
@@ -489,6 +518,20 @@ export default function NewAdmissionPage() {
         </div>
       </form>
     </div>
+  );
+}
+
+export default function NewAdmissionPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center p-12 text-sm text-muted-foreground">
+          Loading admission portal...
+        </div>
+      }
+    >
+      <AdmissionForm />
+    </Suspense>
   );
 }
 

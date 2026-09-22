@@ -37,6 +37,7 @@ model Institute {
   students         Student[]
   teachers         Teacher[]
   auditLogs        AuditLog[]
+  leads            Lead[]
 }
 
 model AcademicSession {
@@ -714,3 +715,54 @@ model AuditLog {
   @@index([entity])
   @@index([createdAt])
 }
+
+// -------------------------------------------------------------
+// ADMISSIONS CRM: LEADS, QUERIES & FOLLOW-UPS
+// -------------------------------------------------------------
+model Lead {
+  id                 String         @id @default(cuid())
+  instituteId        String?
+  name               String         // Student / Inquirer Name
+  phone              String         // Contact Phone
+  email              String?        // Optional email
+  parentName         String?        // Father/Mother name
+  parentPhone        String?        // Parent Contact
+  courseInterest     String?        // e.g. "NEET Dropper Batch", "JEE Advanced 2-Yr"
+  currentClass       String?        // e.g. "Class 11", "Class 12", "Repeater"
+  currentSchool      String?        // e.g. "Burn Hall", "DPS", "Govt HSS"
+  source             String         @default("WALK_IN") // WALK_IN, WEBSITE, CALL, SOCIAL_MEDIA, REFERRAL, NEWSPAPER, OTHER
+  status             String         @default("NEW") // NEW, CONTACTED, COUNSELING_SCHEDULED, TRIAL_CLASS, CONVERTED, LOST
+  priority           String         @default("MEDIUM") // LOW, MEDIUM, HIGH, HOT
+  assignedTo         String?        // Staff / Counselor Name
+  nextFollowUp       DateTime?      // Next scheduled follow-up
+  notes              String?        // Remarks or background info
+  isConverted        Boolean        @default(false)
+  convertedStudentId String?        // Link to admitted student ID if converted
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+
+  institute          Institute?     @relation(fields: [instituteId], references: [id], onDelete: Cascade)
+  followUps          LeadFollowUp[]
+
+  @@index([instituteId])
+  @@index([status])
+  @@index([phone])
+  @@index([nextFollowUp])
+}
+
+model LeadFollowUp {
+  id            String    @id @default(cuid())
+  leadId        String
+  date          DateTime  @default(now())
+  scheduledFor  DateTime?
+  status        String    @default("COMPLETED") // COMPLETED, SCHEDULED, MISSED, CANCELLED
+  contactMethod String    @default("PHONE_CALL") // PHONE_CALL, WHATSAPP, IN_PERSON, EMAIL, SMS
+  notes         String    // Discussion summary, objections, next steps
+  counselorName String?
+  createdAt     DateTime  @default(now())
+
+  lead          Lead      @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@index([leadId])
+}
+

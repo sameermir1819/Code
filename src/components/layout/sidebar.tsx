@@ -22,6 +22,8 @@ import {
   GraduationCap,
   FileText,
   QrCode,
+  PhoneCall,
+  Download,
 } from "lucide-react";
 
 interface SidebarProps {
@@ -97,6 +99,12 @@ const NAV_GROUPS: NavGroup[] = [
         href: "/materials",
         icon: FileText,
       },
+      {
+        label: "Leads & CRM",
+        href: "/leads",
+        icon: PhoneCall,
+        altHrefs: ["/inquiries"],
+      },
     ],
   },
   {
@@ -142,6 +150,12 @@ const NAV_GROUPS: NavGroup[] = [
         altHrefs: ["/users"],
       },
       {
+        label: "Data Export",
+        href: "/data-export",
+        icon: Download,
+        altHrefs: ["/export"],
+      },
+      {
         label: "Audit Log",
         href: "/audit",
         icon: FileSearch,
@@ -162,9 +176,11 @@ const NAV_GROUPS: NavGroup[] = [
 const ITEM_ROLES: Record<string, Role[]> = {
   "/students": ["SUPER_ADMIN", "ADMIN", "ACCOUNTANT", "TEACHER"],
   "/admissions": ["SUPER_ADMIN", "ADMIN"],
+  "/leads": ["SUPER_ADMIN", "ADMIN", "ACCOUNTANT", "TEACHER"],
   "/dashboard/batches": ["SUPER_ADMIN", "ADMIN", "TEACHER"],
   "/teachers": ["SUPER_ADMIN", "ADMIN"],
   "/announcements": ["SUPER_ADMIN", "ADMIN", "TEACHER"],
+  "/data-export": ["SUPER_ADMIN", "ADMIN", "ACCOUNTANT"],
 };
 
 /** Returns true if the given role can see the nav item at `href`. */
