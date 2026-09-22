@@ -16,11 +16,7 @@ import {
   ArrowRight,
   CheckCircle2,
   AlertCircle,
-  GraduationCap,
   Building2,
-  KeyRound,
-  User,
-  Info,
 } from "lucide-react";
 
 interface LoginFormProps {
@@ -29,31 +25,21 @@ interface LoginFormProps {
   tagline: string;
 }
 
-type LoginTab = "STUDENT" | "STAFF";
-
 export function LoginForm({ logoUrl, instituteName, tagline }: LoginFormProps) {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<LoginTab>("STUDENT");
-  const [identifier, setIdentifier] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [errorMsg, setErrorMsg] = useState("");
   const [isPending, startTransition] = useTransition();
 
-  const handleTabChange = (tab: LoginTab) => {
-    setActiveTab(tab);
-    setErrorMsg("");
-    setIdentifier("");
-    setPassword("");
-  };
-
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg("");
 
     startTransition(async () => {
-      const res = await loginUser({ identifier, password });
+      const res = await loginUser({ email, password });
       if (res.success) {
         if (res.user?.role === "STUDENT") {
           router.push("/portal");
@@ -62,12 +48,7 @@ export function LoginForm({ logoUrl, instituteName, tagline }: LoginFormProps) {
         }
         router.refresh();
       } else {
-        setErrorMsg(
-          res.error ||
-            (activeTab === "STUDENT"
-              ? "Invalid credentials. Use your Name_name (e.g. aarav_sharma) and your Student Code as password."
-              : "Authentication failed. Invalid email or password.")
-        );
+        setErrorMsg(res.error || "Authentication failed. Invalid email or password.");
       }
     });
   };
@@ -122,7 +103,7 @@ export function LoginForm({ logoUrl, instituteName, tagline }: LoginFormProps) {
             </h1>
             <p className="text-sm xl:text-base text-zinc-300 font-normal leading-relaxed">
               {tagline ||
-                "Seamless student lifecycle from biometric QR check-ins and fee collection ledgers to test performance matrices and automated admissions."}
+                "Seamless institutional operations from biometric QR check-ins and fee collection ledgers to test performance matrices and automated admissions."}
             </p>
           </div>
 
@@ -148,9 +129,9 @@ export function LoginForm({ logoUrl, instituteName, tagline }: LoginFormProps) {
               </div>
 
               <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/5 space-y-1">
-                <span className="text-xs font-bold text-white block">Dedicated Portals</span>
+                <span className="text-xs font-bold text-white block">Executive Workspace</span>
                 <span className="text-[11px] text-zinc-400 leading-tight block">
-                  Separate staff &amp; student workspaces
+                  High-speed ledger &amp; operational console
                 </span>
               </div>
 
@@ -195,7 +176,7 @@ export function LoginForm({ logoUrl, instituteName, tagline }: LoginFormProps) {
         </div>
       </div>
 
-      {/* ── Right Auth Panel ── */}
+      {/* ── Right Auth Panel (Staff Only) ── */}
       <div className="w-full lg:w-5/12 flex items-center justify-center p-6 sm:p-12 lg:p-14 relative z-10">
         <div className="w-full max-w-md space-y-6">
           {/* Mobile Top Brand (visible on small screens) */}
@@ -216,32 +197,14 @@ export function LoginForm({ logoUrl, instituteName, tagline }: LoginFormProps) {
           {/* Form Header */}
           <div className="space-y-1.5">
             <span className="text-xs font-semibold uppercase tracking-wider text-primary">
-              Portal Authentication
+              Executive Authentication
             </span>
             <h3 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
-              {activeTab === "STUDENT" ? "Student Portal Sign In" : "Staff & Faculty Sign In"}
+              Staff &amp; Faculty Sign In
             </h3>
             <p className="text-xs sm:text-sm text-zinc-400">
-              {activeTab === "STUDENT"
-                ? "Enter your Name_name and your Student Code to access your learning workspace."
-                : "Sign in with your registered institutional work email to access the administrative ERP."}
+              Sign in with your registered institutional work email to access the administrative ERP.
             </p>
-          </div>
-
-          {/* ── Segmented Role Switcher (Senior UI/UX) ── */}
-          <div className="grid grid-cols-2 p-1 rounded-2xl bg-white/[0.04] border border-white/10">
-            <a
-              href="/student-login"
-              className="py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 text-zinc-400 hover:text-white hover:bg-white/[0.04]"
-            >
-              <GraduationCap className="w-4 h-4 text-indigo-400" />
-              <span>Student Portal &rarr;</span>
-            </a>
-
-            <div className="py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 bg-primary text-primary-foreground shadow-lg shadow-primary/20">
-              <Building2 className="w-4 h-4" />
-              <span>Staff &amp; Admin</span>
-            </div>
           </div>
 
           {/* Error Message Alert */}
@@ -254,82 +217,52 @@ export function LoginForm({ logoUrl, instituteName, tagline }: LoginFormProps) {
 
           {/* Main Login Form */}
           <form onSubmit={handleLogin} className="space-y-4">
-            {/* Identifier Field (Name_name for Student, Work Email for Staff) */}
+            {/* Email Field */}
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-zinc-200 flex items-center justify-between">
-                <span>
-                  {activeTab === "STUDENT" ? "Student Username" : "Work Email Address"}
-                </span>
-                <span className="text-[10px] text-zinc-400 font-normal">
-                  {activeTab === "STUDENT" ? "Format: Name_name" : "Official Email"}
-                </span>
+                <span>Work Email Address</span>
+                <span className="text-[10px] text-zinc-400 font-normal">Official Work Email</span>
               </label>
               <div className="relative">
-                {activeTab === "STUDENT" ? (
-                  <GraduationCap className="absolute left-3.5 top-3.5 h-4 w-4 text-zinc-400" />
-                ) : (
-                  <Mail className="absolute left-3.5 top-3.5 h-4 w-4 text-zinc-400" />
-                )}
+                <Mail className="absolute left-3.5 top-3.5 h-4 w-4 text-zinc-400" />
                 <Input
-                  type="text"
+                  type="email"
                   required
-                  value={identifier}
-                  onChange={(e) => setIdentifier(e.target.value)}
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   className="pl-10 h-11 text-xs rounded-xl bg-white/[0.04] border-white/15 text-white placeholder:text-zinc-500 focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all shadow-inner"
-                  placeholder={
-                    activeTab === "STUDENT"
-                      ? "e.g. aarav_sharma or STU-2026-0001"
-                      : "name@institute.com"
-                  }
-                  autoComplete={activeTab === "STUDENT" ? "username" : "email"}
+                  placeholder="name@institute.com"
+                  autoComplete="email"
                 />
               </div>
-              {activeTab === "STUDENT" && (
-                <p className="text-[10px] text-zinc-500 flex items-center gap-1 pl-1">
-                  <Info className="w-3 h-3 text-zinc-400" />
-                  <span>Enter your name as Firstname_Lastname (e.g. aarav_sharma) or your Student ID</span>
-                </p>
-              )}
             </div>
 
-            {/* Password Field (Student Code for Student, Password for Staff) */}
+            {/* Password Field */}
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <label className="text-xs font-semibold text-zinc-200">
-                  {activeTab === "STUDENT" ? "Student Code" : "Password"}
+                  Password
                 </label>
                 <a
                   href="#"
                   onClick={(e) => {
                     e.preventDefault();
-                    alert(
-                      activeTab === "STUDENT"
-                        ? "Your password is your Student Code (e.g. STU-2026-0001). Please check your student ID card or contact the campus front desk."
-                        : "Please contact your institute's Super Administrator to reset your password."
-                    );
+                    alert("Please contact your institute's Super Administrator to reset your password.");
                   }}
                   className="text-[11px] text-primary hover:text-primary/80 font-medium transition-colors"
                 >
-                  Forgot {activeTab === "STUDENT" ? "Student Code?" : "password?"}
+                  Forgot password?
                 </a>
               </div>
               <div className="relative">
-                {activeTab === "STUDENT" ? (
-                  <KeyRound className="absolute left-3.5 top-3.5 h-4 w-4 text-zinc-400" />
-                ) : (
-                  <Lock className="absolute left-3.5 top-3.5 h-4 w-4 text-zinc-400" />
-                )}
+                <Lock className="absolute left-3.5 top-3.5 h-4 w-4 text-zinc-400" />
                 <Input
                   type={showPassword ? "text" : "password"}
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="pl-10 pr-10 h-11 text-xs rounded-xl bg-white/[0.04] border-white/15 text-white placeholder:text-zinc-500 focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all shadow-inner"
-                  placeholder={
-                    activeTab === "STUDENT"
-                      ? "e.g. STU-2026-0001"
-                      : "••••••••••••"
-                  }
+                  placeholder="••••••••••••"
                   autoComplete="current-password"
                 />
                 <button
@@ -341,12 +274,6 @@ export function LoginForm({ logoUrl, instituteName, tagline }: LoginFormProps) {
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
-              {activeTab === "STUDENT" && (
-                <p className="text-[10px] text-zinc-500 flex items-center gap-1 pl-1">
-                  <Info className="w-3 h-3 text-zinc-400" />
-                  <span>Your default password is your Student Code (e.g. STU-2026-0001)</span>
-                </p>
-              )}
             </div>
 
             {/* Remember Me Checkbox */}
@@ -371,19 +298,11 @@ export function LoginForm({ logoUrl, instituteName, tagline }: LoginFormProps) {
               {isPending ? (
                 <>
                   <span className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  <span>
-                    {activeTab === "STUDENT"
-                      ? "Authenticating Student Credentials..."
-                      : "Verifying Executive Access..."}
-                  </span>
+                  <span>Verifying Credentials &amp; Campus Scope...</span>
                 </>
               ) : (
                 <>
-                  <span>
-                    {activeTab === "STUDENT"
-                      ? "Sign In to Student Portal"
-                      : "Sign In to Staff Workspace"}
-                  </span>
+                  <span>Sign In to Workspace</span>
                   <ArrowRight className="h-4 w-4" />
                 </>
               )}

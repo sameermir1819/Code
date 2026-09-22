@@ -208,18 +208,9 @@ export function StudentLoginForm({
 
           {/* Form Header */}
           <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold uppercase tracking-wider text-indigo-400">
-                Student Portal
-              </span>
-              <a
-                href="/login"
-                className="text-[11px] text-zinc-400 hover:text-white flex items-center gap-1 transition-colors"
-              >
-                <span>Staff Login</span>
-                <ArrowRight className="w-3 h-3" />
-              </a>
-            </div>
+            <span className="text-xs font-semibold uppercase tracking-wider text-indigo-400">
+              Student Portal
+            </span>
             <h3 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
               Student Sign In
             </h3>
@@ -348,16 +339,10 @@ export function StudentLoginForm({
             </Button>
           </form>
 
-          {/* Link to Staff Login */}
+          {/* Security Verification Footer */}
           <div className="pt-4 border-t border-white/10 text-center">
-            <p className="text-xs text-zinc-400">
-              Are you an Administrator, Faculty or Staff?{" "}
-              <a
-                href="/login"
-                className="font-bold text-white hover:text-indigo-300 underline transition-colors"
-              >
-                Sign In to Staff Workspace &rarr;
-              </a>
+            <p className="text-[11px] text-zinc-500">
+              Official Student Portal • Protected by 256-Bit TLS Encryption
             </p>
           </div>
         </div>
