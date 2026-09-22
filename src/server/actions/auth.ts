@@ -54,18 +54,20 @@ export async function loginUser(formData: { email: string; password: string }) {
     const token = await createSessionToken(sessionUser);
     await setSessionCookie(token);
 
-    // Update last login
-    await db.user.update({
-      where: { id: user.id },
-      data: { lastLoginAt: new Date() },
-    });
+    // Non-blocking background updates for instant response
+    db.user
+      .update({
+        where: { id: user.id },
+        data: { lastLoginAt: new Date() },
+      })
+      .catch(() => {});
 
-    await logAudit({
+    logAudit({
       action: "USER_LOGIN",
       entity: "User",
       entityId: user.id,
       details: `User ${user.email} logged in with role ${user.role}`,
-    });
+    }).catch(() => {});
 
     return { success: true, user: sessionUser };
   } catch (error: unknown) {
