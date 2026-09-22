@@ -72,7 +72,7 @@ export function PortalShell({
   };
 
   return (
-    <div className="min-h-screen bg-[#070b13] text-foreground flex flex-col font-poppins selection:bg-primary/20">
+    <div className="min-h-screen bg-[#07090e] text-zinc-100 flex flex-col font-sans selection:bg-indigo-500/25 selection:text-white">
       {/* Admin Preview Notification Bar */}
       {isPreview && (
         <div className="bg-amber-500/10 border-b border-amber-500/20 px-4 py-2 text-xs font-medium text-amber-300 flex items-center justify-between z-50">
@@ -94,24 +94,24 @@ export function PortalShell({
       )}
 
       {/* Main Top Navigation Header */}
-      <header className="sticky top-0 z-40 w-full border-b border-white/10 bg-[#070b13]/85 backdrop-blur-xl">
+      <header className="sticky top-0 z-40 w-full border-b border-white/[0.08] bg-[#070a12]/90 backdrop-blur-xl">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           {/* Left: Brand */}
           <div className="flex items-center gap-3">
-            <div className="p-1 rounded-xl bg-white/10 border border-white/15">
+            <div className="p-1 rounded-xl bg-white/[0.04] border border-white/10">
               <InstituteLogo logoUrl={instituteLogoUrl} name={instituteName} size={34} />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="font-black text-sm tracking-wide text-white uppercase truncate max-w-[180px] sm:max-w-xs">
+                <span className="font-bold text-sm tracking-wide text-white uppercase truncate max-w-[180px] sm:max-w-xs">
                   {instituteName}
                 </span>
                 <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 shrink-0">
                   STUDENT PORTAL
                 </span>
               </div>
-              <p className="text-[11px] text-zinc-400 hidden sm:block">
-                Academic &amp; Student Self-Service Workspace
+              <p className="text-[11px] text-zinc-500 hidden sm:block">
+                Academic &amp; Examination Workspace
               </p>
             </div>
           </div>
@@ -129,10 +129,10 @@ export function PortalShell({
                 <a
                   key={item.href}
                   href={item.href}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
                     isActive
-                      ? "bg-primary text-primary-foreground shadow-sm shadow-primary/20"
-                      : "text-zinc-300 hover:text-white hover:bg-white/5"
+                      ? "bg-indigo-600 text-white font-semibold shadow-sm shadow-indigo-600/30"
+                      : "text-zinc-400 hover:text-white hover:bg-white/[0.04]"
                   }`}
                 >
                   <Icon className="w-3.5 h-3.5" />

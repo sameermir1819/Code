@@ -6,20 +6,7 @@ import { loginUser } from "@/server/actions/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { InstituteLogo } from "@/components/ui/institute-logo";
-import {
-  Lock,
-  Eye,
-  EyeOff,
-  ShieldCheck,
-  Sparkles,
-  ArrowRight,
-  AlertCircle,
-  GraduationCap,
-  CalendarCheck2,
-  Award,
-  BookOpen,
-  QrCode,
-} from "lucide-react";
+import { Lock, Eye, EyeOff, ShieldCheck, AlertCircle, ArrowRight, GraduationCap } from "lucide-react";
 
 interface StudentLoginFormProps {
   logoUrl: string | null;
@@ -27,11 +14,7 @@ interface StudentLoginFormProps {
   tagline: string;
 }
 
-export function StudentLoginForm({
-  logoUrl,
-  instituteName,
-  tagline,
-}: StudentLoginFormProps) {
+export function StudentLoginForm({ logoUrl, instituteName }: StudentLoginFormProps) {
   const router = useRouter();
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
@@ -55,190 +38,66 @@ export function StudentLoginForm({
         router.refresh();
       } else {
         setErrorMsg(
-          res.error ||
-            "Authentication failed. Please verify your Student Code and password."
+          res.error || "Authentication failed. Please verify your Student Code and password."
         );
       }
     });
   };
 
   return (
-    <div className="min-h-screen w-full flex bg-[#060b13] text-foreground font-poppins selection:bg-indigo-500/25 selection:text-white relative overflow-hidden">
-      {/* ── Background Subtle Mesh Lights ── */}
-      <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
-        <div className="absolute -top-40 -left-40 w-[650px] h-[650px] rounded-full bg-indigo-600/15 blur-[140px]" />
-        <div className="absolute -bottom-40 left-1/3 w-[550px] h-[550px] rounded-full bg-blue-600/10 blur-[150px]" />
-        <div className="absolute top-1/3 -right-40 w-[600px] h-[600px] rounded-full bg-purple-500/10 blur-[160px]" />
-      </div>
+    <div className="min-h-screen w-full flex items-center justify-center bg-[#07090e] text-zinc-100 font-sans selection:bg-indigo-500/25 selection:text-white relative overflow-hidden p-4 sm:p-6">
+      {/* ── Minimalist Ambient Backlight ── */}
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[500px] bg-gradient-to-tr from-indigo-500/10 via-purple-500/5 to-blue-500/10 rounded-full blur-[140px] pointer-events-none z-0" />
+      <div className="absolute inset-0 bg-[radial-gradient(#ffffff08_1px,transparent_1px)] [background-size:24px_24px] pointer-events-none opacity-40 z-0" />
 
-      {/* ── Left Hero Panel (Student Academy Showcase) ── */}
-      <div className="hidden lg:flex lg:w-7/12 p-12 xl:p-16 flex-col justify-between relative z-10 border-r border-white/10 bg-gradient-to-b from-indigo-950/[0.08] to-transparent">
-        {/* Top Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3.5">
-            <div className="p-2 rounded-2xl bg-white/10 backdrop-blur-xl border border-white/15 shadow-2xl">
-              <InstituteLogo logoUrl={logoUrl} name={instituteName} size={42} />
+      {/* ── Modern Glass Auth Card ── */}
+      <div className="w-full max-w-[420px] relative z-10">
+        <div className="p-8 sm:p-10 rounded-3xl bg-[#0d121d]/80 backdrop-blur-2xl border border-white/[0.08] shadow-2xl shadow-black/80 space-y-7">
+          {/* Brand Header */}
+          <div className="text-center space-y-3">
+            <div className="inline-flex p-2.5 rounded-2xl bg-white/[0.04] border border-white/10 shadow-inner">
+              <InstituteLogo logoUrl={logoUrl} name={instituteName} size={48} />
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="font-extrabold text-lg tracking-wide uppercase text-white">
+
+            <div className="space-y-1">
+              <div className="flex items-center justify-center gap-2">
+                <h1 className="text-lg font-bold tracking-tight text-white uppercase">
                   {instituteName}
-                </h2>
-                <span className="text-[10px] px-2.5 py-0.5 rounded-full font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                </h1>
+                <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
                   STUDENT PORTAL
                 </span>
               </div>
-              <p className="text-xs text-zinc-400 font-medium">
-                Academic &amp; Student Self-Service Workspace
+              <p className="text-xs text-zinc-400">
+                Sign in with your official Student Code
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-xs text-zinc-400 backdrop-blur-sm">
-            <ShieldCheck className="w-3.5 h-3.5 text-indigo-400" />
-            <span>Encrypted Student Session</span>
-          </div>
-        </div>
-
-        {/* Center Student Highlights */}
-        <div className="space-y-6 my-auto py-8 max-w-xl">
-          <div className="space-y-3">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-gradient-to-r from-indigo-500/20 to-purple-500/20 border border-indigo-500/30 text-xs font-semibold text-indigo-300">
-              <Sparkles className="h-3.5 w-3.5 text-amber-300" />
-              <span>Student Academic Hub</span>
-            </div>
-            <h1 className="text-3xl xl:text-5xl font-black tracking-tight text-white leading-[1.12]">
-              Track Your Academic Journey in One Seamless Place.
-            </h1>
-            <p className="text-sm xl:text-base text-zinc-300 font-normal leading-relaxed">
-              {tagline ||
-                "Check attendance records, download faculty lecture notes, review test scorecard matrices, and access your digital smart student ID."}
-            </p>
-          </div>
-
-          {/* Student Feature Grid */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/10 flex items-start gap-3">
-              <div className="p-2 rounded-xl bg-blue-500/10 text-blue-400 shrink-0">
-                <CalendarCheck2 className="w-5 h-5" />
-              </div>
-              <div className="space-y-0.5">
-                <span className="text-xs font-bold text-white block">Attendance Ledger</span>
-                <span className="text-[11px] text-zinc-400 leading-tight block">
-                  Real-time biometric attendance records &amp; percentage.
-                </span>
-              </div>
-            </div>
-
-            <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/10 flex items-start gap-3">
-              <div className="p-2 rounded-xl bg-purple-500/10 text-purple-400 shrink-0">
-                <Award className="w-5 h-5" />
-              </div>
-              <div className="space-y-0.5">
-                <span className="text-xs font-bold text-white block">Exams &amp; Reports</span>
-                <span className="text-[11px] text-zinc-400 leading-tight block">
-                  Detailed marks cards, rank metrics &amp; teacher remarks.
-                </span>
-              </div>
-            </div>
-
-            <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/10 flex items-start gap-3">
-              <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400 shrink-0">
-                <QrCode className="w-5 h-5" />
-              </div>
-              <div className="space-y-0.5">
-                <span className="text-xs font-bold text-white block">Digital Smart ID</span>
-                <span className="text-[11px] text-zinc-400 leading-tight block">
-                  Printable CR-80 card with verified scanner QR code.
-                </span>
-              </div>
-            </div>
-
-            <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/10 flex items-start gap-3">
-              <div className="p-2 rounded-xl bg-amber-500/10 text-amber-400 shrink-0">
-                <BookOpen className="w-5 h-5" />
-              </div>
-              <div className="space-y-0.5">
-                <span className="text-xs font-bold text-white block">Study Materials</span>
-                <span className="text-[11px] text-zinc-400 leading-tight block">
-                  Lecture PDFs, assignment sheets &amp; practice mock tests.
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Bottom Trust & Compliance */}
-        <div className="flex items-center justify-between text-xs text-zinc-400 border-t border-white/10 pt-6">
-          <div className="flex items-center gap-2">
-            <span className="h-2 w-2 rounded-full bg-indigo-400 animate-pulse" />
-            <span className="text-zinc-300 font-medium">Student Portal Active &amp; Synced</span>
-          </div>
-          <div className="flex items-center gap-4 text-[11px] text-zinc-400">
-            <span>Official Student Login</span>
-            <span>•</span>
-            <span>TLS 256-Bit Protection</span>
-          </div>
-        </div>
-      </div>
-
-      {/* ── Right Auth Panel ── */}
-      <div className="w-full lg:w-5/12 flex items-center justify-center p-6 sm:p-12 lg:p-14 relative z-10">
-        <div className="w-full max-w-md space-y-6">
-          {/* Mobile Top Brand (visible on small screens) */}
-          <div className="lg:hidden text-center space-y-2.5 pb-2">
-            <div className="flex justify-center">
-              <div className="p-2 rounded-2xl bg-white/10 backdrop-blur border border-white/15 shadow-xl">
-                <InstituteLogo logoUrl={logoUrl} name={instituteName} size={54} />
-              </div>
-            </div>
-            <div>
-              <h2 className="text-xl font-extrabold tracking-tight text-white uppercase">
-                {instituteName}
-              </h2>
-              <span className="text-[10px] px-2.5 py-0.5 rounded-full font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-                STUDENT PORTAL
-              </span>
-            </div>
-          </div>
-
-          {/* Form Header */}
-          <div className="space-y-1.5">
-            <span className="text-xs font-semibold uppercase tracking-wider text-indigo-400">
-              Student Portal
-            </span>
-            <h3 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
-              Student Sign In
-            </h3>
-            <p className="text-xs sm:text-sm text-zinc-400">
-              Enter your Student Code and password to access your student portal.
-            </p>
-          </div>
-
-          {/* Error Message Alert */}
+          {/* Error Message */}
           {errorMsg && (
-            <div className="p-3.5 rounded-xl bg-rose-500/10 text-rose-300 border border-rose-500/30 text-xs font-semibold flex items-center gap-2.5 animate-in fade-in">
+            <div className="p-3.5 rounded-xl bg-rose-500/10 text-rose-300 border border-rose-500/20 text-xs font-medium flex items-center gap-2.5 animate-in fade-in">
               <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
               <span>{errorMsg}</span>
             </div>
           )}
 
-          {/* Main Login Form */}
+          {/* Form */}
           <form onSubmit={handleLogin} className="space-y-4">
             {/* Student Code Field */}
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-zinc-200 flex items-center justify-between">
+              <label className="text-xs font-medium text-zinc-300 flex items-center justify-between">
                 <span>Student Code</span>
-                <span className="text-[10px] text-zinc-400 font-mono">Student ID or Roll No</span>
+                <span className="text-[10px] text-zinc-500 font-mono">Roll No or ID</span>
               </label>
               <div className="relative">
-                <GraduationCap className="absolute left-3.5 top-3.5 h-4 w-4 text-zinc-400" />
+                <GraduationCap className="absolute left-3.5 top-3.5 h-4 w-4 text-zinc-500" />
                 <Input
                   type="text"
                   required
                   value={identifier}
                   onChange={(e) => setIdentifier(e.target.value)}
-                  className="pl-10 h-11 text-xs rounded-xl bg-white/[0.04] border-white/15 text-white placeholder:text-zinc-500 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all shadow-inner"
+                  className="pl-10 h-11 text-xs rounded-xl bg-white/[0.03] border-white/10 text-white placeholder:text-zinc-500 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/25 transition-all shadow-inner"
                   placeholder="e.g. STU-2026-0001"
                   autoComplete="username"
                 />
@@ -248,7 +107,7 @@ export function StudentLoginForm({
             {/* Password Field */}
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
-                <label className="text-xs font-semibold text-zinc-200">
+                <label className="text-xs font-medium text-zinc-300">
                   Password
                 </label>
                 <a
@@ -256,42 +115,42 @@ export function StudentLoginForm({
                   onClick={(e) => {
                     e.preventDefault();
                     alert(
-                      "First-time sign in uses your default campus password. If you forgot or need to reset your password, please contact the campus administration desk."
+                      "First-time login uses the default password assigned by your campus desk. If you need a reset, please contact administration."
                     );
                   }}
-                  className="text-[11px] text-indigo-400 hover:text-indigo-300 font-medium transition-colors"
+                  className="text-[11px] text-zinc-400 hover:text-white font-medium transition-colors"
                 >
-                  Forgot Password?
+                  Forgot password?
                 </a>
               </div>
               <div className="relative">
-                <Lock className="absolute left-3.5 top-3.5 h-4 w-4 text-zinc-400" />
+                <Lock className="absolute left-3.5 top-3.5 h-4 w-4 text-zinc-500" />
                 <Input
                   type={showPassword ? "text" : "password"}
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="pl-10 pr-10 h-11 text-xs rounded-xl bg-white/[0.04] border-white/15 text-white placeholder:text-zinc-500 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all shadow-inner"
+                  className="pl-10 pr-10 h-11 text-xs rounded-xl bg-white/[0.03] border-white/10 text-white placeholder:text-zinc-500 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/25 transition-all shadow-inner"
                   placeholder="••••••••••••"
                   autoComplete="current-password"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3.5 top-3.5 text-zinc-400 hover:text-white transition-colors focus:outline-none"
+                  className="absolute right-3.5 top-3.5 text-zinc-500 hover:text-zinc-300 transition-colors focus:outline-none"
                   title={showPassword ? "Hide password" : "Show password"}
                 >
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
-              <p className="text-[11px] text-zinc-400 pt-0.5">
-                First time logging in? Use the default password assigned by your campus, then change it in your profile.
+              <p className="text-[11px] text-zinc-500 pt-0.5">
+                First time logging in? Use your assigned default password, then change it in your profile.
               </p>
             </div>
 
-            {/* Remember Me Checkbox */}
+            {/* Remember Me */}
             <div className="flex items-center justify-between pt-1">
-              <label className="flex items-center gap-2 text-xs text-zinc-300 cursor-pointer">
+              <label className="flex items-center gap-2 text-xs text-zinc-400 cursor-pointer hover:text-zinc-300 transition-colors">
                 <input
                   type="checkbox"
                   checked={rememberMe}
@@ -306,12 +165,12 @@ export function StudentLoginForm({
             <Button
               type="submit"
               disabled={isPending}
-              className="w-full h-11 text-xs font-bold rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-600/25 transition-all flex items-center justify-center gap-2 mt-2 active:scale-[0.99]"
+              className="w-full h-11 text-xs font-semibold rounded-xl bg-white hover:bg-zinc-200 text-zinc-950 transition-all flex items-center justify-center gap-2 mt-2 shadow-lg shadow-white/5 active:scale-[0.99]"
             >
               {isPending ? (
                 <>
-                  <span className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  <span>Verifying Student Credentials...</span>
+                  <span className="h-4 w-4 border-2 border-zinc-950/30 border-t-zinc-950 rounded-full animate-spin" />
+                  <span>Signing In...</span>
                 </>
               ) : (
                 <>
@@ -322,15 +181,15 @@ export function StudentLoginForm({
             </Button>
           </form>
 
-          {/* Security Verification Footer */}
-          <div className="pt-4 border-t border-white/10 text-center">
-            <p className="text-[11px] text-zinc-500">
-              Official Student Portal • Protected by 256-Bit TLS Encryption
-            </p>
+          {/* Security Badge */}
+          <div className="pt-2 border-t border-white/[0.06] text-center">
+            <div className="inline-flex items-center gap-1.5 text-[11px] text-zinc-500">
+              <ShieldCheck className="h-3.5 w-3.5 text-zinc-400" />
+              <span>Official Student Portal • TLS Encrypted</span>
+            </div>
           </div>
         </div>
       </div>
     </div>
   );
 }
-

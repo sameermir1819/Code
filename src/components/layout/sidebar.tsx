@@ -215,20 +215,20 @@ export function Sidebar({ userRole, userName, logoUrl, instituteName = "Futurex 
   };
 
   return (
-    <aside className="w-64 bg-[#0a1120] border-r border-slate-800/80 flex flex-col h-screen text-slate-300 select-none shrink-0 font-poppins">
+    <aside className="w-64 bg-[#090d16] border-r border-white/[0.08] flex flex-col h-screen text-zinc-300 select-none shrink-0 font-sans">
       {/* ── Brand Header ────────────────────────────── */}
-      <div className="h-16 flex items-center px-5 border-b border-slate-800/80 gap-3 shrink-0 bg-slate-950/40">
+      <div className="h-16 flex items-center px-5 border-b border-white/[0.08] gap-3 shrink-0 bg-[#070a12]">
         <InstituteLogo logoUrl={logoUrl ?? null} name={instituteName} size={36} />
         <div className="flex flex-col min-w-0">
           <span className="font-extrabold text-sm tracking-tight text-white truncate">
             {instituteName.toUpperCase()}
           </span>
           <div className="flex items-center gap-1.5">
-            <span className="text-[10px] text-amber-400 font-semibold tracking-wider uppercase">
+            <span className="text-[10px] text-indigo-400 font-semibold tracking-wider uppercase">
               Institute ERP
             </span>
-            <span className="text-slate-600 text-[10px]">•</span>
-            <span className="text-[9px] text-slate-400 font-mono">PRO</span>
+            <span className="text-zinc-600 text-[10px]">•</span>
+            <span className="text-[9px] text-zinc-400 font-mono">v2.4</span>
           </div>
         </div>
       </div>
@@ -246,7 +246,7 @@ export function Sidebar({ userRole, userName, logoUrl, instituteName = "Futurex 
           return (
             <div key={group.title} className="mb-3">
               {/* Section Label */}
-              <p className="px-3 mb-1.5 text-[10px] font-bold tracking-widest text-slate-400 uppercase">
+              <p className="px-3 mb-1.5 text-[10px] font-bold tracking-widest text-zinc-500 uppercase">
                 {group.title}
               </p>
 
@@ -260,15 +260,14 @@ export function Sidebar({ userRole, userName, logoUrl, instituteName = "Futurex 
                       key={item.href}
                       href={item.href}
                       className={cn(
-                        "flex items-center gap-3 px-3 py-2.5 rounded-xl font-medium transition-all relative group",
+                        "flex items-center gap-3 px-3 py-2 rounded-xl font-medium transition-all relative group",
                         active
-                          ? "bg-primary text-white font-semibold shadow-xs shadow-primary/30"
-                          : "text-slate-400 hover:text-slate-100 hover:bg-slate-800/50"
+                          ? "bg-indigo-600 text-white font-semibold shadow-sm shadow-indigo-600/30"
+                          : "text-zinc-400 hover:text-zinc-100 hover:bg-white/[0.04]"
                       )}
                     >
-                      <Icon className={cn("h-4 w-4 shrink-0 transition-transform group-hover:scale-105", active ? "text-white" : "text-slate-400 group-hover:text-slate-200")} />
+                      <Icon className={cn("h-4 w-4 shrink-0 transition-transform group-hover:scale-105", active ? "text-white" : "text-zinc-400 group-hover:text-zinc-200")} />
                       <span className="truncate">{item.label}</span>
-                      {/* Active indicator dot */}
                       {active && (
                         <span className="ml-auto h-1.5 w-1.5 rounded-full bg-white shadow-xs shrink-0" />
                       )}
@@ -284,20 +283,20 @@ export function Sidebar({ userRole, userName, logoUrl, instituteName = "Futurex 
       {/* ── User Footer ─────────────────────────────── */}
       <Link
         href="/settings"
-        className="p-3 border-t border-slate-800/80 bg-slate-950/60 flex items-center gap-2.5 hover:bg-slate-900 transition-colors group cursor-pointer shrink-0"
+        className="p-3.5 border-t border-white/[0.08] bg-[#070a12] flex items-center gap-2.5 hover:bg-white/[0.03] transition-colors group cursor-pointer shrink-0"
         title="Customize My Profile & Settings"
       >
         <div className="relative shrink-0">
-          <div className="h-8 w-8 rounded-full bg-primary/20 border border-primary/40 flex items-center justify-center font-bold text-xs text-primary group-hover:bg-primary group-hover:text-white transition-colors">
+          <div className="h-8 w-8 rounded-full bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center font-bold text-xs text-indigo-300 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
             {userName.charAt(0).toUpperCase()}
           </div>
-          <span className="absolute bottom-0 right-0 h-2 w-2 rounded-full bg-emerald-500 ring-2 ring-[#0a1120]" />
+          <span className="absolute bottom-0 right-0 h-2 w-2 rounded-full bg-emerald-500 ring-2 ring-[#070a12]" />
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-xs font-semibold text-white truncate">{userName}</p>
-          <p className="text-[10px] text-slate-400 uppercase tracking-wide flex items-center justify-between">
+          <p className="text-[10px] text-zinc-400 uppercase tracking-wide flex items-center justify-between">
             <span>{userRole.replace("_", " ")}</span>
-            <span className="text-[10px] text-primary opacity-0 group-hover:opacity-100 transition-opacity font-semibold">
+            <span className="text-[10px] text-indigo-400 opacity-0 group-hover:opacity-100 transition-opacity font-semibold">
               Settings →
             </span>
           </p>

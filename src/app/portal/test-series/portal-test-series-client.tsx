@@ -181,42 +181,42 @@ export function PortalTestSeriesClient({ registeredSeries, availableSeries, stud
         </div>
       )}
 
-      {/* ── Sub Navigation ── */}
-      <div className="flex border-b border-white/10 gap-2 text-xs font-semibold">
+      {/* ── Sub Navigation (Modern Segmented Pills) ── */}
+      <div className="flex bg-white/[0.03] p-1 rounded-2xl border border-white/[0.08] gap-1 overflow-x-auto text-xs font-medium">
         <button
           onClick={() => setActiveTab("registered")}
-          className={`pb-3 px-3 transition-colors flex items-center gap-1.5 border-b-2 ${
+          className={`py-2 px-3.5 rounded-xl transition-all flex items-center gap-2 ${
             activeTab === "registered"
-              ? "border-indigo-500 text-white"
-              : "border-transparent text-zinc-400 hover:text-zinc-200"
+              ? "bg-white text-zinc-950 font-semibold shadow-md shadow-white/5"
+              : "text-zinc-400 hover:text-white hover:bg-white/[0.04]"
           }`}
         >
-          <Layers className="w-4 h-4" />
-          <span>My Enrolled Test Series ({registeredSeries.length})</span>
+          <Layers className="w-3.5 h-3.5" />
+          <span>My Enrolled Series ({registeredSeries.length})</span>
         </button>
 
         <button
           onClick={() => setActiveTab("results")}
-          className={`pb-3 px-3 transition-colors flex items-center gap-1.5 border-b-2 ${
+          className={`py-2 px-3.5 rounded-xl transition-all flex items-center gap-2 ${
             activeTab === "results"
-              ? "border-indigo-500 text-white"
-              : "border-transparent text-zinc-400 hover:text-zinc-200"
+              ? "bg-white text-zinc-950 font-semibold shadow-md shadow-white/5"
+              : "text-zinc-400 hover:text-white hover:bg-white/[0.04]"
           }`}
         >
-          <Award className="w-4 h-4" />
+          <Award className="w-3.5 h-3.5" />
           <span>Scorecards &amp; Rankings ({allResults.length})</span>
         </button>
 
         <button
           onClick={() => setActiveTab("explore")}
-          className={`pb-3 px-3 transition-colors flex items-center gap-1.5 border-b-2 ${
+          className={`py-2 px-3.5 rounded-xl transition-all flex items-center gap-2 ${
             activeTab === "explore"
-              ? "border-indigo-500 text-white"
-              : "border-transparent text-zinc-400 hover:text-zinc-200"
+              ? "bg-white text-zinc-950 font-semibold shadow-md shadow-white/5"
+              : "text-zinc-400 hover:text-white hover:bg-white/[0.04]"
           }`}
         >
-          <Sparkles className="w-4 h-4 text-amber-300" />
-          <span>Explore Upcoming Test Series ({availableSeries.length})</span>
+          <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+          <span>Explore Upcoming Series ({availableSeries.length})</span>
         </button>
       </div>
 

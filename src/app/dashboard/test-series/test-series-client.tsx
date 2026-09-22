@@ -391,54 +391,54 @@ export function TestSeriesClient({ seriesList, stats, enrolledStudents }: Props)
         </div>
       </div>
 
-      {/* ── Main Tab Navigation ── */}
-      <div className="flex border-b border-white/10 gap-2 overflow-x-auto text-xs font-semibold">
+      {/* ── Main Tab Navigation (Modern Segmented Pills) ── */}
+      <div className="flex bg-white/[0.03] p-1 rounded-2xl border border-white/[0.08] gap-1 overflow-x-auto text-xs font-medium">
         <button
           onClick={() => setActiveTab("programs")}
-          className={`pb-3 px-3 transition-colors flex items-center gap-1.5 border-b-2 ${
+          className={`py-2 px-3.5 rounded-xl transition-all flex items-center gap-2 ${
             activeTab === "programs"
-              ? "border-indigo-500 text-white"
-              : "border-transparent text-zinc-400 hover:text-zinc-200"
+              ? "bg-white text-zinc-950 font-semibold shadow-md shadow-white/5"
+              : "text-zinc-400 hover:text-white hover:bg-white/[0.04]"
           }`}
         >
-          <Layers className="w-4 h-4" />
-          <span>Test Series Programs ({seriesList.length})</span>
+          <Layers className="w-3.5 h-3.5" />
+          <span>Programs ({seriesList.length})</span>
         </button>
 
         <button
           onClick={() => setActiveTab("registrations")}
-          className={`pb-3 px-3 transition-colors flex items-center gap-1.5 border-b-2 ${
+          className={`py-2 px-3.5 rounded-xl transition-all flex items-center gap-2 ${
             activeTab === "registrations"
-              ? "border-indigo-500 text-white"
-              : "border-transparent text-zinc-400 hover:text-zinc-200"
+              ? "bg-white text-zinc-950 font-semibold shadow-md shadow-white/5"
+              : "text-zinc-400 hover:text-white hover:bg-white/[0.04]"
           }`}
         >
-          <Users className="w-4 h-4" />
-          <span>Student Registrations &amp; One-Time Fee ({allRegistrations.length})</span>
+          <Users className="w-3.5 h-3.5" />
+          <span>Registrations &amp; Fee ({allRegistrations.length})</span>
         </button>
 
         <button
           onClick={() => setActiveTab("schedule")}
-          className={`pb-3 px-3 transition-colors flex items-center gap-1.5 border-b-2 ${
+          className={`py-2 px-3.5 rounded-xl transition-all flex items-center gap-2 ${
             activeTab === "schedule"
-              ? "border-indigo-500 text-white"
-              : "border-transparent text-zinc-400 hover:text-zinc-200"
+              ? "bg-white text-zinc-950 font-semibold shadow-md shadow-white/5"
+              : "text-zinc-400 hover:text-white hover:bg-white/[0.04]"
           }`}
         >
-          <Calendar className="w-4 h-4" />
-          <span>Offline Tests Schedule ({allExams.length})</span>
+          <Calendar className="w-3.5 h-3.5" />
+          <span>Offline Tests ({allExams.length})</span>
         </button>
 
         <button
           onClick={() => setActiveTab("results")}
-          className={`pb-3 px-3 transition-colors flex items-center gap-1.5 border-b-2 ${
+          className={`py-2 px-3.5 rounded-xl transition-all flex items-center gap-2 ${
             activeTab === "results"
-              ? "border-indigo-500 text-white"
-              : "border-transparent text-zinc-400 hover:text-zinc-200"
+              ? "bg-white text-zinc-950 font-semibold shadow-md shadow-white/5"
+              : "text-zinc-400 hover:text-white hover:bg-white/[0.04]"
           }`}
         >
-          <Award className="w-4 h-4" />
-          <span>Offline Results &amp; Ranking Entry</span>
+          <Award className="w-3.5 h-3.5" />
+          <span>Results Entry</span>
         </button>
       </div>
 
