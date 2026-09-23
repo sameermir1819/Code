@@ -15,7 +15,7 @@ export default async function LoginPage() {
       instituteName={institute?.name || "Futurex Learning"}
       tagline={institute?.tagline || "Premier Institute Management & Academic Portal"}
       instituteCode={institute?.code || "FL-CAMPUS-01"}
-      city={institute?.city || "New Delhi"}
+      city={institute?.city || "Srinagar"}
     />
   );
 }
