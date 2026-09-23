@@ -257,9 +257,10 @@ export default function StudentsPage() {
     email: "",
     gender: "MALE",
     dob: "",
+    admissionDate: "",
     address: "",
-    city: "New Delhi",
-    state: "Delhi",
+    city: "Srinagar",
+    state: "Jammu & Kashmir",
     schoolCollege: "",
     gradeClass: "Class 11",
     status: "ACTIVE",
@@ -283,9 +284,10 @@ export default function StudentsPage() {
       email: stu.email || "",
       gender: stu.gender || "MALE",
       dob: stu.dob ? new Date(stu.dob).toISOString().split("T")[0] : "",
+      admissionDate: stu.admissionDate ? new Date(stu.admissionDate).toISOString().split("T")[0] : "",
       address: stu.address || "",
-      city: stu.city || "New Delhi",
-      state: stu.state || "Delhi",
+      city: stu.city || "Srinagar",
+      state: stu.state || "Jammu & Kashmir",
       schoolCollege: stu.schoolCollege || "",
       gradeClass: stu.gradeClass || "Class 11",
       status: stu.status || "ACTIVE",
@@ -317,6 +319,7 @@ export default function StudentsPage() {
         email: editForm.email.trim() || undefined,
         gender: editForm.gender,
         dob: editForm.dob || undefined,
+        admissionDate: editForm.admissionDate || undefined,
         address: editForm.address.trim() || undefined,
         city: editForm.city.trim() || undefined,
         state: editForm.state.trim() || undefined,
@@ -838,7 +841,7 @@ export default function StudentsPage() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
                     <div>
                       <label className="font-semibold text-muted-foreground block mb-1">
                         Date of Birth
@@ -847,6 +850,17 @@ export default function StudentsPage() {
                         type="date"
                         value={editForm.dob}
                         onChange={(e) => setEditForm({ ...editForm, dob: e.target.value })}
+                        className="h-9 text-xs"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-semibold text-primary block mb-1">
+                        Admission Date
+                      </label>
+                      <Input
+                        type="date"
+                        value={editForm.admissionDate}
+                        onChange={(e) => setEditForm({ ...editForm, admissionDate: e.target.value })}
                         className="h-9 text-xs"
                       />
                     </div>

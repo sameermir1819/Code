@@ -512,8 +512,9 @@ export default async function DashboardPage() {
                         <Badge variant="success" className="text-[10px]">
                           {student.status}
                         </Badge>
-                        <p className="text-[10px] text-muted-foreground mt-1">
-                          {formatDate(student.admissionDate)}
+                        <p className="text-[10px] text-muted-foreground mt-1 flex items-center justify-end gap-1">
+                          <span>Admitted:</span>
+                          <strong className="text-foreground">{formatDate(student.admissionDate)}</strong>
                         </p>
                       </div>
                     </div>
@@ -553,7 +554,7 @@ export default async function DashboardPage() {
                           {formatCurrency(p.amount)}
                         </span>
                         <p className="text-[10px] text-muted-foreground mt-1">
-                          {formatDate(p.paymentDate)}
+                          {formatDate(p.paymentDate)} • {new Date(p.paymentDate).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })}
                         </p>
                       </div>
                     </div>

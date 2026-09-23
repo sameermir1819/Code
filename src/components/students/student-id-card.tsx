@@ -243,7 +243,7 @@ export function StudentIdCard({
                   {instName}
                 </h3>
                 <span className="text-[7.5px] font-bold text-amber-300 uppercase tracking-widest block">
-                  Campus Identity Pass • 2025–26
+                  Campus Identity Pass • 2026–27
                 </span>
               </div>
 
@@ -390,7 +390,7 @@ export function StudentIdCard({
 
                 <div className="flex flex-col items-end">
                   <ContactlessIcon />
-                  <span className="text-[7px] font-mono font-bold text-amber-300 mt-0.5">2025–26</span>
+                  <span className="text-[7px] font-mono font-bold text-amber-300 mt-0.5">2026–27</span>
                 </div>
               </div>
 

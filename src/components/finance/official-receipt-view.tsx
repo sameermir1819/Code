@@ -395,9 +395,9 @@ export function OfficialReceiptView({ payment, institute }: OfficialReceiptViewP
             <BarcodeSvg code={payment.receiptNo} color={currentCopy.themeColor} />
 
             <div className="text-[9px] font-mono text-zinc-700">
-              <span>Date: <strong>{formattedDate}</strong></span>
+              <span>Date: <strong>{formattedDate} {payment.paymentDate ? new Date(payment.paymentDate).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true }) : ""}</strong></span>
               <span className="mx-1.5 text-zinc-400">|</span>
-              <span>Session: <strong>2025–2026</strong></span>
+              <span>Session: <strong>2026–2027</strong></span>
             </div>
           </div>
         </div>

@@ -15,7 +15,7 @@ import {
   LeadSource,
 } from "@/server/actions/leads";
 import { exportLeadsCSV } from "@/server/actions/export";
-import { formatDate } from "@/lib/utils";
+import { formatDate, formatDateTime } from "@/lib/utils";
 import {
   Card,
   CardContent,
@@ -641,12 +641,12 @@ export default function LeadsPage() {
             <table className="w-full text-sm text-left">
               <thead className="text-xs uppercase bg-muted/40 text-muted-foreground border-b border-border">
                 <tr>
-                  <th className="px-4 py-3 font-semibold">Student & Interest</th>
-                  <th className="px-4 py-3 font-semibold">Contact & Parent</th>
-                  <th className="px-4 py-3 font-semibold">Source</th>
+                  <th className="px-4 py-3 font-semibold">Student &amp; Interest</th>
+                  <th className="px-4 py-3 font-semibold">Contact &amp; Parent</th>
+                  <th className="px-4 py-3 font-semibold">Source &amp; Date Received</th>
                   <th className="px-4 py-3 font-semibold">Priority</th>
                   <th className="px-4 py-3 font-semibold">Stage</th>
-                  <th className="px-4 py-3 font-semibold">Next Action</th>
+                  <th className="px-4 py-3 font-semibold">Next Follow-up</th>
                   <th className="px-4 py-3 font-semibold text-right">Actions</th>
                 </tr>
               </thead>
@@ -725,14 +725,18 @@ export default function LeadsPage() {
                         )}
                       </td>
 
-                      {/* Source */}
+                      {/* Source & Date Received */}
                       <td className="px-4 py-3.5">
-                        <span className="text-xs text-muted-foreground bg-muted/60 px-2 py-1 rounded-md font-medium border border-border/50">
+                        <span className="text-xs text-muted-foreground bg-muted/60 px-2 py-0.5 rounded-md font-medium border border-border/50">
                           {lead.source.replace("_", " ")}
                         </span>
+                        <div className="text-[11px] text-foreground/80 mt-1 flex items-center gap-1 font-mono">
+                          <Clock className="w-3 h-3 text-primary/70 shrink-0" />
+                          <span>{formatDateTime(lead.createdAt)}</span>
+                        </div>
                         {lead.institute && (
-                          <div className="text-[10px] text-muted-foreground mt-1">
-                            {lead.institute.name}
+                          <div className="text-[10px] text-muted-foreground mt-0.5">
+                            📍 {lead.institute.name}
                           </div>
                         )}
                       </td>
@@ -766,7 +770,7 @@ export default function LeadsPage() {
                               }`}
                             >
                               <Calendar className="w-3 h-3 shrink-0" />
-                              {formatDate(lead.nextFollowUp)}
+                              {formatDateTime(lead.nextFollowUp)}
                             </span>
                             <span className="text-[10px] text-muted-foreground">
                               {isFollowUpOverdue
@@ -905,12 +909,18 @@ export default function LeadsPage() {
                         </a>
                       </div>
 
-                      {lead.nextFollowUp && (
-                        <div className="mt-1.5 text-[10px] text-amber-400/90 flex items-center gap-1">
-                          <Clock className="w-2.5 h-2.5" />
-                          <span>Due: {formatDate(lead.nextFollowUp)}</span>
-                        </div>
-                      )}
+                      <div className="mt-1.5 flex items-center justify-between text-[10px] text-muted-foreground pt-1 border-t border-border/30">
+                        <span className="flex items-center gap-1 font-mono">
+                          <Clock className="w-2.5 h-2.5 text-primary/70 shrink-0" />
+                          <span>{formatDate(lead.createdAt)}</span>
+                        </span>
+                        {lead.nextFollowUp && (
+                          <span className="text-amber-400/90 font-medium flex items-center gap-1">
+                            <Calendar className="w-2.5 h-2.5 shrink-0" />
+                            <span>Due: {formatDate(lead.nextFollowUp)}</span>
+                          </span>
+                        )}
+                      </div>
 
                       {/* Card Actions */}
                       <div className="mt-2.5 pt-2 border-t border-border/40 flex items-center justify-between gap-1">
@@ -1299,7 +1309,7 @@ export default function LeadsPage() {
                           <span className="font-semibold text-foreground/90">
                             {fu.contactMethod || "CALL"} • {fu.counselorName || "Counselor"}
                           </span>
-                          <span>{formatDate(fu.scheduledAt || fu.createdAt)}</span>
+                          <span className="font-mono">{formatDateTime(fu.createdAt || fu.scheduledAt)}</span>
                         </div>
                         <p className="text-foreground/80 mt-0.5">{fu.notes}</p>
                       </div>

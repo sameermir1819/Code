@@ -77,6 +77,7 @@ function CollectFeeModal({
   // Payment fields
   const [amount, setAmount] = useState<string>("");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("CASH");
+  const [paymentDate, setPaymentDate] = useState<string>(new Date().toISOString().split("T")[0]);
   const [referenceNo, setReferenceNo] = useState("");
   const [collectedBy, setCollectedBy] = useState("Accounts Desk");
   const [notes, setNotes] = useState("");
@@ -186,6 +187,7 @@ function CollectFeeModal({
           installmentId: selectedInstallmentId || undefined,
           amount: parsedAmount,
           paymentMethod,
+          paymentDate,
           referenceNo: referenceNo.trim() || undefined,
           collectedBy: collectedBy.trim() || undefined,
           notes: notes.trim() || undefined,
@@ -417,7 +419,7 @@ function CollectFeeModal({
                   )}
 
                   {/* Amount and Method */}
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div className="space-y-1.5">
                       <label className="text-xs font-semibold text-foreground">
                         Amount to Collect (₹) <span className="text-destructive">*</span>
@@ -438,7 +440,7 @@ function CollectFeeModal({
                     </div>
 
                     <div className="space-y-1.5">
-                      <label className="text-xs font-semibold text-foreground">Payment Method</label>
+                      <label className="text-xs font-semibold text-foreground">Payment Method *</label>
                       <select
                         value={paymentMethod}
                         onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
@@ -450,6 +452,17 @@ function CollectFeeModal({
                           </option>
                         ))}
                       </select>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-foreground text-primary">Payment Date *</label>
+                      <input
+                        type="date"
+                        required
+                        value={paymentDate}
+                        onChange={(e) => setPaymentDate(e.target.value)}
+                        className="w-full px-3 py-2 text-xs rounded-lg border bg-background text-foreground font-medium"
+                      />
                     </div>
                   </div>
 
@@ -957,7 +970,14 @@ export default function PaymentsPage() {
                           <td className="p-3 font-mono text-muted-foreground">
                             {p.referenceNo || "—"}
                           </td>
-                          <td className="p-3 text-muted-foreground">{formatDate(p.paymentDate)}</td>
+                          <td className="p-3">
+                            <div className="flex flex-col">
+                              <span className="font-medium text-foreground">{formatDate(p.paymentDate)}</span>
+                              <span className="text-[10px] text-muted-foreground">
+                                {new Date(p.paymentDate).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })}
+                              </span>
+                            </div>
+                          </td>
                           <td className="p-3 font-bold text-emerald-600 dark:text-emerald-400">
                             {formatCurrency(p.amount)}
                           </td>

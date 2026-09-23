@@ -37,10 +37,11 @@ function AdmissionForm() {
     phone: queryPhone || "",
     dob: "2008-01-01",
     gender: "MALE",
+    admissionDate: new Date().toISOString().split("T")[0],
     address: "",
-    city: "New Delhi",
-    state: "Delhi",
-    schoolCollege: "CBSE School",
+    city: "Srinagar",
+    state: "Jammu & Kashmir",
+    schoolCollege: "Burn Hall School / DPS",
     gradeClass: "Class 11",
     parentName: queryParentName || "",
     parentPhone: queryParentPhone || "",
@@ -55,6 +56,7 @@ function AdmissionForm() {
     installmentCount: 2,
     initialPaymentAmount: 50000,
     paymentMethod: "UPI",
+    paymentDate: new Date().toISOString().split("T")[0],
     referenceNo: "",
     notes: leadId ? `Converted from Admissions Inquiry Lead #${leadId.slice(0, 8)}` : "Admitted after counseling",
   });
@@ -284,6 +286,15 @@ function AdmissionForm() {
               />
             </div>
             <div>
+              <label className="font-semibold block mb-1 text-primary">Admission Date *</label>
+              <Input
+                type="date"
+                required
+                value={formData.admissionDate}
+                onChange={(e) => setFormData({ ...formData, admissionDate: e.target.value })}
+              />
+            </div>
+            <div>
               <label className="font-semibold block mb-1">Student Contact Phone</label>
               <Input
                 value={formData.phone}
@@ -471,7 +482,7 @@ function AdmissionForm() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 pt-2">
               <div>
                 <label className="font-semibold block mb-1">Initial Amount Collected (₹)</label>
                 <Input
@@ -492,6 +503,14 @@ function AdmissionForm() {
                   <option value="CASH">Cash at Desk</option>
                   <option value="CARD">Debit / Credit Card</option>
                 </select>
+              </div>
+              <div>
+                <label className="font-semibold block mb-1 text-primary">Payment Deposit Date *</label>
+                <Input
+                  type="date"
+                  value={formData.paymentDate}
+                  onChange={(e) => setFormData({ ...formData, paymentDate: e.target.value })}
+                />
               </div>
               <div>
                 <label className="font-semibold block mb-1">Transaction Ref / UTR No</label>

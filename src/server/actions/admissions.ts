@@ -18,6 +18,7 @@ export interface AdmissionPayload {
   emergencyContact?: string;
   schoolCollege?: string;
   gradeClass?: string;
+  admissionDate?: string;
   // Parent
   parentName: string;
   parentPhone: string;
@@ -38,6 +39,7 @@ export interface AdmissionPayload {
   // Initial Payment
   initialPaymentAmount: number;
   paymentMethod: string;
+  paymentDate?: string;
   referenceNo?: string;
   notes?: string;
 }
@@ -88,6 +90,10 @@ export async function processAdmission(payload: AdmissionPayload) {
       });
     }
 
+    const finalAdmissionDate = payload.admissionDate
+      ? new Date(payload.admissionDate)
+      : new Date();
+
     // 2. Student
     const student = await tx.student.create({
       data: {
@@ -100,12 +106,13 @@ export async function processAdmission(payload: AdmissionPayload) {
         dob: payload.dob ? new Date(payload.dob) : null,
         gender: payload.gender || "MALE",
         address: payload.address || null,
-        city: payload.city || "New Delhi",
-        state: payload.state || "Delhi",
+        city: payload.city || "Srinagar",
+        state: payload.state || "Jammu & Kashmir",
         emergencyContact: payload.emergencyContact || null,
         schoolCollege: payload.schoolCollege || null,
         gradeClass: payload.gradeClass || "Class 11",
         parentId: parent.id,
+        admissionDate: finalAdmissionDate,
         status: "ACTIVE",
         notes: payload.notes || null,
       },
@@ -117,7 +124,7 @@ export async function processAdmission(payload: AdmissionPayload) {
         studentId: student.id,
         courseId: course.id,
         batchId: batch.id,
-        startDate: new Date(),
+        startDate: finalAdmissionDate,
         status: "ACTIVE",
         source: "DIRECT_ADMISSION",
         notes: `Admitted into ${batch.name}`,
@@ -187,7 +194,9 @@ export async function processAdmission(payload: AdmissionPayload) {
           feePlanId: feePlan.id,
           amount: paid,
           paymentMethod: payload.paymentMethod || "UPI",
-          paymentDate: new Date(),
+          paymentDate: payload.paymentDate
+            ? new Date(payload.paymentDate)
+            : finalAdmissionDate,
           collectedBy: session.name || "Admissions Desk",
           referenceNo: payload.referenceNo || null,
           notes: `Admission fee collection for ${course.name}`,

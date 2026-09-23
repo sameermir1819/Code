@@ -159,6 +159,7 @@ export async function recordPayment(data: {
   installmentId?: string;
   amount: number;
   paymentMethod: string;
+  paymentDate?: string | Date;
   collectedBy?: string;
   referenceNo?: string;
   notes?: string;
@@ -196,7 +197,7 @@ export async function recordPayment(data: {
         installmentId: data.installmentId || null,
         amount: data.amount,
         paymentMethod: data.paymentMethod || "UPI",
-        paymentDate: new Date(),
+        paymentDate: data.paymentDate ? new Date(data.paymentDate) : new Date(),
         collectedBy: data.collectedBy || session.name || "Accounts Desk",
         referenceNo: data.referenceNo || null,
         notes: data.notes || null,

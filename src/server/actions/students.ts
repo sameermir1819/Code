@@ -280,6 +280,7 @@ export async function updateStudent(
     email: string;
     phone: string;
     dob: string;
+    admissionDate: string;
     gender: string;
     address: string;
     city: string;
@@ -298,6 +299,7 @@ export async function updateStudent(
     data: {
       ...data,
       dob: data.dob ? new Date(data.dob) : undefined,
+      admissionDate: data.admissionDate ? new Date(data.admissionDate) : undefined,
     },
   });
 
