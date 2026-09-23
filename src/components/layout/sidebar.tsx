@@ -92,9 +92,9 @@ const NAV_GROUPS: NavGroup[] = [
       },
       {
         label: "Offline Test Series",
-        href: "/dashboard/test-series",
+        href: "/test-series",
         icon: ClipboardCheck,
-        altHrefs: ["/test-series"],
+        altHrefs: ["/dashboard/test-series"],
       },
       {
         label: "Results",
