@@ -142,7 +142,7 @@ export function StudentPortalLanding({
       <header className="sticky top-0 z-40 w-full bg-[#06080f]/80 backdrop-blur-xl border-b border-white/[0.08] transition-all">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           {/* Logo & Institute Branding */}
-          <Link href="/" className="flex items-center gap-3 group">
+          <Link href="/student-login" className="flex items-center gap-3 group">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-purple-600 p-0.5 shadow-md shadow-indigo-600/30 group-hover:scale-105 transition-transform">
               <div className="w-full h-full rounded-[10px] bg-[#090e1a] flex items-center justify-center text-white overflow-hidden">
                 <InstituteLogo logoUrl={logoUrl} name={instituteName} size={30} />
@@ -183,13 +183,6 @@ export function StudentPortalLanding({
 
           {/* Action Buttons: Sign In & Apply */}
           <div className="flex items-center gap-2.5">
-            <Link
-              href="/"
-              className="text-xs text-zinc-400 hover:text-white px-2.5 py-1.5 rounded-xl hover:bg-white/5 transition-all font-medium hidden lg:inline-block"
-            >
-              ← Home
-            </Link>
-
             <button
               type="button"
               onClick={() => setIsLoginModalOpen(true)}
@@ -251,9 +244,7 @@ export function StudentPortalLanding({
               Student Helpline
             </a>
             <div className="pt-2 border-t border-white/10 flex items-center justify-between">
-              <Link href="/" className="text-xs text-zinc-400 hover:text-white">
-                ← Return to Main Website
-              </Link>
+              <span className="text-xs text-zinc-400">Admissions Open 2026-27</span>
               <button
                 type="button"
                 onClick={() => {
@@ -262,7 +253,7 @@ export function StudentPortalLanding({
                 }}
                 className="text-xs text-indigo-400 font-bold"
               >
-                Sign In Now →
+                Student Sign In →
               </button>
             </div>
           </div>
@@ -671,10 +662,6 @@ export function StudentPortalLanding({
           </div>
 
           <div className="flex items-center gap-4 text-[11px]">
-            <Link href="/" className="hover:text-white transition-colors">
-              Institute Home
-            </Link>
-            <span>•</span>
             <Link href="/apply" className="hover:text-white transition-colors text-indigo-400 font-semibold">
               Apply Online 2026
             </Link>
@@ -682,7 +669,7 @@ export function StudentPortalLanding({
             <button
               type="button"
               onClick={() => setIsLoginModalOpen(true)}
-              className="hover:text-white transition-colors text-indigo-300 font-semibold"
+              className="hover:text-white transition-colors text-indigo-300 font-semibold cursor-pointer"
             >
               Sign In
             </button>
