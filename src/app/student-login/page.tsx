@@ -12,7 +12,7 @@ export const metadata = {
 };
 
 export default async function StudentLoginPage() {
-  const [activeCampus, campuses, courses] = await Promise.all([
+  const [activeCampus, campuses, courses, testSeries] = await Promise.all([
     getActiveCampus(),
     db.institute.findMany({
       select: {
@@ -36,6 +36,22 @@ export default async function StudentLoginPage() {
       orderBy: { name: "asc" },
       take: 10,
     }),
+    db.testSeries.findMany({
+      where: { status: "ACTIVE" },
+      select: {
+        id: true,
+        title: true,
+        code: true,
+        targetExam: true,
+        fee: true,
+        totalTests: true,
+        startDate: true,
+        endDate: true,
+        testCenterVenue: true,
+      },
+      orderBy: { createdAt: "desc" },
+      take: 6,
+    }),
   ]);
 
   return (
@@ -51,6 +67,7 @@ export default async function StudentLoginPage() {
       email={activeCampus?.email || "admissions@futurexlearning.com"}
       campuses={campuses}
       courses={courses}
+      testSeries={testSeries}
     />
   );
 }
