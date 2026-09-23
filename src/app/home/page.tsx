@@ -1,11 +1,5 @@
-import StudentLoginPage, { metadata as studentMetadata } from "../student-login/page";
+import { redirect } from "next/navigation";
 
-export const dynamic = "force-dynamic";
-
-export const metadata = {
-  ...studentMetadata,
-  title: "Home - Futurex Learning",
-};
-
-export default StudentLoginPage;
-
+export default function HomeRedirectPage() {
+  redirect("/");
+}

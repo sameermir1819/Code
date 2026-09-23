@@ -2,8 +2,7 @@
 const CACHE_NAME = "futurex-student-v1";
 const PRECACHE_ASSETS = [
   "/",
-  "/home",
-  "/student-login",
+  "/apply",
   "/logo.png",
   "/favicon.ico",
 ];
@@ -79,7 +78,7 @@ self.addEventListener("fetch", (event) => {
           return cachedResponse;
         }
         if (event.request.mode === "navigate") {
-          return (await caches.match("/home")) || (await caches.match("/"));
+          return await caches.match("/");
         }
       })
   );

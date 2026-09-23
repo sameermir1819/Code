@@ -5,7 +5,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: "Futurex Learning - Student Portal",
     short_name: "Futurex Student",
     description: "Official Student Academic Portal for Attendance, DPPs, Test Series & Smart ID",
-    start_url: "/home",
+    start_url: "/",
     scope: "/",
     display: "standalone",
     orientation: "portrait",
