@@ -114,13 +114,6 @@ export function HomeLandingPage({
   const helpline = institute?.phone || "+91 98765 43210";
   const cleanHelpline = helpline.replace(/[^\d]/g, "");
 
-  // Auto-open modal if URL specifies ?login=true or ?action=login
-  useEffect(() => {
-    if (searchParams?.get("login") === "true" || searchParams?.get("action") === "login") {
-      setIsLoginModalOpen(true);
-    }
-  }, [searchParams]);
-
   // Handle Student Login Submission
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
