@@ -34,6 +34,10 @@ const STAFF_BACKEND_PREFIXES = [
   "/data-export",
   "/admissions",
   "/courses",
+  "/test-series",
+  "/users",
+  "/timetable",
+  "/profile",
 ];
 
 async function verifyToken(token: string) {

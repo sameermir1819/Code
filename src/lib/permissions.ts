@@ -5,6 +5,8 @@ export type Role =
   | "TEACHER"
   | "STUDENT"
   | "PARENT"
+  | "COUNSELOR"
+  | "STAFF"
   | (string & {});
 
 export interface SessionUser {
@@ -62,7 +64,7 @@ export type PermissionCode =
   | "settings.view"
   | "settings.manage";
 
-export const ROLE_PERMISSIONS: Record<Role, PermissionCode[]> = {
+export const ROLE_PERMISSIONS: Partial<Record<Role, PermissionCode[]>> = {
   SUPER_ADMIN: [
     "users.view",
     "users.create",
@@ -165,6 +167,16 @@ export const ROLE_PERMISSIONS: Record<Role, PermissionCode[]> = {
     "fees.view",
     "results.view",
   ],
+  COUNSELOR: [
+    "students.view",
+    "courses.view",
+    "batches.view",
+  ],
+  STAFF: [
+    "students.view",
+    "attendance.view",
+    "batches.view",
+  ],
 };
 
 export function hasRolePermission(role: Role, code: PermissionCode): boolean {
@@ -182,25 +194,29 @@ export function hasPermission(
 }
 
 export function canAccessModule(role: Role, module: string): boolean {
+  if (role === "SUPER_ADMIN") return true;
+
   switch (module) {
     case "dashboard":
       return true;
     case "users":
-      return ["SUPER_ADMIN", "ADMIN", "ACCOUNTANT"].includes(role);
+      return ["ADMIN", "ACCOUNTANT"].includes(role);
     case "students":
-      return ["SUPER_ADMIN", "ADMIN", "ACCOUNTANT", "TEACHER"].includes(role);
+      return ["ADMIN", "ACCOUNTANT", "TEACHER", "COUNSELOR", "STAFF"].includes(role);
     case "admissions":
-      return ["SUPER_ADMIN", "ADMIN"].includes(role);
+      return ["ADMIN"].includes(role);
     case "academics":
     case "courses":
     case "batches":
-      return ["SUPER_ADMIN", "ADMIN", "TEACHER"].includes(role);
+      return ["ADMIN", "TEACHER"].includes(role);
+    case "test-series":
+      return ["ADMIN", "TEACHER"].includes(role);
     case "timetable":
       return true;
     case "attendance":
       return true;
     case "finance":
-      return ["SUPER_ADMIN", "ADMIN", "ACCOUNTANT"].includes(role);
+      return ["ADMIN", "ACCOUNTANT"].includes(role);
     case "exams":
     case "results":
       return true;
@@ -209,12 +225,15 @@ export function canAccessModule(role: Role, module: string): boolean {
     case "announcements":
     case "notifications":
       return true;
+    case "leads":
+      return ["ADMIN", "ACCOUNTANT", "TEACHER", "COUNSELOR", "STAFF"].includes(role);
+    case "data-export":
     case "reports":
-      return ["SUPER_ADMIN", "ADMIN", "ACCOUNTANT"].includes(role);
+      return ["ADMIN", "ACCOUNTANT"].includes(role);
     case "settings":
-      return ["SUPER_ADMIN", "ADMIN"].includes(role);
+      return ["ADMIN"].includes(role);
     case "audit":
-      return ["SUPER_ADMIN"].includes(role);
+      return false; // Only SUPER_ADMIN (already handled above)
     default:
       return false;
   }

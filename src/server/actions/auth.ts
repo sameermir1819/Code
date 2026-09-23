@@ -8,6 +8,7 @@ import {
   setSessionCookie,
   clearSessionCookie,
   getSession,
+  requireAuth,
 } from "@/lib/auth";
 import { logAudit } from "./audit";
 import { Role } from "@/lib/permissions";
@@ -348,6 +349,7 @@ export async function updateInstituteProfile(data: {
   currencySymbol?: string;
   logoUrl?: string;
 }) {
+  await requireAuth(["SUPER_ADMIN", "ADMIN"]);
   const institute = await getInstituteProfile();
 
   const updated = await db.institute.update({

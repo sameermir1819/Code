@@ -181,17 +181,19 @@ const NAV_GROUPS: NavGroup[] = [
  * Keys match `href` values. If absent, item is visible to all in its group.
  */
 const ITEM_ROLES: Record<string, Role[]> = {
-  "/students": ["SUPER_ADMIN", "ADMIN", "ACCOUNTANT", "TEACHER"],
+  "/students": ["SUPER_ADMIN", "ADMIN", "ACCOUNTANT", "TEACHER", "COUNSELOR", "STAFF"],
   "/admissions": ["SUPER_ADMIN", "ADMIN"],
-  "/leads": ["SUPER_ADMIN", "ADMIN", "ACCOUNTANT", "TEACHER"],
+  "/leads": ["SUPER_ADMIN", "ADMIN", "ACCOUNTANT", "TEACHER", "COUNSELOR", "STAFF"],
   "/dashboard/batches": ["SUPER_ADMIN", "ADMIN", "TEACHER"],
   "/teachers": ["SUPER_ADMIN", "ADMIN"],
+  "/test-series": ["SUPER_ADMIN", "ADMIN", "TEACHER"],
   "/announcements": ["SUPER_ADMIN", "ADMIN", "TEACHER"],
   "/data-export": ["SUPER_ADMIN", "ADMIN", "ACCOUNTANT"],
 };
 
 /** Returns true if the given role can see the nav item at `href`. */
 function canSeeItem(href: string, role: Role): boolean {
+  if (role === "SUPER_ADMIN") return true;
   const allowed = ITEM_ROLES[href];
   if (!allowed) return true; // no restriction → visible to all
   return allowed.includes(role);
@@ -199,6 +201,7 @@ function canSeeItem(href: string, role: Role): boolean {
 
 /** Returns true if the given role can see the nav group. */
 function canSeeGroup(group: NavGroup, role: Role): boolean {
+  if (role === "SUPER_ADMIN") return true;
   if (!group.roles || group.roles.length === 0) return true;
   return group.roles.includes(role);
 }
