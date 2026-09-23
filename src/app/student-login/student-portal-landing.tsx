@@ -140,27 +140,27 @@ export function StudentPortalLanding({
 
       {/* ── Sticky Top Navigation ── */}
       <header className="sticky top-0 z-40 w-full bg-[#06080f]/80 backdrop-blur-xl border-b border-white/[0.08] transition-all">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-2">
           {/* Logo & Institute Branding */}
-          <Link href="/home" className="flex items-center gap-3 group">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-purple-600 p-0.5 shadow-md shadow-indigo-600/30 group-hover:scale-105 transition-transform">
+          <Link href="/home" className="flex items-center gap-2 sm:gap-3 group shrink-0 min-w-0">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-purple-600 p-0.5 shadow-md shadow-indigo-600/30 group-hover:scale-105 transition-transform shrink-0">
               <div className="w-full h-full rounded-[10px] bg-[#090e1a] flex items-center justify-center text-white overflow-hidden">
-                <InstituteLogo logoUrl={logoUrl} name={instituteName} size={30} />
+                <InstituteLogo logoUrl={logoUrl} name={instituteName} size={28} />
               </div>
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-extrabold text-white text-base tracking-tight block leading-tight">
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <span className="font-extrabold text-white text-sm sm:text-base tracking-tight block leading-tight truncate max-w-[120px] xs:max-w-[160px] sm:max-w-none">
                   {instituteName}
                 </span>
-                <span className="hidden sm:inline-flex items-center px-2 py-0.5 rounded-full bg-indigo-500/15 border border-indigo-500/30 text-[10px] font-bold text-indigo-300">
+                <span className="hidden sm:inline-flex items-center px-2 py-0.5 rounded-full bg-indigo-500/15 border border-indigo-500/30 text-[10px] font-bold text-indigo-300 shrink-0">
                   Home
                 </span>
               </div>
-              <p className="text-[11px] text-zinc-400 flex items-center gap-1.5 font-medium -mt-0.5">
+              <p className="text-[10px] sm:text-[11px] text-zinc-400 flex items-center gap-1 font-medium -mt-0.5 truncate">
                 <span>Kashmir</span>
                 <span className="text-zinc-600">•</span>
-                <span className="text-zinc-400">Hawal &amp; Parraypora</span>
+                <span className="truncate">Hawal &amp; Parraypora</span>
               </p>
             </div>
           </Link>
@@ -184,8 +184,8 @@ export function StudentPortalLanding({
             </a>
           </nav>
 
-          {/* Action Buttons: Sign In & Apply */}
-          <div className="flex items-center gap-2.5">
+          {/* Desktop Action Buttons */}
+          <div className="hidden md:flex items-center gap-2.5 shrink-0">
             <button
               type="button"
               onClick={() => setIsLoginModalOpen(true)}
@@ -200,71 +200,143 @@ export function StudentPortalLanding({
               className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold text-xs shadow-md shadow-indigo-600/25 transition-all active:scale-[0.98]"
             >
               <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-              <span className="hidden sm:inline">Apply for Admission</span>
-              <span className="sm:hidden">Apply</span>
+              <span>Apply for Admission</span>
+            </Link>
+          </div>
+
+          {/* Mobile Right Action Controls (Phone Only) */}
+          <div className="flex md:hidden items-center gap-1.5 shrink-0">
+            <button
+              type="button"
+              onClick={() => setIsLoginModalOpen(true)}
+              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 text-white font-semibold text-xs border border-white/10 active:scale-95 transition-all cursor-pointer"
+            >
+              <Lock className="w-3 h-3 text-indigo-400" />
+              <span>Login</span>
+            </button>
+
+            <Link
+              href="/apply"
+              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold text-xs shadow-sm shadow-indigo-600/30 active:scale-95 transition-all"
+            >
+              <Sparkles className="w-3 h-3 text-amber-300" />
+              <span>Apply</span>
             </Link>
 
-            {/* Mobile menu button */}
             <button
               type="button"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="p-2 rounded-lg bg-white/5 text-zinc-400 hover:text-white md:hidden"
+              className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-300 hover:text-white transition-all active:scale-95 cursor-pointer ml-0.5"
+              aria-label="Toggle Navigation Menu"
             >
-              <Menu className="w-4 h-4" />
+              {mobileMenuOpen ? <X className="w-5 h-5 text-indigo-300" /> : <Menu className="w-5 h-5" />}
             </button>
           </div>
         </div>
 
-        {/* Mobile Dropdown Menu */}
+        {/* Mobile Dropdown Menu Drawer */}
         {mobileMenuOpen && (
-          <div className="md:hidden border-t border-white/10 bg-[#090e1a] px-4 py-3 space-y-2 text-sm text-zinc-300">
-            <a
-              href="#top"
-              onClick={() => setMobileMenuOpen(false)}
-              className="block py-1.5 text-white font-bold"
-            >
-              Home
-            </a>
-            <a
-              href="#portal-features"
-              onClick={() => setMobileMenuOpen(false)}
-              className="block py-1.5 hover:text-white"
-            >
-              Portal Features
-            </a>
-            <a
-              href="#test-series"
-              onClick={() => setMobileMenuOpen(false)}
-              className="block py-1.5 hover:text-white"
-            >
-              Test Series
-            </a>
-            <a
-              href="#campuses"
-              onClick={() => setMobileMenuOpen(false)}
-              className="block py-1.5 hover:text-white"
-            >
-              Campuses &amp; Centers
-            </a>
-            <a
-              href="#help"
-              onClick={() => setMobileMenuOpen(false)}
-              className="block py-1.5 hover:text-white"
-            >
-              Student Helpline
-            </a>
-            <div className="pt-2 border-t border-white/10 flex items-center justify-between">
-              <span className="text-xs text-zinc-400">Admissions Open 2026-27</span>
+          <div className="md:hidden border-t border-white/10 bg-[#070a14]/98 backdrop-blur-2xl px-4 pt-3 pb-5 space-y-3.5 shadow-2xl animate-in slide-in-from-top-2 duration-200">
+            {/* Quick Actions (Full-Width Dual Action Cards) */}
+            <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
                 onClick={() => {
                   setMobileMenuOpen(false);
                   setIsLoginModalOpen(true);
                 }}
-                className="text-xs text-indigo-400 font-bold"
+                className="w-full py-2.5 px-3 rounded-xl bg-white hover:bg-zinc-200 text-zinc-950 font-bold text-xs flex items-center justify-center gap-1.5 shadow-md active:scale-98 transition-all cursor-pointer"
               >
-                Student Sign In →
+                <Lock className="w-3.5 h-3.5 text-indigo-600" />
+                <span>Student Login</span>
               </button>
+              <Link
+                href="/apply"
+                onClick={() => setMobileMenuOpen(false)}
+                className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-indigo-600/30 active:scale-98 transition-all"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                <span>Apply Online</span>
+              </Link>
+            </div>
+
+            {/* Mobile Navigation Links */}
+            <div className="divide-y divide-white/[0.06] rounded-2xl bg-white/[0.03] border border-white/[0.06] px-3 text-xs font-semibold text-zinc-200">
+              <a
+                href="#top"
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex items-center justify-between py-2.5 hover:text-white"
+              >
+                <span className="flex items-center gap-2.5">
+                  <GraduationCap className="w-4 h-4 text-indigo-400" />
+                  <span>Home</span>
+                </span>
+                <ChevronRight className="w-3.5 h-3.5 text-zinc-500" />
+              </a>
+              <a
+                href="#portal-features"
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex items-center justify-between py-2.5 hover:text-white"
+              >
+                <span className="flex items-center gap-2.5">
+                  <BookOpen className="w-4 h-4 text-purple-400" />
+                  <span>Portal Features &amp; DPPs</span>
+                </span>
+                <ChevronRight className="w-3.5 h-3.5 text-zinc-500" />
+              </a>
+              <a
+                href="#test-series"
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex items-center justify-between py-2.5 hover:text-white"
+              >
+                <span className="flex items-center gap-2.5">
+                  <FileCheck2 className="w-4 h-4 text-emerald-400" />
+                  <span>OMR Test Series</span>
+                </span>
+                <ChevronRight className="w-3.5 h-3.5 text-zinc-500" />
+              </a>
+              <a
+                href="#campuses"
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex items-center justify-between py-2.5 hover:text-white"
+              >
+                <span className="flex items-center gap-2.5">
+                  <MapPin className="w-4 h-4 text-amber-400" />
+                  <span>Campuses (Hawal &amp; Parraypora)</span>
+                </span>
+                <ChevronRight className="w-3.5 h-3.5 text-zinc-500" />
+              </a>
+              <a
+                href="#help"
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex items-center justify-between py-2.5 hover:text-white"
+              >
+                <span className="flex items-center gap-2.5">
+                  <HelpCircle className="w-4 h-4 text-sky-400" />
+                  <span>Student Helpline &amp; WhatsApp</span>
+                </span>
+                <ChevronRight className="w-3.5 h-3.5 text-zinc-500" />
+              </a>
+            </div>
+
+            {/* Quick Contact Desk */}
+            <div className="grid grid-cols-2 gap-2 pt-1 text-[11px]">
+              <a
+                href={`tel:${phone || "+91 98765 43210"}`}
+                className="py-2 px-2.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 text-zinc-300 flex items-center justify-center gap-1.5"
+              >
+                <Phone className="w-3.5 h-3.5 text-purple-400" />
+                <span>Call Campus</span>
+              </a>
+              <a
+                href={`https://wa.me/91${(phone || "9876543210").replace(/\D/g, "")}?text=Hello%20Futurex%20Learning%2C%20I%20need%20assistance.`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="py-2 px-2.5 rounded-xl bg-emerald-600/15 hover:bg-emerald-600/25 border border-emerald-500/30 text-emerald-300 flex items-center justify-center gap-1.5"
+              >
+                <MessageCircle className="w-3.5 h-3.5 text-emerald-400" />
+                <span>WhatsApp</span>
+              </a>
             </div>
           </div>
         )}

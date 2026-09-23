@@ -92,23 +92,23 @@ export function HomeLandingPage({
 
       {/* ── STICKY TOP NAVBAR ── */}
       <header className="sticky top-0 z-50 w-full border-b border-white/[0.08] bg-[#06080f]/85 backdrop-blur-xl transition-all">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 sm:h-20 flex items-center justify-between gap-4">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-16 sm:h-20 flex items-center justify-between gap-2 sm:gap-4">
           
           {/* Logo & Institute Title */}
-          <Link href="/" className="flex items-center gap-3 group">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-purple-600 p-0.5 shadow-md shadow-indigo-600/30 group-hover:scale-105 transition-transform">
+          <Link href="/" className="flex items-center gap-2.5 sm:gap-3 group shrink-0 min-w-0">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-purple-600 p-0.5 shadow-md shadow-indigo-600/30 group-hover:scale-105 transition-transform shrink-0">
               <div className="w-full h-full rounded-[10px] bg-[#090e1a] flex items-center justify-center text-white overflow-hidden">
-                <InstituteLogo logoUrl={institute?.logoUrl} name={instName} size={30} />
+                <InstituteLogo logoUrl={institute?.logoUrl} name={instName} size={28} />
               </div>
             </div>
-            <div>
-              <span className="font-black text-white text-base sm:text-lg tracking-tight block leading-tight group-hover:text-indigo-300 transition-colors">
+            <div className="min-w-0">
+              <span className="font-black text-white text-sm sm:text-lg tracking-tight block leading-tight group-hover:text-indigo-300 transition-colors truncate max-w-[130px] xs:max-w-[170px] sm:max-w-none">
                 {instName}
               </span>
-              <span className="text-[11px] text-zinc-400 flex items-center gap-1.5 -mt-0.5">
+              <span className="text-[10px] sm:text-[11px] text-zinc-400 flex items-center gap-1 sm:gap-1.5 -mt-0.5 truncate">
                 <span className="font-semibold text-indigo-400">Kashmir</span>
                 <span className="text-zinc-600">•</span>
-                <span>Hawal &amp; Parraypora</span>
+                <span className="truncate">Hawal &amp; Parraypora</span>
               </span>
             </div>
           </Link>
@@ -133,7 +133,7 @@ export function HomeLandingPage({
           </nav>
 
           {/* Desktop Action Buttons: Student Login & Apply Now */}
-          <div className="hidden sm:flex items-center gap-3">
+          <div className="hidden sm:flex items-center gap-3 shrink-0">
             <Link
               href="/student-login"
               className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-white/[0.06] hover:bg-white/[0.12] text-zinc-200 hover:text-white border border-white/10 transition-all shadow-sm"
@@ -152,20 +152,28 @@ export function HomeLandingPage({
             </Link>
           </div>
 
-          {/* Mobile Hamburger Toggle Button */}
-          <div className="flex sm:hidden items-center gap-2">
+          {/* Mobile Right Action Controls */}
+          <div className="flex sm:hidden items-center gap-1.5 shrink-0">
+            <Link
+              href="/student-login"
+              className="px-2 py-1.5 rounded-lg text-[11px] font-semibold bg-white/10 hover:bg-white/15 text-white flex items-center gap-1 border border-white/10 active:scale-95 transition-all"
+            >
+              <GraduationCap className="w-3 h-3 text-indigo-400" />
+              <span>Login</span>
+            </Link>
             <Link
               href="/apply"
-              className="px-2.5 py-1.5 rounded-lg text-[11px] font-bold bg-indigo-600 text-white"
+              className="px-2 py-1.5 rounded-lg text-[11px] font-bold bg-indigo-600 hover:bg-indigo-500 text-white flex items-center gap-1 active:scale-95 transition-all"
             >
-              Apply
+              <Sparkles className="w-3 h-3 text-amber-300" />
+              <span>Apply</span>
             </Link>
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="p-2 rounded-xl bg-white/5 border border-white/10 text-zinc-300 hover:text-white"
+              className="p-1.5 rounded-lg bg-white/5 border border-white/10 text-zinc-300 hover:text-white active:scale-95 transition-all"
               aria-label="Toggle navigation"
             >
-              {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+              {mobileMenuOpen ? <X className="w-4 h-4 text-indigo-300" /> : <Menu className="w-4 h-4" />}
             </button>
           </div>
         </div>
