@@ -21,6 +21,7 @@ import {
   ShieldCheck,
   ChevronRight,
   ExternalLink,
+  Plus,
   LayoutGrid,
   Clock,
   Compass,
@@ -315,7 +316,7 @@ export function PortalShell({
         {children}
       </main>
 
-      {/* ── MOBILE FLOATING BOTTOM DOCK (iOS Style Island) ── */}
+      {/* ── MOBILE BOTTOM NAVIGATION DOCK ── */}
       <nav
         aria-label="Mobile Navigation Dock"
         className="fixed bottom-3 inset-x-3 sm:inset-x-6 max-w-md mx-auto z-40 lg:hidden"
@@ -331,7 +332,7 @@ export function PortalShell({
             }`}
           >
             <LayoutDashboard className="w-5 h-5" />
-            <span className="text-[10px] mt-0.5 tracking-tight font-medium">Home</span>
+            <span className="text-[10px] mt-1 tracking-tight font-medium">Home</span>
           </Link>
 
           {/* Attendance */}
@@ -344,10 +345,10 @@ export function PortalShell({
             }`}
           >
             <CalendarCheck2 className="w-5 h-5" />
-            <span className="text-[10px] mt-0.5 tracking-tight font-medium">Attendance</span>
+            <span className="text-[10px] mt-1 tracking-tight font-medium">Attendance</span>
           </Link>
 
-          {/* ⚡ CENTER ALL SERVICES / MENU BUTTON (Inline & Symmetrical) */}
+          {/* ⚡ CENTER MENU / SERVICES BUTTON */}
           <button
             onClick={() => setQuickSheetOpen(true)}
             className={`flex flex-col items-center justify-center py-1.5 px-3 rounded-xl transition-all ${
@@ -361,20 +362,20 @@ export function PortalShell({
             <div className="w-6 h-6 rounded-lg bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 flex items-center justify-center">
               <LayoutGrid className="w-3.5 h-3.5" />
             </div>
-            <span className="text-[10px] mt-0.5 tracking-tight font-medium">Menu</span>
+            <span className="text-[10px] mt-1 tracking-tight font-medium">Menu</span>
           </button>
 
-          {/* Study Notes */}
+          {/* Batches (Replaced Notes with Batches as requested) */}
           <Link
-            href="/portal/materials"
+            href="/portal#batches"
             className={`flex flex-col items-center justify-center py-1.5 px-3 rounded-xl transition-all ${
-              pathname.startsWith("/portal/materials")
+              pathname.startsWith("/portal/batches")
                 ? "text-indigo-400 font-bold bg-white/[0.06]"
                 : "text-zinc-400 hover:text-white"
             }`}
           >
-            <BookOpen className="w-5 h-5" />
-            <span className="text-[10px] mt-0.5 tracking-tight font-medium">Notes</span>
+            <GraduationCap className="w-5 h-5" />
+            <span className="text-[10px] mt-1 tracking-tight font-medium">Batches</span>
           </Link>
 
           {/* Profile */}
@@ -387,7 +388,7 @@ export function PortalShell({
             }`}
           >
             <User className="w-5 h-5" />
-            <span className="text-[10px] mt-0.5 tracking-tight font-medium">Profile</span>
+            <span className="text-[10px] mt-1 tracking-tight font-medium">Profile</span>
           </Link>
         </div>
       </nav>
