@@ -28,6 +28,7 @@ export const metadata: Metadata = {
 };
 
 import { ThemeProvider } from "@/components/theme-provider";
+import { PwaInstaller } from "@/components/pwa/pwa-installer";
 
 export default function RootLayout({
   children,
@@ -39,6 +40,7 @@ export default function RootLayout({
       <body className="min-h-screen bg-background text-foreground antialiased font-sans">
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
           {children}
+          <PwaInstaller />
         </ThemeProvider>
       </body>
     </html>
