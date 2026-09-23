@@ -316,79 +316,88 @@ export function PortalShell({
         {children}
       </main>
 
-      {/* ── MOBILE BOTTOM NAVIGATION DOCK ── */}
+      {/* ── ULTRA-PREMIUM IPHONE FLOATING DOCK (iOS Capsule Island) ── */}
       <nav
         aria-label="Mobile Navigation Dock"
-        className="fixed bottom-3 inset-x-3 sm:inset-x-6 max-w-md mx-auto z-40 lg:hidden"
+        className="fixed bottom-5 inset-x-4 max-w-[360px] mx-auto z-40 lg:hidden"
       >
-        <div className="rounded-2xl bg-[#0c111e]/90 backdrop-blur-2xl border border-white/15 px-1.5 py-1.5 shadow-2xl shadow-black/90 flex items-center justify-around">
+        <div className="rounded-full bg-[#111625]/85 backdrop-blur-3xl backdrop-saturate-150 border border-white/[0.18] p-1.5 shadow-[0_16px_40px_rgba(0,0,0,0.7),inset_0_1px_1px_rgba(255,255,255,0.2)] flex items-center justify-between">
           {/* Home */}
           <Link
             href="/portal"
-            className={`flex flex-col items-center justify-center py-1.5 px-3 rounded-xl transition-all ${
+            className={`flex-1 flex flex-col items-center justify-center py-1.5 rounded-full transition-all active:scale-90 ${
               pathname === "/portal"
-                ? "text-indigo-400 font-bold bg-white/[0.06]"
+                ? "text-white font-semibold"
                 : "text-zinc-400 hover:text-white"
             }`}
           >
-            <LayoutDashboard className="w-5 h-5" />
-            <span className="text-[10px] mt-1 tracking-tight font-medium">Home</span>
+            <LayoutDashboard className="w-[18px] h-[18px]" strokeWidth={2.2} />
+            <span className="text-[10px] mt-0.5 tracking-tight font-medium">Home</span>
+            {pathname === "/portal" && (
+              <span className="w-1 h-1 rounded-full bg-indigo-400 mt-0.5" />
+            )}
           </Link>
 
           {/* Attendance */}
           <Link
             href="/portal/attendance"
-            className={`flex flex-col items-center justify-center py-1.5 px-3 rounded-xl transition-all ${
+            className={`flex-1 flex flex-col items-center justify-center py-1.5 rounded-full transition-all active:scale-90 ${
               pathname.startsWith("/portal/attendance")
-                ? "text-indigo-400 font-bold bg-white/[0.06]"
+                ? "text-white font-semibold"
                 : "text-zinc-400 hover:text-white"
             }`}
           >
-            <CalendarCheck2 className="w-5 h-5" />
-            <span className="text-[10px] mt-1 tracking-tight font-medium">Attendance</span>
+            <CalendarCheck2 className="w-[18px] h-[18px]" strokeWidth={2.2} />
+            <span className="text-[10px] mt-0.5 tracking-tight font-medium">Attendance</span>
+            {pathname.startsWith("/portal/attendance") && (
+              <span className="w-1 h-1 rounded-full bg-indigo-400 mt-0.5" />
+            )}
           </Link>
 
-          {/* ⚡ CENTER MENU / SERVICES BUTTON */}
+          {/* ⚡ CENTER FROSTED MENU BUTTON */}
           <button
             onClick={() => setQuickSheetOpen(true)}
-            className={`flex flex-col items-center justify-center py-1.5 px-3 rounded-xl transition-all ${
+            className={`w-10 h-10 rounded-full flex items-center justify-center mx-1 transition-all active:scale-90 shadow-sm shrink-0 ${
               quickSheetOpen
-                ? "text-indigo-400 bg-white/[0.08]"
-                : "text-zinc-400 hover:text-white active:scale-95"
+                ? "bg-indigo-600 text-white shadow-indigo-600/50 scale-95"
+                : "bg-gradient-to-b from-indigo-500/25 to-indigo-600/35 border border-indigo-400/35 text-indigo-300 shadow-[inset_0_1px_0_rgba(255,255,255,0.25)] hover:border-indigo-400/50"
             }`}
-            title="All Services & Quick Menu"
+            title="All Services & Apps"
             aria-label="All Services"
           >
-            <div className="w-6 h-6 rounded-lg bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 flex items-center justify-center">
-              <LayoutGrid className="w-3.5 h-3.5" />
-            </div>
-            <span className="text-[10px] mt-1 tracking-tight font-medium">Menu</span>
+            <LayoutGrid className="w-4 h-4" strokeWidth={2.4} />
           </button>
 
-          {/* Batches (Replaced Notes with Batches as requested) */}
+          {/* Batches */}
           <Link
             href="/portal#batches"
-            className={`flex flex-col items-center justify-center py-1.5 px-3 rounded-xl transition-all ${
+            className={`flex-1 flex flex-col items-center justify-center py-1.5 rounded-full transition-all active:scale-90 ${
               pathname.startsWith("/portal/batches")
-                ? "text-indigo-400 font-bold bg-white/[0.06]"
+                ? "text-white font-semibold"
                 : "text-zinc-400 hover:text-white"
             }`}
           >
-            <GraduationCap className="w-5 h-5" />
-            <span className="text-[10px] mt-1 tracking-tight font-medium">Batches</span>
+            <GraduationCap className="w-[18px] h-[18px]" strokeWidth={2.2} />
+            <span className="text-[10px] mt-0.5 tracking-tight font-medium">Batches</span>
+            {pathname.startsWith("/portal/batches") && (
+              <span className="w-1 h-1 rounded-full bg-indigo-400 mt-0.5" />
+            )}
           </Link>
 
           {/* Profile */}
           <Link
             href="/portal/profile"
-            className={`flex flex-col items-center justify-center py-1.5 px-3 rounded-xl transition-all ${
+            className={`flex-1 flex flex-col items-center justify-center py-1.5 rounded-full transition-all active:scale-90 ${
               pathname.startsWith("/portal/profile")
-                ? "text-indigo-400 font-bold bg-white/[0.06]"
+                ? "text-white font-semibold"
                 : "text-zinc-400 hover:text-white"
             }`}
           >
-            <User className="w-5 h-5" />
-            <span className="text-[10px] mt-1 tracking-tight font-medium">Profile</span>
+            <User className="w-[18px] h-[18px]" strokeWidth={2.2} />
+            <span className="text-[10px] mt-0.5 tracking-tight font-medium">Profile</span>
+            {pathname.startsWith("/portal/profile") && (
+              <span className="w-1 h-1 rounded-full bg-indigo-400 mt-0.5" />
+            )}
           </Link>
         </div>
       </nav>
@@ -399,13 +408,13 @@ export function PortalShell({
           {/* Backdrop blur */}
           <div
             onClick={() => setQuickSheetOpen(false)}
-            className="fixed inset-0 bg-black/70 backdrop-blur-md transition-opacity"
+            className="fixed inset-0 bg-black/75 backdrop-blur-md transition-opacity"
           />
 
           {/* Bottom Sheet Card */}
-          <div className="relative z-10 w-full max-w-lg mx-auto bg-[#0d1220] border-t border-white/15 rounded-t-3xl p-5 pb-8 space-y-4 shadow-2xl animate-in slide-in-from-bottom duration-200 max-h-[85vh] overflow-y-auto">
+          <div className="relative z-10 w-full max-w-lg mx-auto bg-[#0d1220]/95 backdrop-blur-2xl border-t border-white/[0.18] rounded-t-[32px] p-6 pb-9 space-y-4 shadow-2xl animate-in slide-in-from-bottom duration-200 max-h-[85vh] overflow-y-auto">
             {/* iOS Drag Handle Bar */}
-            <div className="w-12 h-1.5 rounded-full bg-white/20 mx-auto" />
+            <div className="w-10 h-1.5 rounded-full bg-white/25 mx-auto" />
 
             {/* Header */}
             <div className="flex items-center justify-between pt-1">
