@@ -5,11 +5,36 @@ import { requireAuth } from "@/lib/auth";
 import { resolveCurrentStudent } from "@/server/actions/portal";
 import { revalidatePath } from "next/cache";
 
+type TestSeriesFormInput = {
+  title: string;
+  code: string;
+  description?: string;
+  targetExam: string;
+  fee: number;
+  totalTests: number;
+  startDate: string;
+  endDate: string;
+  testCenterVenue?: string;
+  status?: string;
+};
+
+const DEFAULT_TEST_CENTER = "Main Campus Exam Center, Hall A & B";
+const TEST_SERIES_PATHS = ["/test-series", "/dashboard/test-series", "/portal/test-series"];
+
+function revalidateTestSeriesPaths() {
+  TEST_SERIES_PATHS.forEach((path) => revalidatePath(path));
+}
+
+function parseSeriesDate(value: string) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
 /**
  * Fetch all Offline Test Series programs with high-level KPI metrics
  */
 export async function getTestSeriesList() {
-  const session = await requireAuth();
+  await requireAuth();
 
   const seriesList = await db.testSeries.findMany({
     orderBy: { createdAt: "desc" },
@@ -100,21 +125,22 @@ export async function getTestSeriesDetails(id: string) {
 /**
  * Create a new Offline Test Series
  */
-export async function createTestSeries(formData: {
-  title: string;
-  code: string;
-  description?: string;
-  targetExam: string;
-  fee: number;
-  totalTests: number;
-  startDate: string;
-  endDate: string;
-  testCenterVenue?: string;
-}) {
-  const session = await requireAuth();
+export async function createTestSeries(formData: TestSeriesFormInput) {
+  await requireAuth();
 
   if (!formData.title || !formData.code) {
     return { success: false, error: "Title and Code are required." };
+  }
+
+  const startDate = parseSeriesDate(formData.startDate);
+  const endDate = parseSeriesDate(formData.endDate);
+
+  if (!startDate || !endDate) {
+    return { success: false, error: "Start date and end date are required." };
+  }
+
+  if (endDate < startDate) {
+    return { success: false, error: "End date cannot be before start date." };
   }
 
   // Get institute ID
@@ -133,21 +159,103 @@ export async function createTestSeries(formData: {
         targetExam: formData.targetExam || "NEET",
         fee: Number(formData.fee) || 0,
         totalTests: Number(formData.totalTests) || 1,
-        startDate: new Date(formData.startDate),
-        endDate: new Date(formData.endDate),
-        testCenterVenue:
-          formData.testCenterVenue?.trim() || "Main Campus Exam Center, Hall A & B",
-        status: "ACTIVE",
+        startDate,
+        endDate,
+        testCenterVenue: formData.testCenterVenue?.trim() || DEFAULT_TEST_CENTER,
+        status: formData.status || "ACTIVE",
       },
     });
 
-    revalidatePath("/dashboard/test-series");
-    revalidatePath("/portal/test-series");
+    revalidateTestSeriesPaths();
     return { success: true, testSeries: newSeries };
   } catch (err: unknown) {
     return {
       success: false,
       error: err instanceof Error ? err.message : "Failed to create Test Series",
+    };
+  }
+}
+
+/**
+ * Update an existing Offline Test Series
+ */
+export async function updateTestSeries(id: string, formData: TestSeriesFormInput) {
+  await requireAuth();
+
+  if (!id) {
+    return { success: false, error: "Test Series ID is required." };
+  }
+
+  if (!formData.title || !formData.code) {
+    return { success: false, error: "Title and Code are required." };
+  }
+
+  const startDate = parseSeriesDate(formData.startDate);
+  const endDate = parseSeriesDate(formData.endDate);
+
+  if (!startDate || !endDate) {
+    return { success: false, error: "Start date and end date are required." };
+  }
+
+  if (endDate < startDate) {
+    return { success: false, error: "End date cannot be before start date." };
+  }
+
+  try {
+    const updatedSeries = await db.testSeries.update({
+      where: { id },
+      data: {
+        title: formData.title.trim(),
+        code: formData.code.trim().toUpperCase(),
+        description: formData.description?.trim() || null,
+        targetExam: formData.targetExam || "NEET",
+        fee: Number(formData.fee) || 0,
+        totalTests: Number(formData.totalTests) || 1,
+        startDate,
+        endDate,
+        testCenterVenue: formData.testCenterVenue?.trim() || DEFAULT_TEST_CENTER,
+        status: formData.status || "ACTIVE",
+      },
+    });
+
+    revalidateTestSeriesPaths();
+    return { success: true, testSeries: updatedSeries };
+  } catch (err: unknown) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to update Test Series",
+    };
+  }
+}
+
+/**
+ * Delete an Offline Test Series and its linked registrations, exams, and results
+ */
+export async function deleteTestSeries(id: string) {
+  await requireAuth();
+
+  if (!id) {
+    return { success: false, error: "Test Series ID is required." };
+  }
+
+  try {
+    const existing = await db.testSeries.findUnique({
+      where: { id },
+      select: { title: true },
+    });
+
+    if (!existing) {
+      return { success: false, error: "Test Series not found." };
+    }
+
+    await db.testSeries.delete({ where: { id } });
+
+    revalidateTestSeriesPaths();
+    return { success: true };
+  } catch (err: unknown) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to delete Test Series",
     };
   }
 }
@@ -196,8 +304,7 @@ export async function createTestSeriesExam(formData: {
       },
     });
 
-    revalidatePath("/dashboard/test-series");
-    revalidatePath("/portal/test-series");
+    revalidateTestSeriesPaths();
     return { success: true, exam };
   } catch (err: unknown) {
     return {
@@ -266,8 +373,7 @@ export async function registerStudentForTestSeries(formData: {
       },
     });
 
-    revalidatePath("/dashboard/test-series");
-    revalidatePath("/portal/test-series");
+    revalidateTestSeriesPaths();
     return { success: true, registration: reg };
   } catch (err: unknown) {
     return {
@@ -376,8 +482,7 @@ export async function submitTestResults(
       data: { status: "RESULTS_PUBLISHED" },
     });
 
-    revalidatePath("/dashboard/test-series");
-    revalidatePath("/portal/test-series");
+    revalidateTestSeriesPaths();
     return { success: true, count: results.length };
   } catch (err: unknown) {
     return {
@@ -391,7 +496,7 @@ export async function submitTestResults(
  * Fetch Student Portal Offline Test Series Data
  */
 export async function getStudentPortalTestSeries() {
-  const session = await requireAuth();
+  await requireAuth();
   const { student } = await resolveCurrentStudent();
 
   if (!student) {
@@ -451,7 +556,7 @@ export async function getStudentPortalTestSeries() {
  * Allow a logged in student to register for a series from student portal
  */
 export async function enrollStudentSelf(testSeriesId: string, paymentMethod: string = "UPI") {
-  const session = await requireAuth();
+  await requireAuth();
   const { student } = await resolveCurrentStudent();
 
   if (!student) {
@@ -499,8 +604,7 @@ export async function enrollStudentSelf(testSeriesId: string, paymentMethod: str
       },
     });
 
-    revalidatePath("/portal/test-series");
-    revalidatePath("/dashboard/test-series");
+    revalidateTestSeriesPaths();
     return { success: true, registration: reg };
   } catch (err: unknown) {
     return {
@@ -509,4 +613,3 @@ export async function enrollStudentSelf(testSeriesId: string, paymentMethod: str
     };
   }
 }
-

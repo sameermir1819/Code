@@ -2,8 +2,17 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { jwtVerify } from "jose";
 
-const SECRET_KEY = process.env.JWT_SECRET || "coaching-erp-default-secret-key-min-32-chars-2026";
-const key = new TextEncoder().encode(SECRET_KEY);
+const DEV_JWT_SECRET = "coaching-erp-dev-secret-key-min-32-chars-2026";
+
+function getJwtSecret() {
+  if (process.env.JWT_SECRET) return process.env.JWT_SECRET;
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("JWT_SECRET must be configured in production.");
+  }
+  return DEV_JWT_SECRET;
+}
+
+const key = new TextEncoder().encode(getJwtSecret());
 const COOKIE_NAME = "erp_session_token";
 
 // Staff-only backend route prefixes (Students must NEVER access these)

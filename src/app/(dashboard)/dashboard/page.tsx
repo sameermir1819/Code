@@ -216,7 +216,7 @@ export default async function DashboardPage() {
             <Card className="rounded-2xl border bg-card/60 transition-all duration-200 hover:border-primary/50 hover:shadow-md hover:-translate-y-0.5 cursor-pointer shadow-2xs">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                  Today's Collection
+                  Today&apos;s Collection
                 </CardTitle>
                 <div className="h-9 w-9 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center transition-transform group-hover:scale-110">
                   <CreditCard className="h-4 w-4" />
@@ -310,7 +310,7 @@ export default async function DashboardPage() {
               {/* Attendance Summary */}
               <Card className="rounded-2xl border bg-card/60 shadow-2xs">
                 <CardHeader>
-                  <CardTitle className="text-base font-semibold">Today's Attendance</CardTitle>
+                  <CardTitle className="text-base font-semibold">Today&apos;s Attendance</CardTitle>
                   <CardDescription>Aggregate student presence across active batches</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -631,7 +631,7 @@ export default async function DashboardPage() {
           {/* Today's Schedule */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-base font-semibold">Today's Teaching Schedule</CardTitle>
+              <CardTitle className="text-base font-semibold">Today&apos;s Teaching Schedule</CardTitle>
               <CardDescription className="text-xs">Classes scheduled for instruction</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
@@ -761,13 +761,13 @@ export default async function DashboardPage() {
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <Card className="p-4">
-            <span className="text-xs text-muted-foreground block font-medium">Today's Collection</span>
+            <span className="text-xs text-muted-foreground block font-medium">Today&apos;s Collection</span>
             <span className="text-2xl font-bold text-emerald-600 mt-1 block">
               {formatCurrency(todayCollections)}
             </span>
           </Card>
           <Card className="p-4">
-            <span className="text-xs text-muted-foreground block font-medium">This Month's Inflow</span>
+            <span className="text-xs text-muted-foreground block font-medium">This Month&apos;s Inflow</span>
             <span className="text-2xl font-bold text-foreground mt-1 block">
               {formatCurrency(monthCollections)}
             </span>

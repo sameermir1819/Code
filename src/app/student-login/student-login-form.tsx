@@ -21,6 +21,7 @@ export function StudentLoginForm({ logoUrl, instituteName }: StudentLoginFormPro
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [errorMsg, setErrorMsg] = useState("");
+  const [infoMsg, setInfoMsg] = useState("");
   const [isPending, startTransition] = useTransition();
 
   const handleLogin = (e: React.FormEvent) => {
@@ -82,6 +83,17 @@ export function StudentLoginForm({ logoUrl, instituteName }: StudentLoginFormPro
             </div>
           )}
 
+          {/* Info Message */}
+          {infoMsg && (
+            <div className="p-3.5 rounded-xl bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 text-xs font-medium flex items-center justify-between gap-2.5 animate-in fade-in">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-indigo-400 shrink-0" />
+                <span>{infoMsg}</span>
+              </div>
+              <button type="button" onClick={() => setInfoMsg("")} className="text-zinc-400 hover:text-white text-xs">✕</button>
+            </div>
+          )}
+
           {/* Form */}
           <form onSubmit={handleLogin} className="space-y-4">
             {/* Student Code Field */}
@@ -110,18 +122,18 @@ export function StudentLoginForm({ logoUrl, instituteName }: StudentLoginFormPro
                 <label className="text-xs font-medium text-zinc-300">
                   Password
                 </label>
-                <a
-                  href="#"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    alert(
+                <button
+                  type="button"
+                  onClick={() => {
+                    setErrorMsg("");
+                    setInfoMsg(
                       "First-time login uses the default password assigned by your campus desk. If you need a reset, please contact administration."
                     );
                   }}
-                  className="text-[11px] text-zinc-400 hover:text-white font-medium transition-colors"
+                  className="text-[11px] text-zinc-400 hover:text-white font-medium transition-colors cursor-pointer"
                 >
                   Forgot password?
-                </a>
+                </button>
               </div>
               <div className="relative">
                 <Lock className="absolute left-3.5 top-3.5 h-4 w-4 text-zinc-500" />

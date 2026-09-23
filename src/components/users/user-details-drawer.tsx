@@ -299,7 +299,7 @@ export function UserDetailsDrawer({
                         </div>
                       ) : (
                         <p className="text-xs text-muted-foreground italic">
-                          No subjects assigned yet. Click "Edit Subjects" to assign.
+                          No subjects assigned yet. Click &ldquo;Edit Subjects&rdquo; to assign.
                         </p>
                       )}
                     </div>

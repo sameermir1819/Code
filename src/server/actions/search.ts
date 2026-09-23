@@ -14,7 +14,7 @@ export interface SearchResultItem {
 
 export async function globalQuickSearch(query: string): Promise<SearchResultItem[]> {
   const session = await getSession();
-  if (!session) return [];
+  if (!session || session.role === "STUDENT") return [];
 
   const q = query.trim();
   if (!q || q.length < 2) return [];

@@ -2,11 +2,14 @@
 
 import React, { useState, useTransition } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   createTestSeries,
   createTestSeriesExam,
+  deleteTestSeries,
   registerStudentForTestSeries,
   submitTestResults,
+  updateTestSeries,
 } from "@/server/actions/test-series";
 import {
   Layers,
@@ -37,6 +40,8 @@ import {
   ExternalLink,
   ArrowLeft,
   Filter,
+  Pencil,
+  Trash2,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -97,7 +102,29 @@ interface Props {
   enrolledStudents: EnrolledStudent[];
 }
 
+const toDateInputValue = (value: string | Date) => {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return new Date().toISOString().split("T")[0];
+  }
+  return date.toISOString().split("T")[0];
+};
+
+const getDefaultSeriesData = () => ({
+  title: "",
+  code: "",
+  description: "",
+  targetExam: "NEET",
+  fee: 2500,
+  totalTests: 8,
+  startDate: new Date().toISOString().split("T")[0],
+  endDate: new Date(Date.now() + 90 * 86400000).toISOString().split("T")[0],
+  testCenterVenue: "Main Campus Exam Center, Hall A & B",
+  status: "ACTIVE",
+});
+
 export function TestSeriesClient({ seriesList, stats, enrolledStudents }: Props) {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<"programs" | "registrations" | "schedule" | "results">("programs");
   const [searchTerm, setSearchTerm] = useState("");
   const [programFilter, setProgramFilter] = useState<string>("ALL");
@@ -109,6 +136,8 @@ export function TestSeriesClient({ seriesList, stats, enrolledStudents }: Props)
   const [showAddExamModal, setShowAddExamModal] = useState(false);
   const [showRegisterModal, setShowRegisterModal] = useState(false);
   const [admitSlipModalData, setAdmitSlipModalData] = useState<any | null>(null);
+  const [editingSeries, setEditingSeries] = useState<TestSeriesItem | null>(null);
+  const [seriesToDelete, setSeriesToDelete] = useState<TestSeriesItem | null>(null);
 
   // Dedicated View Enrolled Students Modal ("Bache dekhne ke liye")
   const [viewStudentsModalSeries, setViewStudentsModalSeries] = useState<TestSeriesItem | null>(null);
@@ -123,17 +152,7 @@ export function TestSeriesClient({ seriesList, stats, enrolledStudents }: Props)
   const [actionErrorMsg, setActionErrorMsg] = useState("");
 
   // Create Series Form
-  const [newSeriesData, setNewSeriesData] = useState({
-    title: "",
-    code: "",
-    description: "",
-    targetExam: "NEET",
-    fee: 2500,
-    totalTests: 8,
-    startDate: new Date().toISOString().split("T")[0],
-    endDate: new Date(Date.now() + 90 * 86400000).toISOString().split("T")[0],
-    testCenterVenue: "Main Campus Exam Center, Hall A & B",
-  });
+  const [newSeriesData, setNewSeriesData] = useState(getDefaultSeriesData);
 
   // Schedule Exam Form
   const [newExamData, setNewExamData] = useState({
@@ -193,6 +212,36 @@ export function TestSeriesClient({ seriesList, stats, enrolledStudents }: Props)
     return matchesProgram && matchesSearch;
   });
 
+  const openCreateSeriesModal = () => {
+    setEditingSeries(null);
+    setNewSeriesData(getDefaultSeriesData());
+    setActionErrorMsg("");
+    setShowCreateSeriesModal(true);
+  };
+
+  const closeSeriesModal = () => {
+    setShowCreateSeriesModal(false);
+    setEditingSeries(null);
+  };
+
+  const handleOpenEditSeries = (series: TestSeriesItem) => {
+    setEditingSeries(series);
+    setNewSeriesData({
+      title: series.title,
+      code: series.code,
+      description: series.description || "",
+      targetExam: series.targetExam || "NEET",
+      fee: Number(series.fee) || 0,
+      totalTests: Number(series.totalTests) || 1,
+      startDate: toDateInputValue(series.startDate),
+      endDate: toDateInputValue(series.endDate),
+      testCenterVenue: series.testCenterVenue || "",
+      status: series.status || "ACTIVE",
+    });
+    setActionErrorMsg("");
+    setShowCreateSeriesModal(true);
+  };
+
   // Handle Create Test Series
   const handleCreateSeries = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -200,12 +249,40 @@ export function TestSeriesClient({ seriesList, stats, enrolledStudents }: Props)
     setActionSuccessMsg("");
 
     startTransition(async () => {
-      const res = await createTestSeries(newSeriesData);
+      const res = editingSeries
+        ? await updateTestSeries(editingSeries.id, newSeriesData)
+        : await createTestSeries(newSeriesData);
       if (res.success) {
         setShowCreateSeriesModal(false);
-        setActionSuccessMsg(`Test Series "${newSeriesData.title}" created successfully!`);
+        setEditingSeries(null);
+        setActionSuccessMsg(
+          `Test Series "${newSeriesData.title}" ${editingSeries ? "updated" : "created"} successfully!`
+        );
+        router.refresh();
       } else {
         setActionErrorMsg(res.error || "Failed to create test series.");
+      }
+    });
+  };
+
+  const handleDeleteSeries = async () => {
+    if (!seriesToDelete) return;
+
+    const deletedSeries = seriesToDelete;
+    setActionErrorMsg("");
+    setActionSuccessMsg("");
+
+    startTransition(async () => {
+      const res = await deleteTestSeries(deletedSeries.id);
+      if (res.success) {
+        setSeriesToDelete(null);
+        if (selectedSeriesId === deletedSeries.id) {
+          setSelectedSeriesId(seriesList.find((s) => s.id !== deletedSeries.id)?.id || "");
+        }
+        setActionSuccessMsg(`Test Series "${deletedSeries.title}" deleted successfully.`);
+        router.refresh();
+      } else {
+        setActionErrorMsg(res.error || "Failed to delete test series.");
       }
     });
   };
@@ -221,6 +298,7 @@ export function TestSeriesClient({ seriesList, stats, enrolledStudents }: Props)
       if (res.success) {
         setShowAddExamModal(false);
         setActionSuccessMsg(`Offline test "${newExamData.title}" scheduled successfully!`);
+        router.refresh();
       } else {
         setActionErrorMsg(res.error || "Failed to schedule test.");
       }
@@ -257,6 +335,7 @@ export function TestSeriesClient({ seriesList, stats, enrolledStudents }: Props)
           testSeriesTitle: series?.title,
           testSeriesVenue: series?.testCenterVenue,
         });
+        router.refresh();
       } else {
         setActionErrorMsg(res.error || "Failed to register candidate.");
       }
@@ -312,6 +391,7 @@ export function TestSeriesClient({ seriesList, stats, enrolledStudents }: Props)
       const res = await submitTestResults(selectedExamId, payload);
       if (res.success) {
         setActionSuccessMsg(`Results successfully calculated and published for ${res.count} students!`);
+        router.refresh();
       } else {
         setActionErrorMsg(res.error || "Failed to submit marks.");
       }
@@ -375,7 +455,7 @@ export function TestSeriesClient({ seriesList, stats, enrolledStudents }: Props)
           </Button>
 
           <Button
-            onClick={() => setShowCreateSeriesModal(true)}
+            onClick={openCreateSeriesModal}
             className="h-9 px-3.5 rounded-xl bg-primary text-primary-foreground text-xs font-semibold shadow-xs hover:bg-primary/90 transition-all active:scale-95 gap-1.5"
           >
             <Plus className="h-3.5 w-3.5" />
@@ -555,7 +635,25 @@ export function TestSeriesClient({ seriesList, stats, enrolledStudents }: Props)
                     <Badge variant="outline" className="text-[10px] font-mono uppercase tracking-wider font-semibold">
                       {series.targetExam}
                     </Badge>
-                    <span className="text-xs font-mono font-semibold text-muted-foreground">{series.code}</span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs font-mono font-semibold text-muted-foreground">{series.code}</span>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenEditSeries(series)}
+                        title="Edit test series"
+                        className="h-7 w-7 inline-flex items-center justify-center rounded-lg border bg-background text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSeriesToDelete(series)}
+                        title="Delete test series"
+                        className="h-7 w-7 inline-flex items-center justify-center rounded-lg border bg-background text-destructive hover:bg-destructive/10 transition-colors"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
                   </div>
                   <CardTitle className="text-base font-bold text-foreground leading-snug">{series.title}</CardTitle>
                   <CardDescription className="text-xs line-clamp-2 mt-1">{series.description}</CardDescription>
@@ -1224,13 +1322,19 @@ export function TestSeriesClient({ seriesList, stats, enrolledStudents }: Props)
       {/* ── MODAL 1: Create Test Series ── */}
       {showCreateSeriesModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in">
-          <div className="bg-card text-card-foreground border rounded-2xl shadow-2xl max-w-lg w-full p-6 space-y-4 text-xs animate-in zoom-in-95">
+          <div className="bg-card text-card-foreground border rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6 space-y-4 text-xs animate-in zoom-in-95">
             <div className="flex items-center justify-between pb-3 border-b">
               <div>
-                <h3 className="text-base font-bold text-foreground">Create New Offline Test Series</h3>
-                <p className="text-xs text-muted-foreground">Setup mock test program, pricing, and testing venue.</p>
+                <h3 className="text-base font-bold text-foreground">
+                  {editingSeries ? "Edit Offline Test Series" : "Create New Offline Test Series"}
+                </h3>
+                <p className="text-xs text-muted-foreground">
+                  {editingSeries
+                    ? "Update program details, pricing, dates, and status."
+                    : "Setup mock test program, pricing, and testing venue."}
+                </p>
               </div>
-              <button onClick={() => setShowCreateSeriesModal(false)} className="text-muted-foreground hover:text-foreground">
+              <button onClick={closeSeriesModal} className="text-muted-foreground hover:text-foreground">
                 <X className="h-5 w-5" />
               </button>
             </div>
@@ -1299,6 +1403,44 @@ export function TestSeriesClient({ seriesList, stats, enrolledStudents }: Props)
                 </div>
               </div>
 
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="space-y-1">
+                  <label className="font-semibold text-foreground">Start Date</label>
+                  <Input
+                    type="date"
+                    required
+                    value={newSeriesData.startDate}
+                    onChange={(e) => setNewSeriesData({ ...newSeriesData, startDate: e.target.value })}
+                    className="h-9 text-xs"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="font-semibold text-foreground">End Date</label>
+                  <Input
+                    type="date"
+                    required
+                    value={newSeriesData.endDate}
+                    onChange={(e) => setNewSeriesData({ ...newSeriesData, endDate: e.target.value })}
+                    className="h-9 text-xs"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="font-semibold text-foreground">Status</label>
+                  <select
+                    value={newSeriesData.status}
+                    onChange={(e) => setNewSeriesData({ ...newSeriesData, status: e.target.value })}
+                    className="w-full h-9 px-3 rounded-md border border-input bg-background text-xs"
+                  >
+                    <option value="UPCOMING">UPCOMING</option>
+                    <option value="ACTIVE">ACTIVE</option>
+                    <option value="COMPLETED">COMPLETED</option>
+                    <option value="ARCHIVED">ARCHIVED</option>
+                  </select>
+                </div>
+              </div>
+
               <div className="space-y-1">
                 <label className="font-semibold text-foreground">Offline Test Center Venue</label>
                 <Input
@@ -1321,14 +1463,78 @@ export function TestSeriesClient({ seriesList, stats, enrolledStudents }: Props)
               </div>
 
               <div className="flex items-center justify-end gap-2 pt-2 border-t">
-                <Button type="button" variant="outline" onClick={() => setShowCreateSeriesModal(false)} className="h-9 text-xs">
+                <Button type="button" variant="outline" onClick={closeSeriesModal} className="h-9 text-xs">
                   Cancel
                 </Button>
                 <Button type="submit" disabled={isPending} className="h-9 text-xs font-semibold bg-primary">
-                  {isPending ? "Creating..." : "Create Test Series"}
+                  {isPending
+                    ? editingSeries
+                      ? "Updating..."
+                      : "Creating..."
+                    : editingSeries
+                      ? "Update Test Series"
+                      : "Create Test Series"}
                 </Button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Test Series Confirmation */}
+      {seriesToDelete && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in">
+          <div className="bg-card text-card-foreground border rounded-2xl shadow-2xl max-w-md w-full p-6 space-y-4 text-xs animate-in zoom-in-95">
+            <div className="flex items-start gap-3 pb-3 border-b">
+              <div className="h-10 w-10 rounded-xl bg-destructive/10 text-destructive flex items-center justify-center shrink-0">
+                <AlertCircle className="h-5 w-5" />
+              </div>
+              <div className="min-w-0">
+                <h3 className="text-base font-bold text-foreground">Delete Test Series</h3>
+                <p className="text-xs text-muted-foreground mt-1">
+                  This will permanently delete the program and linked test data.
+                </p>
+              </div>
+              <button
+                onClick={() => setSeriesToDelete(null)}
+                className="ml-auto text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="rounded-xl border bg-muted/40 p-3 space-y-2">
+              <div className="font-semibold text-foreground">{seriesToDelete.title}</div>
+              <div className="grid grid-cols-2 gap-2 text-[11px] text-muted-foreground">
+                <span>Code: {seriesToDelete.code}</span>
+                <span>{seriesToDelete.exams.length} tests</span>
+                <span>{seriesToDelete.registrations.length} candidates</span>
+                <span>Status: {seriesToDelete.status}</span>
+              </div>
+            </div>
+
+            <p className="text-xs text-destructive">
+              Delete karne par is series ke scheduled tests, registrations, aur results bhi remove ho jayenge.
+            </p>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setSeriesToDelete(null)}
+                className="h-9 text-xs"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                disabled={isPending}
+                onClick={handleDeleteSeries}
+                className="h-9 text-xs font-semibold bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                {isPending ? "Deleting..." : "Delete Test Series"}
+              </Button>
+            </div>
           </div>
         </div>
       )}
@@ -1710,4 +1916,3 @@ export function TestSeriesClient({ seriesList, stats, enrolledStudents }: Props)
     </div>
   );
 }
-

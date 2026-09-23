@@ -899,7 +899,7 @@ export function RolesManager({
             </div>
             <div className="text-center space-y-1">
               <h3 className="text-base font-bold text-foreground">
-                Delete Role "{deletingRole.displayName}"?
+                Delete Role &ldquo;{deletingRole.displayName}&rdquo;?
               </h3>
               <p className="text-xs text-muted-foreground">
                 Are you sure you want to permanently delete this custom role ({deletingRole.name})?

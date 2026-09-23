@@ -243,7 +243,7 @@ export default function DataExportPage() {
             </div>
             <CardTitle className="text-base font-bold text-foreground">Students Directory</CardTitle>
             <CardDescription className="text-xs text-muted-foreground leading-relaxed mt-1">
-              Complete student profiles including enrollment numbers, active batches, courses, parents' contact details, and admission dates.
+              Complete student profiles including enrollment numbers, active batches, courses, parents&apos; contact details, and admission dates.
             </CardDescription>
           </CardHeader>
           <CardContent className="pt-0">

@@ -465,7 +465,7 @@ export function PortalTestSeriesClient({ registeredSeries, availableSeries, stud
                     {/* Faculty Remarks */}
                     {result.remarks && (
                       <div className="text-xs text-muted-foreground italic p-2.5 rounded-xl bg-muted/30 border">
-                        "{result.remarks}"
+                        &ldquo;{result.remarks}&rdquo;
                       </div>
                     )}
 

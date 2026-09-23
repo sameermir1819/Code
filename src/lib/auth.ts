@@ -4,8 +4,17 @@ import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
 import { SessionUser, Role, PermissionCode, hasRolePermission } from "@/lib/permissions";
 
-const SECRET_KEY = process.env.JWT_SECRET || "coaching-erp-default-secret-key-min-32-chars-2026";
-const key = new TextEncoder().encode(SECRET_KEY);
+const DEV_JWT_SECRET = "coaching-erp-dev-secret-key-min-32-chars-2026";
+
+function getJwtSecret() {
+  if (process.env.JWT_SECRET) return process.env.JWT_SECRET;
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("JWT_SECRET must be configured in production.");
+  }
+  return DEV_JWT_SECRET;
+}
+
+const key = new TextEncoder().encode(getJwtSecret());
 const COOKIE_NAME = "erp_session_token";
 
 export async function hashPassword(password: string): Promise<string> {
@@ -121,4 +130,3 @@ export async function requirePermission(code: PermissionCode): Promise<SessionUs
 
   throw new Error(`FORBIDDEN: Role ${session.role} does not possess permission "${code}".`);
 }
-

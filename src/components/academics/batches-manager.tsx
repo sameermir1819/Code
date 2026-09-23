@@ -1663,7 +1663,7 @@ export function BatchesManager({
 
               {subjectsList.length === 0 ? (
                 <p className="text-xs text-muted-foreground italic p-3 border rounded bg-muted/20 text-center">
-                  No subjects configured in the system yet. Click "Create New Subject" above.
+                  No subjects configured in the system yet. Click &ldquo;Create New Subject&rdquo; above.
                 </p>
               ) : (
                 <div className="grid grid-cols-1 gap-2 max-h-56 overflow-y-auto pr-1">

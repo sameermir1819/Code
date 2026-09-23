@@ -1,14 +1,14 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { getSession } from "@/lib/auth";
+import { requireAuth } from "@/lib/auth";
 import { getActiveCampusId } from "./campus";
 import { startOfMonth, endOfMonth, startOfDay, endOfDay, subMonths, format } from "date-fns";
 
 export async function getDashboardStats() {
-  const session = await getSession();
-  const role = session?.role || "SUPER_ADMIN";
-  const userName = session?.name || "Administrator";
+  const session = await requireAuth(["SUPER_ADMIN", "ADMIN", "ACCOUNTANT", "TEACHER"]);
+  const role = session.role;
+  const userName = session.name || "Administrator";
   const now = new Date();
   const campusId = await getActiveCampusId();
 

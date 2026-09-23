@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { readFile } from "fs/promises";
-import { join } from "path";
+import { join, resolve } from "path";
 import { existsSync } from "fs";
 
 export async function GET(
@@ -8,21 +8,20 @@ export async function GET(
   { params }: { params: { path: string[] } }
 ) {
   try {
-    const relativePath = (params.path || []).join("/");
+    const rootUploadsDir = resolve(process.cwd(), "public", "uploads");
+    const filePath = resolve(rootUploadsDir, ...(params.path || []));
 
-    // Security: block path traversal
-    if (relativePath.includes("..")) {
+    // Security: block path traversal outside public/uploads
+    if (!filePath.startsWith(rootUploadsDir)) {
       return new NextResponse("Forbidden", { status: 403 });
     }
-
-    const filePath = join(process.cwd(), "public", "uploads", relativePath);
 
     if (!existsSync(filePath)) {
       return new NextResponse("File Not Found", { status: 404 });
     }
 
     const fileBuffer = await readFile(filePath);
-    const ext = relativePath.split(".").pop()?.toLowerCase() || "";
+    const ext = filePath.split(".").pop()?.toLowerCase() || "";
 
     const contentTypes: Record<string, string> = {
       pdf: "application/pdf",

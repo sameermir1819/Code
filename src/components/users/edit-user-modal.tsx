@@ -96,7 +96,7 @@ export function EditUserModal({
       setSelectedSubjectIds(currentSubjectIds);
       setQualification(user.teacher?.qualification || "");
     }
-  }, [user]);
+  }, [user, availableCampuses]);
 
   const toggleSubject = (id: string) => {
     setSelectedSubjectIds((prev) =>

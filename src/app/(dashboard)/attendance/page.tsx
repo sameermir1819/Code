@@ -83,6 +83,8 @@ function QrTerminalTab() {
   const [liveFeed, setLiveFeed] = useState<any[]>([]);
   const [statusMsg, setStatusMsg] = useState({ text: "", type: "info" });
   const scannerRef = useRef<any>(null);
+  const lastScanRef = useRef({ code: "", time: 0 });
+  const handleScanRef = useRef<(code: string) => void>(() => {});
 
   useEffect(() => {
     loadLiveFeed();
@@ -111,7 +113,7 @@ function QrTerminalTab() {
         scannerRef.current = scanner;
 
         scanner.render(
-          (decodedText) => handleScan(decodedText),
+          (decodedText) => handleScanRef.current(decodedText),
           (error) => { /* Ignore noisy frame errors */ }
         );
       } catch (e) {
@@ -137,8 +139,6 @@ function QrTerminalTab() {
     } catch (e) {}
   }
 
-  const lastScanRef = useRef({ code: "", time: 0 });
-  const handleScanRef = useRef(handleScan);
   useEffect(() => {
     handleScanRef.current = handleScan;
   });
@@ -250,7 +250,7 @@ function QrTerminalTab() {
               <div>
                 <CardTitle className="flex items-center gap-2 text-lg">
                   <UserCheck className="h-5 w-5 text-green-500" />
-                  Today's Live Entries
+                  Today&apos;s Live Entries
                 </CardTitle>
                 <CardDescription>Students scanned in today</CardDescription>
               </div>

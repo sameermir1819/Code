@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useTransition, useMemo } from "react";
+import { useState, useEffect, useTransition, useMemo, useRef } from "react";
 import {
   getUsers,
   changeUserStatus,
@@ -72,10 +72,15 @@ export function UsersTable({
     setData(initialData);
   }, [initialData]);
 
+  const refreshUsersRef = useRef<() => void>(() => {});
+  useEffect(() => {
+    refreshUsersRef.current = () => refreshUsers();
+  });
+
   // Reactive auto-refresh when campus or data changes globally
   useEffect(() => {
     const handleReactiveRefresh = () => {
-      refreshUsers();
+      refreshUsersRef.current();
     };
     window.addEventListener("erp-campus-changed", handleReactiveRefresh);
     window.addEventListener("erp-data-refresh", handleReactiveRefresh);
