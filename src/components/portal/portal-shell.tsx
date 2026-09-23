@@ -21,10 +21,8 @@ import {
   ShieldCheck,
   ChevronRight,
   ExternalLink,
-  Plus,
   LayoutGrid,
   Clock,
-  Compass,
   GraduationCap,
 } from "lucide-react";
 
@@ -48,6 +46,7 @@ interface PortalShellProps {
 
 const NAV_ITEMS = [
   { href: "/portal", label: "Overview", icon: LayoutDashboard },
+  { href: "/portal/batches", label: "My Batches", icon: GraduationCap },
   { href: "/portal/attendance", label: "My Attendance", icon: CalendarCheck2 },
   { href: "/portal/results", label: "Exams & Results", icon: Award },
   { href: "/portal/test-series", label: "Offline Test Series", icon: Layers },
@@ -60,10 +59,10 @@ const NAV_ITEMS = [
 // Quick Action Sheet items for mobile speed-dial
 const QUICK_ACTIONS = [
   {
-    href: "/portal",
-    label: "Timetable & Batches",
-    sub: "View classes & lectures",
-    icon: Clock,
+    href: "/portal/batches",
+    label: "Batches & Timetable",
+    sub: "Classes & weekly schedule",
+    icon: GraduationCap,
     color: "bg-indigo-500 text-white",
   },
   {
@@ -368,9 +367,9 @@ export function PortalShell({
             <LayoutGrid className="w-4 h-4" strokeWidth={2.4} />
           </button>
 
-          {/* Batches */}
+          {/* Batches (Dedicated separate page) */}
           <Link
-            href="/portal#batches"
+            href="/portal/batches"
             className={`flex-1 flex flex-col items-center justify-center py-1.5 rounded-full transition-all active:scale-90 ${
               pathname.startsWith("/portal/batches")
                 ? "text-white font-semibold"
@@ -384,7 +383,7 @@ export function PortalShell({
             )}
           </Link>
 
-          {/* Profile */}
+          {/* Profile (Dedicated separate page) */}
           <Link
             href="/portal/profile"
             className={`flex-1 flex flex-col items-center justify-center py-1.5 rounded-full transition-all active:scale-90 ${
@@ -420,10 +419,10 @@ export function PortalShell({
             <div className="flex items-center justify-between pt-1">
               <div>
                 <h3 className="text-base font-bold text-white tracking-tight">
-                  Student Action Hub
+                  Student Services Hub
                 </h3>
                 <p className="text-[11px] text-zinc-400">
-                  Instant mobile access to all academic services
+                  Instant mobile access to all academic departments
                 </p>
               </div>
               <button

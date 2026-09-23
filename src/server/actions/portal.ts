@@ -420,6 +420,78 @@ export async function updateStudentPassword(formData: {
 }
 
 /**
+ * Returns all active batches and unified weekly timetable for the enrolled student
+ */
+export async function getStudentBatches() {
+  const { student, session } = await resolveCurrentStudent();
+
+  if (!student) {
+    return {
+      success: false,
+      error: "No student profile linked to your account. Please contact campus administration.",
+      data: null,
+      isPreview: false,
+    };
+  }
+
+  const isPreview = session.role === "SUPER_ADMIN" || session.role === "ADMIN";
+
+  const enrollments = await db.enrollment.findMany({
+    where: { studentId: student.id, status: "ACTIVE" },
+    include: {
+      course: {
+        include: {
+          subjects: {
+            include: { subject: true },
+          },
+        },
+      },
+      batch: {
+        include: {
+          teachers: {
+            include: {
+              teacher: {
+                include: {
+                  subjects: {
+                    include: { subject: true },
+                  },
+                },
+              },
+            },
+          },
+          timetableSlots: {
+            include: {
+              subject: true,
+              teacher: true,
+            },
+            orderBy: [
+              { dayOfWeek: "asc" },
+              { startTime: "asc" },
+            ],
+          },
+          _count: {
+            select: {
+              timetableSlots: true,
+              studyMaterials: true,
+            },
+          },
+        },
+      },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  return {
+    success: true,
+    isPreview,
+    student,
+    data: {
+      enrollments,
+    },
+  };
+}
+
+/**
  * Returns full batch details for an enrolled student (or admin preview),
  * including weekly timetable schedule, assigned faculty, and study materials.
  */

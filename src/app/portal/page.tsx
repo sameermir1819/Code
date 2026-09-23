@@ -193,7 +193,7 @@ export default async function StudentPortalPage() {
       {/* ── Mobile Phone Quick-Action Bar (Scrollable on phones) ── */}
       <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1 sm:hidden">
         <Link
-          href="#batches"
+          href="/portal/batches"
           className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-indigo-500/15 text-indigo-300 border border-indigo-500/30 text-xs font-bold shrink-0"
         >
           <Clock className="w-3.5 h-3.5 text-indigo-400" />
@@ -247,7 +247,7 @@ export default async function StudentPortalPage() {
               </h3>
             </div>
             <Link
-              href="#batches"
+              href="/portal/batches?tab=timetable"
               className="text-xs font-semibold text-indigo-400 hover:text-white flex items-center gap-1"
             >
               <span>Weekly Timetable</span>
@@ -412,9 +412,13 @@ export default async function StudentPortalPage() {
                   My Enrolled Courses &amp; Batches
                 </h3>
               </div>
-              <span className="text-xs text-zinc-400 font-mono">
-                {enrollments.length} Active {enrollments.length === 1 ? "Batch" : "Batches"}
-              </span>
+              <Link
+                href="/portal/batches"
+                className="text-xs font-semibold text-indigo-400 hover:text-white flex items-center gap-1"
+              >
+                <span>View Full Timetable</span>
+                <ChevronRight className="w-3.5 h-3.5" />
+              </Link>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
