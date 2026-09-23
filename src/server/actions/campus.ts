@@ -5,6 +5,8 @@ import { getSession } from "@/lib/auth";
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 
+import { cache } from "react";
+
 export interface CampusItem {
   id: string;
   name: string;
@@ -22,9 +24,9 @@ export interface CampusItem {
 }
 
 /**
- * Fetch all registered campuses/branches
+ * Fetch all registered campuses/branches (memoized per-request)
  */
-export async function getAllCampuses(): Promise<CampusItem[]> {
+const fetchCachedAllCampuses = cache(async (): Promise<CampusItem[]> => {
   try {
     const campuses = await db.institute.findMany({
       include: {
@@ -42,14 +44,20 @@ export async function getAllCampuses(): Promise<CampusItem[]> {
     console.error("Failed to load campuses:", err);
     return [];
   }
+});
+
+export async function getAllCampuses(): Promise<CampusItem[]> {
+  return await fetchCachedAllCampuses();
 }
 
-export const getCampuses = getAllCampuses;
+export async function getCampuses(): Promise<CampusItem[]> {
+  return await fetchCachedAllCampuses();
+}
 
 /**
- * Get active campus based on session cookie or fallback to first
+ * Get active campus based on session cookie or fallback to first (memoized per-request)
  */
-export async function getActiveCampus(): Promise<CampusItem | null> {
+const fetchCachedActiveCampus = cache(async (): Promise<CampusItem | null> => {
   try {
     const cookieStore = await cookies();
     const activeId = cookieStore.get("erp_active_campus_id")?.value;
@@ -86,6 +94,10 @@ export async function getActiveCampus(): Promise<CampusItem | null> {
     console.error("Failed to get active campus:", err);
     return null;
   }
+});
+
+export async function getActiveCampus(): Promise<CampusItem | null> {
+  return await fetchCachedActiveCampus();
 }
 
 /**
@@ -169,11 +181,15 @@ export async function createNewCampus(data: {
 /**
  * Helper to get only the active campus ID (string)
  */
-export async function getActiveCampusId(): Promise<string> {
+const fetchCachedActiveCampusId = cache(async (): Promise<string> => {
   const activeCampus = await getActiveCampus();
   if (activeCampus) return activeCampus.id;
-  const first = await db.institute.findFirst();
+  const first = await db.institute.findFirst({ select: { id: true } });
   return first ? first.id : "";
+});
+
+export async function getActiveCampusId(): Promise<string> {
+  return await fetchCachedActiveCampusId();
 }
 
 /**

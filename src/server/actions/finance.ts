@@ -596,7 +596,12 @@ export async function getStudentFeeAccounts({
 } = {}) {
   await requireAuth(["SUPER_ADMIN", "ADMIN", "ACCOUNTANT"]);
 
+  const campusId = await getActiveCampusId();
   const studentWhere: Record<string, unknown> = {};
+
+  if (campusId) {
+    studentWhere.instituteId = campusId;
+  }
 
   if (search) {
     studentWhere.OR = [

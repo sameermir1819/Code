@@ -14,7 +14,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { QrCode, Camera, Search, UserCheck, AlertTriangle, MessageCircle, BarChart2 } from "lucide-react";
-import { Html5QrcodeScanner, Html5QrcodeScanType } from "html5-qrcode";
 
 export default function AttendancePage() {
   const [batches, setBatches] = useState<any[]>([]);
@@ -83,7 +82,7 @@ function QrTerminalTab() {
   const [manualCode, setManualCode] = useState("");
   const [liveFeed, setLiveFeed] = useState<any[]>([]);
   const [statusMsg, setStatusMsg] = useState({ text: "", type: "info" });
-  const scannerRef = useRef<Html5QrcodeScanner | null>(null);
+  const scannerRef = useRef<any>(null);
 
   useEffect(() => {
     loadLiveFeed();
@@ -91,13 +90,14 @@ function QrTerminalTab() {
     return () => clearInterval(interval);
   }, []);
 
-  // Initialize html5-qrcode
+  // Initialize html5-qrcode dynamically
   useEffect(() => {
     if (scannerRef.current) return;
     
     // Give DOM time to render the div
-    const timer = setTimeout(() => {
+    const timer = setTimeout(async () => {
       try {
+        const { Html5QrcodeScanner, Html5QrcodeScanType } = await import("html5-qrcode");
         const scanner = new Html5QrcodeScanner(
           "qr-reader-box",
           {

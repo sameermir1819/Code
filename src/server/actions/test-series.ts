@@ -19,7 +19,15 @@ export async function getTestSeriesList() {
       },
       registrations: {
         include: {
-          student: true,
+          student: {
+            select: {
+              id: true,
+              name: true,
+              studentId: true,
+              admissionNo: true,
+              phone: true,
+            },
+          },
         },
       },
     },

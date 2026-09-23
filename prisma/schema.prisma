@@ -268,6 +268,8 @@ model Student {
   @@index([instituteId])
   @@index([status])
   @@index([admissionNo])
+  @@index([admissionDate])
+  @@index([instituteId, status])
 }
 
 // -------------------------------------------------------------
@@ -453,6 +455,8 @@ model Attendance {
   @@unique([studentId, batchId, date])
   @@index([batchId, date])
   @@index([studentId])
+  @@index([date])
+  @@index([status])
 }
 
 // -------------------------------------------------------------
@@ -532,6 +536,9 @@ model Payment {
   @@index([studentId])
   @@index([receiptNo])
   @@index([paymentDate])
+  @@index([status])
+  @@index([status, paymentDate])
+  @@index([feePlanId])
 }
 
 model RefundAdjustment {

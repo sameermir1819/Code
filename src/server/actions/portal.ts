@@ -4,12 +4,14 @@ import { db } from "@/lib/db";
 import { requireAuth, verifyPassword, hashPassword } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 
+import { cache } from "react";
+
 /**
  * Resolves the Student record for the current session.
  * Supports auto-linking if a student with the same email or userId exists.
  * If user is an Admin / Staff previewing the portal, returns the first student for preview.
  */
-export async function resolveCurrentStudent() {
+const fetchCachedCurrentStudent = cache(async () => {
   const session = await requireAuth();
 
   let student = null;
@@ -71,6 +73,10 @@ export async function resolveCurrentStudent() {
   }
 
   return { student, session };
+});
+
+export async function resolveCurrentStudent() {
+  return await fetchCachedCurrentStudent();
 }
 
 /**
@@ -90,9 +96,26 @@ export async function getStudentPortalOverview() {
 
   const isPreview = session.role === "SUPER_ADMIN" || session.role === "ADMIN";
 
-  // Parallel fetches for high performance
+  // Pre-fetch active enrollments to reuse for materials count without extra subqueries
+  const enrollments = await db.enrollment.findMany({
+    where: { studentId: student.id, status: "ACTIVE" },
+    include: {
+      batch: {
+        include: {
+          teachers: {
+            include: { teacher: true },
+          },
+        },
+      },
+      course: true,
+    },
+  });
+
+  const enrolledBatchIds = enrollments.map((e) => e.batchId).filter(Boolean);
+  const enrolledCourseIds = enrollments.map((e) => e.courseId).filter(Boolean);
+
+  // Parallel fetches for remaining widgets
   const [
-    enrollments,
     attendances,
     feePlans,
     payments,
@@ -100,21 +123,6 @@ export async function getStudentPortalOverview() {
     announcements,
     studyMaterialsCount,
   ] = await Promise.all([
-    // Active enrollments with batch, course & room
-    db.enrollment.findMany({
-      where: { studentId: student.id, status: "ACTIVE" },
-      include: {
-        batch: {
-          include: {
-            teachers: {
-              include: { teacher: true },
-            },
-          },
-        },
-        course: true,
-      },
-    }),
-
     // Attendance records
     db.attendance.findMany({
       where: { studentId: student.id },
@@ -169,12 +177,12 @@ export async function getStudentPortalOverview() {
       take: 5,
     }),
 
-    // Study materials count
+    // Study materials count (reusing pre-fetched IDs, 0 redundant DB calls)
     db.studyMaterial.count({
       where: {
         OR: [
-          { batchId: { in: (await db.enrollment.findMany({ where: { studentId: student.id } })).map((e) => e.batchId) } },
-          { courseId: { in: (await db.enrollment.findMany({ where: { studentId: student.id } })).map((e) => e.courseId) } },
+          ...(enrolledBatchIds.length > 0 ? [{ batchId: { in: enrolledBatchIds } }] : []),
+          ...(enrolledCourseIds.length > 0 ? [{ courseId: { in: enrolledCourseIds } }] : []),
           { batchId: null, courseId: null },
         ],
       },

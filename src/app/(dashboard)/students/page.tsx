@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import Link from "next/link";
 import {
   getStudents,
+  getStudentStats,
   updateStudent,
   updateStudentParent,
   enrollStudentInBatch,
@@ -144,8 +145,13 @@ function EmptyState({ hasFilters }: { hasFilters: boolean }) {
 
 // ─── Main Page ─────────────────────────────────────────────────────────────
 export default function StudentsPage() {
-  // ── All students (for KPIs) ──
-  const [allStudents, setAllStudents] = useState<Student[]>([]);
+  // ── Fast KPI Statistics ──
+  const [kpiStats, setKpiStats] = useState({
+    totalStudents: 0,
+    activeStudents: 0,
+    newThisMonth: 0,
+    needsAttention: 0,
+  });
   const [kpiLoading, setKpiLoading] = useState(true);
 
   // ── Paginated table data ──
@@ -174,24 +180,22 @@ export default function StudentsPage() {
     setPage(1);
   }, [statusFilter]);
 
-  // ── Fetch KPI data (all students, no pagination) ──
-  useEffect(() => {
-    let cancelled = false;
+  // ── Fetch KPI counts directly via lightweight query ──
+  const fetchKpis = useCallback(async () => {
     setKpiLoading(true);
-    getStudents({ page: 1, limit: 9999, status: "", search: "" })
-      .then(({ students }) => {
-        if (!cancelled) {
-          setAllStudents(students);
-          setKpiLoading(false);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) setKpiLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
+    try {
+      const stats = await getStudentStats();
+      setKpiStats(stats);
+    } catch {
+      // Keep existing stats on transient error
+    } finally {
+      setKpiLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchKpis();
+  }, [fetchKpis]);
 
   // ── Fetch paginated table data ──
   const fetchTable = useCallback(async () => {
@@ -221,13 +225,7 @@ export default function StudentsPage() {
   useEffect(() => {
     const handleReactiveRefresh = () => {
       fetchTable();
-      setKpiLoading(true);
-      getStudents({ page: 1, limit: 9999, status: "", search: "" })
-        .then(({ students }) => {
-          setAllStudents(students);
-          setKpiLoading(false);
-        })
-        .catch(() => setKpiLoading(false));
+      fetchKpis();
     };
 
     window.addEventListener("erp-campus-changed", handleReactiveRefresh);
@@ -236,26 +234,7 @@ export default function StudentsPage() {
       window.removeEventListener("erp-campus-changed", handleReactiveRefresh);
       window.removeEventListener("erp-data-refresh", handleReactiveRefresh);
     };
-  }, [fetchTable]);
-
-  // ── KPI computations ──
-  const kpis = useMemo(() => {
-    const now = new Date();
-    const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const active = allStudents.filter((s) => s.status === "ACTIVE").length;
-    const newThisMonth = allStudents.filter(
-      (s) => new Date(s.admissionDate) >= thisMonthStart
-    ).length;
-    // Low attendance: _count.attendances present but we need ratio; flag students
-    // who have <75% based on _count (not directly available per student here).
-    // We compute from allStudents._count attendance ratio is unavailable in list action,
-    // so we show count of INACTIVE+SUSPENDED as "needs attention" proxy.
-    const needsAttention = allStudents.filter(
-      (s) => s.status === "INACTIVE" || s.status === "SUSPENDED"
-    ).length;
-
-    return { active, newThisMonth, needsAttention };
-  }, [allStudents]);
+  }, [fetchTable, fetchKpis]);
 
   const hasFilters = debouncedSearch !== "" || statusFilter !== "ALL";
 
@@ -366,9 +345,7 @@ export default function StudentsPage() {
 
       setEditSuccess("Student profile updated successfully!");
       fetchTable();
-      getStudents({ page: 1, limit: 9999, status: "", search: "" })
-        .then(({ students }) => setAllStudents(students))
-        .catch(() => {});
+      fetchKpis();
 
       setTimeout(() => {
         setEditingStudent(null);
@@ -406,28 +383,28 @@ export default function StudentsPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard
           label="Total Students"
-          value={kpiLoading ? "—" : allStudents.length}
+          value={kpiLoading ? "—" : kpiStats.totalStudents}
           sub="All time enrollments"
           icon={Users}
           color="bg-blue-50 text-blue-600 dark:bg-blue-950/40"
         />
         <KpiCard
           label="Active Students"
-          value={kpiLoading ? "—" : kpis.active}
+          value={kpiLoading ? "—" : kpiStats.activeStudents}
           sub="Currently enrolled"
           icon={UserCheck}
           color="bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40"
         />
         <KpiCard
           label="New This Month"
-          value={kpiLoading ? "—" : kpis.newThisMonth}
+          value={kpiLoading ? "—" : kpiStats.newThisMonth}
           sub="Fresh admissions"
           icon={TrendingUp}
           color="bg-violet-50 text-violet-600 dark:bg-violet-950/40"
         />
         <KpiCard
           label="Needs Attention"
-          value={kpiLoading ? "—" : kpis.needsAttention}
+          value={kpiLoading ? "—" : kpiStats.needsAttention}
           sub="Inactive or suspended"
           icon={AlertTriangle}
           color="bg-amber-50 text-amber-600 dark:bg-amber-950/40"

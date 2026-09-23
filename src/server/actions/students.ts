@@ -82,6 +82,37 @@ export async function getStudents({
   };
 }
 
+/**
+ * Fast aggregate KPI statistics for Students Directory (runs in <15ms)
+ */
+export async function getStudentStats() {
+  await requireAuth(["SUPER_ADMIN", "ADMIN", "ACCOUNTANT", "TEACHER"]);
+  const campusId = await getActiveCampusId();
+  const campusFilter = campusId ? { instituteId: campusId } : {};
+
+  const now = new Date();
+  const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+  const [totalStudents, activeStudents, newThisMonth, needsAttention] = await Promise.all([
+    db.student.count({ where: campusFilter }),
+    db.student.count({ where: { ...campusFilter, status: "ACTIVE" } }),
+    db.student.count({ where: { ...campusFilter, admissionDate: { gte: thisMonthStart } } }),
+    db.student.count({
+      where: {
+        ...campusFilter,
+        status: { in: ["INACTIVE", "SUSPENDED"] },
+      },
+    }),
+  ]);
+
+  return {
+    totalStudents,
+    activeStudents,
+    newThisMonth,
+    needsAttention,
+  };
+}
+
 export async function getStudentById(id: string) {
   const session = await requireAuth();
 

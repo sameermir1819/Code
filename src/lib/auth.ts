@@ -51,14 +51,16 @@ export async function clearSessionCookie() {
   cookieStore.delete(COOKIE_NAME);
 }
 
-export async function getSession(): Promise<SessionUser | null> {
+import { cache } from "react";
+
+export const getSession = cache(async (): Promise<SessionUser | null> => {
   const cookieStore = await cookies();
   const token = cookieStore.get(COOKIE_NAME)?.value;
   if (!token) {
     return null;
   }
   return await verifySessionToken(token);
-}
+});
 
 import { redirect } from "next/navigation";
 
