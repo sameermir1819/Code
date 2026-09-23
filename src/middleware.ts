@@ -112,14 +112,11 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // 4. For root path `/`, redirect to student portal, admin dashboard, or login
-  if (pathname === "/") {
-    if (session) {
-      const destination = isStudent ? "/portal" : "/dashboard";
-      return NextResponse.redirect(new URL(destination, request.url));
-    } else {
-      return NextResponse.redirect(new URL("/login", request.url));
-    }
+  // 4. Public Landing Pages: `/`, `/home`, `/apply`
+  if (pathname === "/" || pathname === "/home" || pathname === "/apply") {
+    const response = NextResponse.next();
+    applySecurityHeaders(response);
+    return response;
   }
 
   const response = NextResponse.next();
