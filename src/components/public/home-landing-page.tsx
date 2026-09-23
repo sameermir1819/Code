@@ -35,6 +35,8 @@ import {
   EyeOff,
   AlertCircle,
   User,
+  Smartphone,
+  Download,
 } from "lucide-react";
 
 interface CampusItem {
@@ -239,13 +241,6 @@ export function HomeLandingPage({
                 Student Portal Features
               </a>
               <a
-                href="#test-series"
-                onClick={() => setMobileMenuOpen(false)}
-                className="py-1.5 px-3 rounded-lg hover:bg-white/5"
-              >
-                Test Series &amp; OMR
-              </a>
-              <a
                 href="#campuses"
                 onClick={() => setMobileMenuOpen(false)}
                 className="py-1.5 px-3 rounded-lg hover:bg-white/5"
@@ -259,6 +254,26 @@ export function HomeLandingPage({
               >
                 Contact &amp; Helpline
               </a>
+
+              {/* Direct 1-Tap App Install Trigger on Mobile */}
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  if (typeof window !== "undefined") {
+                    window.dispatchEvent(new CustomEvent("futurex:open-install-modal"));
+                  }
+                }}
+                className="py-2 px-3 rounded-xl bg-gradient-to-r from-emerald-500/15 via-indigo-500/15 to-purple-500/15 border border-emerald-500/30 text-emerald-300 font-bold text-xs flex items-center justify-between text-left active:scale-98 transition-all cursor-pointer"
+              >
+                <div className="flex items-center gap-2">
+                  <Smartphone className="w-4 h-4 text-emerald-400" />
+                  <span>Install Student App on Phone</span>
+                </div>
+                <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300">
+                  Free
+                </span>
+              </button>
             </div>
 
             <div className="grid grid-cols-2 gap-2 pt-2 border-t border-white/10">
@@ -768,6 +783,20 @@ export function HomeLandingPage({
                   className="hover:text-indigo-400 transition-colors text-left cursor-pointer"
                 >
                   Student Portal Login
+                </button>
+              </li>
+              <li>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (typeof window !== "undefined") {
+                      window.dispatchEvent(new CustomEvent("futurex:open-install-modal"));
+                    }
+                  }}
+                  className="hover:text-emerald-400 text-emerald-400 font-semibold transition-colors text-left cursor-pointer flex items-center gap-1.5"
+                >
+                  <Smartphone className="w-3 h-3" />
+                  <span>Install Student App (PWA)</span>
                 </button>
               </li>
               <li>

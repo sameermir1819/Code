@@ -20,6 +20,12 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   title: "Futurex Learning — Coaching Institute ERP",
   description: "Enterprise Coaching Institute Management System",
+  manifest: "/manifest.webmanifest",
+  icons: {
+    icon: "/icon-192.png",
+    shortcut: "/icon-192.png",
+    apple: "/apple-touch-icon.png",
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
