@@ -21,6 +21,10 @@ async function main() {
     await prisma.document.deleteMany();
     await prisma.studentStudyMaterial.deleteMany();
     await prisma.studyMaterial.deleteMany();
+    await prisma.testSeriesResult.deleteMany();
+    await prisma.testSeriesRegistration.deleteMany();
+    await prisma.testSeriesExam.deleteMany();
+    await prisma.testSeries.deleteMany();
     await prisma.marks.deleteMany();
     await prisma.exam.deleteMany();
     await prisma.refundAdjustment.deleteMany();
@@ -711,7 +715,174 @@ async function main() {
     },
   });
 
-  // 13. Granular RBAC Permissions & System Roles
+  // 13. Offline Test Series & Mock Exams
+  console.log("🌱 Seeding Offline Test Series & Exam Schedules...");
+  const neetSeries = await prisma.testSeries.upsert({
+    where: { code: "TS-2026-NEET-MAJOR" },
+    update: {},
+    create: {
+      instituteId: institute.id,
+      title: "All India NEET 2026 Major Mock Drill Series",
+      code: "TS-2026-NEET-MAJOR",
+      description: "Comprehensive full-syllabus offline pen-paper mock tests with nationwide ranking, OMR evaluation, and video/PDF solutions.",
+      targetExam: "NEET",
+      fee: 3500,
+      totalTests: 8,
+      startDate: new Date("2026-03-01"),
+      endDate: new Date("2026-05-01"),
+      testCenterVenue: "Main Campus Auditorium & Hall A, Knowledge Park",
+      status: "ACTIVE",
+    },
+  });
+
+  const jeeSeries = await prisma.testSeries.upsert({
+    where: { code: "TS-2026-JEE-ADV" },
+    update: {},
+    create: {
+      instituteId: institute.id,
+      title: "JEE Advanced 2026 Benchmark Offline Mock Series",
+      code: "TS-2026-JEE-ADV",
+      description: "Rigorous paper 1 and paper 2 offline simulation strictly on actual JEE Advanced pattern with detailed diagnostic reports.",
+      targetExam: "JEE_ADVANCED",
+      fee: 4000,
+      totalTests: 6,
+      startDate: new Date("2026-03-15"),
+      endDate: new Date("2026-05-20"),
+      testCenterVenue: "Tech Block, Lecture Theater 1 & 2",
+      status: "ACTIVE",
+    },
+  });
+
+  const test1 = await prisma.testSeriesExam.upsert({
+    where: { code: "TS-NEET-MOCK-01" },
+    update: {},
+    create: {
+      testSeriesId: neetSeries.id,
+      testNumber: 1,
+      title: "Major Test 01 - Full Class 11 (Physics, Chemistry & Biology)",
+      code: "TS-NEET-MOCK-01",
+      examDate: new Date("2026-03-10T10:00:00.000Z"),
+      durationMinutes: 200,
+      maxMarks: 720,
+      passingMarks: 250,
+      syllabus: "Physics: Kinematics, Laws of Motion, Thermodynamics | Chemistry: Chemical Bonding, Periodic Table, Equilibrium | Biology: Cell Biology, Plant Physiology, Biomolecules",
+      venueRoom: "Hall A, Row 1-20 (OMR Sheet Based)",
+      paperType: "OMR Pen-Paper Offline",
+      answerKeyUrl: "https://example.com/solutions/neet-mock-01.pdf",
+      status: "RESULTS_PUBLISHED",
+    },
+  });
+
+  await prisma.testSeriesExam.upsert({
+    where: { code: "TS-NEET-MOCK-02" },
+    update: {},
+    create: {
+      testSeriesId: neetSeries.id,
+      testNumber: 2,
+      title: "Major Test 02 - Full Class 12 (Physics, Chemistry & Biology)",
+      code: "TS-NEET-MOCK-02",
+      examDate: new Date("2026-04-05T10:00:00.000Z"),
+      durationMinutes: 200,
+      maxMarks: 720,
+      passingMarks: 250,
+      syllabus: "Physics: Electrostatics, Magnetism, Optics | Chemistry: Coordination Compounds, Organic Chemistry | Biology: Genetics, Evolution, Biotechnology",
+      venueRoom: "Hall A & B (OMR Sheet Based)",
+      paperType: "OMR Pen-Paper Offline",
+      status: "SCHEDULED",
+    },
+  });
+
+  const studentsList = await prisma.student.findMany({ take: 5 });
+  let regIdx = 1;
+  const createdRegs = [];
+
+  for (const stu of studentsList) {
+    const rollNumber = `TS-2026-ROLL-000${regIdx}`;
+    const receiptNo = `TS-REC-2026-000${regIdx}`;
+
+    const reg = await prisma.testSeriesRegistration.upsert({
+      where: { rollNumber },
+      update: {},
+      create: {
+        testSeriesId: neetSeries.id,
+        studentId: stu.id,
+        rollNumber,
+        feeAmount: 3500,
+        paymentStatus: "PAID",
+        paymentMethod: regIdx % 2 === 0 ? "UPI" : "CASH",
+        receiptNo,
+        paidAt: new Date(),
+        status: "CONFIRMED",
+        remarks: "Enrolled in NEET Major offline series. Fee received in full.",
+      },
+    });
+
+    createdRegs.push(reg);
+    regIdx++;
+  }
+
+  const extRoll = `TS-2026-ROLL-000${regIdx}`;
+  const extReceipt = `TS-REC-2026-000${regIdx}`;
+  const extReg = await prisma.testSeriesRegistration.upsert({
+    where: { rollNumber: extRoll },
+    update: {},
+    create: {
+      testSeriesId: neetSeries.id,
+      externalStudentName: "Rohan V. Kulkarni",
+      externalStudentPhone: "+91 98220 11223",
+      externalStudentEmail: "rohan.kulkarni@external.com",
+      rollNumber: extRoll,
+      feeAmount: 3500,
+      paymentStatus: "PAID",
+      paymentMethod: "UPI",
+      receiptNo: extReceipt,
+      paidAt: new Date(),
+      status: "CONFIRMED",
+      remarks: "External guest student from Apex Public School.",
+    },
+  });
+  createdRegs.push(extReg);
+
+  const sampleMarks = [645, 612, 584, 550, 520, 485];
+  for (let i = 0; i < createdRegs.length; i++) {
+    const reg = createdRegs[i];
+    const marks = sampleMarks[i] || 450;
+    const rank = i + 1;
+    const percentile = Number((((createdRegs.length - rank) / createdRegs.length) * 100).toFixed(2));
+    const percentage = Number(((marks / 720) * 100).toFixed(2));
+
+    await prisma.testSeriesResult.upsert({
+      where: {
+        testSeriesExamId_registrationId: {
+          testSeriesExamId: test1.id,
+          registrationId: reg.id,
+        },
+      },
+      update: {},
+      create: {
+        testSeriesExamId: test1.id,
+        registrationId: reg.id,
+        marksObtained: marks,
+        maxMarks: 720,
+        percentage,
+        rank,
+        percentile,
+        attendance: "PRESENT",
+        subjectBreakup: JSON.stringify({
+          Physics: Math.round(marks * 0.25),
+          Chemistry: Math.round(marks * 0.25),
+          Biology: Math.round(marks * 0.5),
+        }),
+        negativeMarks: 12,
+        correctCount: Math.round(marks / 4) + 3,
+        incorrectCount: 12,
+        unattemptedCount: 180 - (Math.round(marks / 4) + 15),
+        remarks: rank <= 3 ? "Outstanding performance in Biology and Organic Chemistry." : "Consistent preparation, revise physical chemistry formulas.",
+      },
+    });
+  }
+
+  // 14. Granular RBAC Permissions & System Roles
   console.log("🌱 Seeding Permissions and RBAC Roles...");
   const STANDARD_PERMISSIONS = [
     { code: "users.view", name: "View Users", module: "users", description: "View system user accounts, roles and profiles" },
