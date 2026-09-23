@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useTransition, useRef } from "react";
+import { useState, useTransition, useRef, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { formatDate } from "@/lib/utils";
 import {
-  createBatchSubject,
+  updateBatch,
   createTimetableSlot,
   deleteTimetableSlot,
 } from "@/server/actions/academics";
@@ -71,17 +71,13 @@ export function BatchDetailView({
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
   // ── Modals State ──
-  const [isCreateSubjectModalOpen, setIsCreateSubjectModalOpen] = useState(false);
+  const [isAssignFacultyModalOpen, setIsAssignFacultyModalOpen] = useState(false);
   const [isUploadMaterialModalOpen, setIsUploadMaterialModalOpen] = useState(false);
   const [isAddSlotModalOpen, setIsAddSlotModalOpen] = useState(false);
 
-  // ── Create Subject Form ──
-  const [newSubject, setNewSubject] = useState({
-    name: "",
-    code: "",
-    description: "",
-    teacherId: allTeachers[0]?.id || "",
-  });
+  // Initial faculty IDs assigned to this batch
+  const initialFacultyIds = (batch.teachers?.map((bt: any) => bt.teacherId || bt.teacher?.id).filter(Boolean) || []) as string[];
+  const [selectedFacultyIds, setSelectedFacultyIds] = useState<string[]>(initialFacultyIds);
 
   // ── Upload Material Form & File State ──
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -132,34 +128,62 @@ export function BatchDetailView({
   const [studentSearch, setStudentSearch] = useState("");
   const [selectedDayFilter, setSelectedDayFilter] = useState("ALL");
 
-  // Extract subjects related to this batch
-  const batchSubjects = batch.course?.subjects?.map((cs: any) => cs.subject) || [];
-  const defaultSubjectId = batchSubjects[0]?.id || allSubjects[0]?.id || "";
+  // Extract assigned teachers and their taught subjects
+  const assignedTeachers = useMemo(() => {
+    return batch.teachers?.map((bt: any) => bt.teacher).filter(Boolean) || [];
+  }, [batch.teachers]);
 
-  // ── Handler: Create Subject for Batch ──
-  const handleCreateSubject = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newSubject.name.trim() || !newSubject.code.trim()) {
-      setFeedback({ type: "error", message: "Subject name and code are required." });
-      return;
+  // Extract subjects related to this batch:
+  // 1. From course subjects
+  // 2. From assigned faculty's subjects
+  const batchSubjects = useMemo(() => {
+    const list: any[] = [];
+    const seen = new Set<string>();
+
+    if (batch.course?.subjects) {
+      for (const cs of batch.course.subjects) {
+        if (cs.subject && !seen.has(cs.subject.id)) {
+          seen.add(cs.subject.id);
+          list.push(cs.subject);
+        }
+      }
     }
 
+    for (const t of assignedTeachers) {
+      if (t.subjects) {
+        for (const ts of t.subjects) {
+          if (ts.subject && !seen.has(ts.subject.id)) {
+            seen.add(ts.subject.id);
+            list.push(ts.subject);
+          }
+        }
+      }
+    }
+
+    // Fallback: if still empty, include allSubjects so scheduling is never blocked
+    if (list.length === 0 && allSubjects.length > 0) {
+      return allSubjects;
+    }
+
+    return list;
+  }, [batch, assignedTeachers, allSubjects]);
+
+  const defaultSubjectId = batchSubjects[0]?.id || allSubjects[0]?.id || "";
+
+  // ── Handler: Save Batch Faculty Assignments ──
+  const handleSaveBatchFaculty = async (e: React.FormEvent) => {
+    e.preventDefault();
     startTransition(async () => {
       try {
-        await createBatchSubject({
-          batchId: batch.id,
-          name: newSubject.name,
-          code: newSubject.code,
-          description: newSubject.description,
-          teacherId: newSubject.teacherId || undefined,
+        await updateBatch(batch.id, {
+          teacherIds: selectedFacultyIds,
         });
 
-        setFeedback({ type: "success", message: `Subject "${newSubject.name}" created and added to this batch!` });
-        setIsCreateSubjectModalOpen(false);
-        setNewSubject({ name: "", code: "", description: "", teacherId: allTeachers[0]?.id || "" });
+        setFeedback({ type: "success", message: "Batch faculty updated successfully!" });
+        setIsAssignFacultyModalOpen(false);
         router.refresh();
       } catch (err: unknown) {
-        setFeedback({ type: "error", message: err instanceof Error ? err.message : "Failed to create subject." });
+        setFeedback({ type: "error", message: err instanceof Error ? err.message : "Failed to update batch faculty." });
       }
     });
   };
@@ -397,11 +421,11 @@ export function BatchDetailView({
 
             {activeTab === "subjects" && (
               <Button
-                onClick={() => setIsCreateSubjectModalOpen(true)}
+                onClick={() => setIsAssignFacultyModalOpen(true)}
                 className="gap-2 text-xs font-semibold h-10 shadow-xs cursor-pointer"
               >
                 <Plus className="h-4 w-4" />
-                <span>New Subject</span>
+                <span>Assign Faculty</span>
               </Button>
             )}
 
@@ -523,8 +547,8 @@ export function BatchDetailView({
             value="subjects"
             className="flex items-center justify-center gap-2 py-3 text-xs font-semibold rounded-xl data-[state=active]:bg-background data-[state=active]:shadow-xs cursor-pointer"
           >
-            <BookOpen className="h-4 w-4 text-indigo-500" />
-            <span>Curriculum & Subjects ({batchSubjects.length})</span>
+            <GraduationCap className="h-4 w-4 text-indigo-500" />
+            <span>Faculty & Subjects ({assignedTeachers.length})</span>
           </TabsTrigger>
 
           <TabsTrigger
@@ -552,79 +576,118 @@ export function BatchDetailView({
           </TabsTrigger>
         </TabsList>
 
-        {/* ── TAB 1: CURRICULUM & SUBJECTS ── */}
+        {/* ── TAB 1: FACULTY & SUBJECTS ── */}
         <TabsContent value="subjects" className="space-y-6">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-base font-bold tracking-tight text-foreground">Curriculum Subject Modules</h3>
-              <p className="text-xs text-muted-foreground">Subjects taught in this batch and assigned instructors</p>
+              <h3 className="text-base font-bold tracking-tight text-foreground">Assigned Faculty & Subjects</h3>
+              <p className="text-xs text-muted-foreground">Faculty members assigned to this batch with their respective subject specializations</p>
             </div>
             <Button
-              onClick={() => setIsCreateSubjectModalOpen(true)}
+              onClick={() => setIsAssignFacultyModalOpen(true)}
               size="sm"
               className="gap-1.5 text-xs font-semibold shadow-xs cursor-pointer"
             >
               <Plus className="h-4 w-4" />
-              <span>Add Subject</span>
+              <span>Assign / Manage Faculty</span>
             </Button>
           </div>
 
-          {batchSubjects.length === 0 ? (
+          {assignedTeachers.length === 0 ? (
             <Card className="p-12 text-center border-dashed">
-              <BookOpen className="h-12 w-12 mx-auto text-muted-foreground/40 mb-3" />
-              <h4 className="font-bold text-sm text-foreground">No subjects added to this batch yet</h4>
+              <GraduationCap className="h-12 w-12 mx-auto text-muted-foreground/40 mb-3" />
+              <h4 className="font-bold text-sm text-foreground">No faculty assigned to this batch yet</h4>
               <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
-                Add curriculum subjects like Physics, Mathematics, or Chemistry to assign faculty and upload notes.
+                Assign teaching faculty to this batch. Faculty will appear along with the subjects they teach.
               </p>
               <Button
-                onClick={() => setIsCreateSubjectModalOpen(true)}
+                onClick={() => setIsAssignFacultyModalOpen(true)}
                 size="sm"
-                className="mt-4 gap-2 text-xs font-semibold"
+                className="mt-4 gap-2 text-xs font-semibold cursor-pointer"
               >
                 <Plus className="h-4 w-4" />
-                <span>Create First Subject</span>
+                <span>Assign Faculty</span>
               </Button>
             </Card>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {batchSubjects.map((sub: any) => {
-                const subSlots = timetableSlots.filter((s: any) => s.subjectId === sub.id);
-                const subMaterials = studyMaterials.filter((m: any) => m.subjectId === sub.id);
+              {assignedTeachers.map((teacher: any) => {
+                const teacherSlots = timetableSlots.filter((s: any) => s.teacherId === teacher.id);
+                const teacherSubjects = teacher.subjects?.map((ts: any) => ts.subject).filter(Boolean) || [];
 
                 return (
-                  <Card key={sub.id} className="shadow-xs hover:border-primary/40 transition-all">
-                    <CardHeader className="p-4 pb-2 flex flex-row items-start justify-between">
-                      <div>
-                        <Badge variant="outline" className="font-mono text-[10px] uppercase tracking-wider mb-1">
-                          {sub.code}
+                  <Card key={teacher.id} className="shadow-xs hover:border-primary/40 transition-all flex flex-col justify-between">
+                    <div>
+                      <CardHeader className="p-4 pb-2 flex flex-row items-start justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-sm uppercase">
+                            {teacher.name?.[0] || "F"}
+                          </div>
+                          <div>
+                            <CardTitle className="text-sm font-bold text-foreground">{teacher.name}</CardTitle>
+                            <CardDescription className="text-[11px] text-muted-foreground">
+                              {teacher.specialization || "Faculty Member"}
+                            </CardDescription>
+                          </div>
+                        </div>
+                        <Badge variant="outline" className="font-mono text-[10px] uppercase">
+                          {teacher.teacherId || "FACULTY"}
                         </Badge>
-                        <CardTitle className="text-sm font-bold text-foreground">{sub.name}</CardTitle>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="p-4 pt-2 space-y-3 text-xs">
-                      {sub.description && (
-                        <p className="text-muted-foreground line-clamp-2 text-[11px]">{sub.description}</p>
-                      )}
+                      </CardHeader>
 
-                      {/* Workload Metrics */}
-                      <div className="grid grid-cols-2 gap-2 pt-2 border-t text-[11px]">
-                        <div className="bg-muted/40 p-2 rounded-lg">
-                          <span className="text-muted-foreground block text-[10px]">Lectures / Wk:</span>
-                          <strong className="text-foreground">{subSlots.length} Classes</strong>
+                      <CardContent className="p-4 pt-2 space-y-3 text-xs">
+                        {/* Subjects Assigned to this teacher */}
+                        <div>
+                          <span className="text-muted-foreground block text-[10px] font-semibold mb-1 uppercase tracking-wider">
+                            Subjects Taught
+                          </span>
+                          <div className="flex flex-wrap gap-1">
+                            {teacherSubjects.length > 0 ? (
+                              teacherSubjects.map((sub: any) => (
+                                <Badge
+                                  key={sub.id}
+                                  variant="secondary"
+                                  className="text-[10px] font-medium bg-indigo-50 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300"
+                                >
+                                  {sub.name} {sub.code ? `(${sub.code})` : ""}
+                                </Badge>
+                              ))
+                            ) : (
+                              <span className="text-[11px] text-muted-foreground italic">
+                                {teacher.specialization ? `Specialization: ${teacher.specialization}` : "No specific subject assigned"}
+                              </span>
+                            )}
+                          </div>
                         </div>
-                        <div className="bg-muted/40 p-2 rounded-lg">
-                          <span className="text-muted-foreground block text-[10px]">Notes Uploaded:</span>
-                          <strong className="text-foreground">{subMaterials.length} Files</strong>
-                        </div>
-                      </div>
 
-                      {/* Actions */}
+                        {/* Workload Metrics */}
+                        <div className="grid grid-cols-2 gap-2 pt-2 border-t text-[11px]">
+                          <div className="bg-muted/40 p-2 rounded-lg">
+                            <span className="text-muted-foreground block text-[10px]">Batch Lectures:</span>
+                            <strong className="text-foreground">{teacherSlots.length} Classes / Wk</strong>
+                          </div>
+                          <div className="bg-muted/40 p-2 rounded-lg">
+                            <span className="text-muted-foreground block text-[10px]">Contact Info:</span>
+                            <span className="text-foreground truncate block font-medium" title={teacher.email || teacher.phone}>
+                              {teacher.phone || teacher.email || "N/A"}
+                            </span>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </div>
+
+                    <CardContent className="p-4 pt-0">
                       <div className="pt-2 flex items-center justify-between gap-2 border-t">
                         <Button
                           variant="ghost"
                           size="sm"
                           onClick={() => {
-                            setNewSlot((prev) => ({ ...prev, subjectId: sub.id }));
+                            const firstSubId = teacherSubjects[0]?.id || defaultSubjectId;
+                            setNewSlot((prev) => ({
+                              ...prev,
+                              teacherId: teacher.id,
+                              subjectId: firstSubId,
+                            }));
                             setIsAddSlotModalOpen(true);
                           }}
                           className="h-7 text-[11px] text-primary hover:bg-primary/10 gap-1 px-2 cursor-pointer"
@@ -636,14 +699,10 @@ export function BatchDetailView({
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => {
-                            setMaterialSubjectFilter(sub.id);
-                            setActiveTab("materials");
-                          }}
+                          onClick={() => setIsAssignFacultyModalOpen(true)}
                           className="h-7 text-[11px] text-muted-foreground hover:text-foreground gap-1 px-2 cursor-pointer"
                         >
-                          <FileText className="h-3 w-3" />
-                          <span>View Notes</span>
+                          <span>Manage</span>
                         </Button>
                       </div>
                     </CardContent>
@@ -989,85 +1048,92 @@ export function BatchDetailView({
         </TabsContent>
       </Tabs>
 
-      {/* ── MODAL: CREATE SUBJECT ── */}
-      {isCreateSubjectModalOpen && (
+      {/* ── MODAL: ASSIGN FACULTY TO BATCH ── */}
+      {isAssignFacultyModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in">
-          <div className="bg-card text-card-foreground border rounded-2xl p-6 w-full max-w-md shadow-2xl space-y-4">
+          <div className="bg-card text-card-foreground border rounded-2xl p-6 w-full max-w-lg shadow-2xl space-y-4">
             <div className="flex items-center justify-between border-b pb-3">
-              <h3 className="font-bold text-base text-foreground">Create New Batch Subject</h3>
+              <div>
+                <h3 className="font-bold text-base text-foreground">Assign Faculty to Batch</h3>
+                <p className="text-xs text-muted-foreground">Select faculty members. Their subjects will automatically be available in this batch.</p>
+              </div>
               <button
-                onClick={() => setIsCreateSubjectModalOpen(false)}
+                onClick={() => setIsAssignFacultyModalOpen(false)}
                 className="text-muted-foreground hover:text-foreground cursor-pointer"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
 
-            <form onSubmit={handleCreateSubject} className="space-y-3 text-xs">
-              <div>
-                <label className="font-semibold text-muted-foreground block mb-1">Subject Name *</label>
-                <input
-                  type="text"
-                  required
-                  value={newSubject.name}
-                  onChange={(e) => setNewSubject({ ...newSubject, name: e.target.value })}
-                  placeholder="e.g. Advanced Physics Mechanics"
-                  className="w-full px-3 py-2 rounded-lg border bg-background text-xs focus:outline-none focus:ring-1 focus:ring-primary"
-                />
+            <form onSubmit={handleSaveBatchFaculty} className="space-y-4 text-xs">
+              <div className="max-h-72 overflow-y-auto space-y-2 pr-1 divide-y divide-border/40">
+                {allTeachers.length === 0 ? (
+                  <p className="text-muted-foreground text-center py-4">No active faculty found in the institute.</p>
+                ) : (
+                  allTeachers.map((teacher: any) => {
+                    const isSelected = selectedFacultyIds.includes(teacher.id);
+                    const teacherSubjects = teacher.subjects?.map((ts: any) => ts.subject?.name).filter(Boolean) || [];
+
+                    return (
+                      <div
+                        key={teacher.id}
+                        onClick={() => {
+                          setSelectedFacultyIds((prev) =>
+                            isSelected ? prev.filter((id) => id !== teacher.id) : [...prev, teacher.id]
+                          );
+                        }}
+                        className={`pt-2.5 pb-2.5 px-3 rounded-xl flex items-center justify-between cursor-pointer transition-colors ${
+                          isSelected ? "bg-primary/10 border border-primary/20" : "hover:bg-muted/50"
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => {}}
+                            className="rounded border-gray-300 text-primary focus:ring-primary h-4 w-4 cursor-pointer"
+                          />
+                          <div>
+                            <div className="font-semibold text-foreground text-xs">{teacher.name}</div>
+                            <div className="text-[11px] text-muted-foreground flex items-center gap-1.5 mt-0.5">
+                              {teacherSubjects.length > 0 ? (
+                                <span className="text-indigo-600 dark:text-indigo-400 font-medium">
+                                  Subject: {teacherSubjects.join(", ")}
+                                </span>
+                              ) : (
+                                <span>{teacher.specialization || "Faculty"}</span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        <Badge variant="outline" className="text-[10px] font-mono">
+                          {teacher.teacherId || "FACULTY"}
+                        </Badge>
+                      </div>
+                    );
+                  })
+                )}
               </div>
 
-              <div>
-                <label className="font-semibold text-muted-foreground block mb-1">Subject Code *</label>
-                <input
-                  type="text"
-                  required
-                  value={newSubject.code}
-                  onChange={(e) => setNewSubject({ ...newSubject, code: e.target.value.toUpperCase() })}
-                  placeholder="e.g. PHY-301"
-                  className="w-full px-3 py-2 rounded-lg border bg-background text-xs font-mono focus:outline-none focus:ring-1 focus:ring-primary"
-                />
-              </div>
-
-              <div>
-                <label className="font-semibold text-muted-foreground block mb-1">Description (Optional)</label>
-                <textarea
-                  rows={2}
-                  value={newSubject.description}
-                  onChange={(e) => setNewSubject({ ...newSubject, description: e.target.value })}
-                  placeholder="Course modules and topics covered..."
-                  className="w-full px-3 py-2 rounded-lg border bg-background text-xs focus:outline-none focus:ring-1 focus:ring-primary"
-                />
-              </div>
-
-              <div>
-                <label className="font-semibold text-muted-foreground block mb-1">Assign Teacher</label>
-                <select
-                  value={newSubject.teacherId}
-                  onChange={(e) => setNewSubject({ ...newSubject, teacherId: e.target.value })}
-                  className="w-full px-3 py-2 rounded-lg border bg-background text-xs focus:outline-none focus:ring-1 focus:ring-primary"
-                >
-                  <option value="">No teacher assigned yet</option>
-                  {allTeachers.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.name} ({t.specialization || "Faculty"})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="flex items-center justify-end gap-2 pt-3 border-t">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setIsCreateSubjectModalOpen(false)}
-                  className="cursor-pointer"
-                >
-                  Cancel
-                </Button>
-                <Button type="submit" size="sm" disabled={isPending} className="cursor-pointer">
-                  {isPending ? "Creating..." : "Save Subject"}
-                </Button>
+              <div className="flex items-center justify-between pt-3 border-t">
+                <span className="text-[11px] text-muted-foreground">
+                  {selectedFacultyIds.length} faculty selected
+                </span>
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsAssignFacultyModalOpen(false)}
+                    className="cursor-pointer"
+                  >
+                    Cancel
+                  </Button>
+                  <Button type="submit" size="sm" disabled={isPending} className="cursor-pointer">
+                    {isPending ? "Saving..." : "Save Faculty"}
+                  </Button>
+                </div>
               </div>
             </form>
           </div>

@@ -55,36 +55,13 @@ function ContactlessIcon() {
   );
 }
 
-/** Vector QR Code with Anti-Tamper Frame */
-function StudentQrCode({ studentId }: { studentId: string }) {
+import { StudentQrCode } from "@/components/ui/student-qr-code";
+
+/** Verifiable QR Code with Anti-Tamper Frame */
+function CardQrWrapper({ studentId }: { studentId: string }) {
   return (
     <div className="p-1.5 bg-white rounded-lg border border-zinc-300 shadow-xs inline-block">
-      <svg width="54" height="54" viewBox="0 0 48 48" className="shrink-0">
-        <rect width="48" height="48" fill="#ffffff" />
-        <rect x="3" y="3" width="13" height="13" fill="#0f2b5c" rx="1.5" />
-        <rect x="5.5" y="5.5" width="8" height="8" fill="#ffffff" rx="1" />
-        <rect x="7.5" y="7.5" width="4" height="4" fill="#0f2b5c" rx="0.5" />
-        <rect x="32" y="3" width="13" height="13" fill="#0f2b5c" rx="1.5" />
-        <rect x="34.5" y="5.5" width="8" height="8" fill="#ffffff" rx="1" />
-        <rect x="36.5" y="7.5" width="4" height="4" fill="#0f2b5c" rx="0.5" />
-        <rect x="3" y="32" width="13" height="13" fill="#0f2b5c" rx="1.5" />
-        <rect x="5.5" y="34.5" width="8" height="8" fill="#ffffff" rx="1" />
-        <rect x="7.5" y="36.5" width="4" height="4" fill="#0f2b5c" rx="0.5" />
-        <rect x="19" y="5" width="3" height="3" fill="#0f2b5c" />
-        <rect x="25" y="5" width="3" height="3" fill="#0f2b5c" />
-        <rect x="19" y="11" width="3" height="3" fill="#0f2b5c" />
-        <rect x="25" y="11" width="3" height="3" fill="#0f2b5c" />
-        <rect x="19" y="17" width="9" height="9" fill="#0f2b5c" rx="1" />
-        <rect x="21" y="19" width="5" height="5" fill="#ffffff" />
-        <rect x="5" y="19" width="3" height="3" fill="#0f2b5c" />
-        <rect x="11" y="23" width="3" height="3" fill="#0f2b5c" />
-        <rect x="19" y="33" width="3" height="3" fill="#0f2b5c" />
-        <rect x="25" y="37" width="3" height="3" fill="#0f2b5c" />
-        <rect x="33" y="19" width="3" height="3" fill="#0f2b5c" />
-        <rect x="37" y="25" width="3" height="3" fill="#0f2b5c" />
-        <rect x="33" y="33" width="4" height="4" fill="#0f2b5c" />
-        <rect x="39" y="39" width="3" height="3" fill="#0f2b5c" />
-      </svg>
+      <StudentQrCode value={studentId} size={54} darkColor="#0f2b5c" lightColor="#ffffff" />
     </div>
   );
 }
@@ -345,7 +322,7 @@ export function StudentIdCard({
 
               {/* Body Content */}
               <div className="px-3.5 py-2 flex-1 flex flex-col items-center justify-around text-center space-y-1.5">
-                <StudentQrCode studentId={student.studentId} />
+                <CardQrWrapper studentId={student.studentId || student.admissionNo || student.id} />
                 <span className="text-[7.5px] font-mono font-bold text-zinc-500 uppercase">
                   Scan to Verify Campus Entry
                 </span>
@@ -491,7 +468,7 @@ export function StudentIdCard({
               {/* Body */}
               <div className="px-3.5 py-1.5 flex-1 flex gap-3 items-center">
                 <div className="flex flex-col items-center shrink-0 space-y-1">
-                  <StudentQrCode studentId={student.studentId} />
+                  <CardQrWrapper studentId={student.studentId || student.admissionNo || student.id} />
                   <span className="text-[6.5px] font-mono font-bold text-zinc-500 uppercase">
                     Scan to Verify
                   </span>

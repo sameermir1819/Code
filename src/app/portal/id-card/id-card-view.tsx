@@ -12,6 +12,7 @@ import {
   GraduationCap,
   Calendar,
 } from "lucide-react";
+import { StudentQrCode } from "@/components/ui/student-qr-code";
 
 interface StudentIDProps {
   student: {
@@ -172,8 +173,13 @@ export function StudentIDCardView({ student, institute }: StudentIDProps) {
               </div>
 
               {/* QR Verification Visual */}
-              <div className="p-2 rounded-xl bg-white text-black shrink-0 shadow-lg">
-                <QrCode className="w-12 h-12" />
+              <div className="p-1.5 rounded-xl bg-white text-black shrink-0 shadow-lg border border-white/20">
+                <StudentQrCode
+                  value={student.studentId || student.admissionNo}
+                  size={48}
+                  darkColor="#0f172a"
+                  lightColor="#ffffff"
+                />
               </div>
             </div>
 

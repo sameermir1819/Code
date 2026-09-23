@@ -476,18 +476,6 @@ export function BatchesManager({
         {isAdmin && (
           <div className="flex items-center gap-2">
             <Button
-              variant="outline"
-              onClick={() => {
-                setSubjectError("");
-                setSubjectSuccess("");
-                setIsSubjectsModalOpen(true);
-              }}
-              className="inline-flex items-center gap-2 text-xs font-semibold h-9 rounded-xl shadow-xs"
-            >
-              <BookOpen className="h-4 w-4 text-primary" />
-              <span>Manage Subjects ({subjectsList.length})</span>
-            </Button>
-            <Button
               onClick={() => {
                 setErrorMsg("");
                 setSuccessMsg("");
@@ -858,15 +846,28 @@ export function BatchesManager({
                     </span>
                     <div className="flex flex-wrap gap-1.5">
                       {b.teachers && b.teachers.length > 0 ? (
-                        b.teachers.map((tb: any, idx: number) => (
-                          <span
-                            key={tb.id || idx}
-                            className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-primary/10 text-primary text-[11px] font-medium border border-primary/20"
-                          >
-                            <GraduationCap className="h-3 w-3" />
-                            <span>{tb.teacher?.name || "Faculty"}</span>
-                          </span>
-                        ))
+                        b.teachers.map((tb: any, idx: number) => {
+                          const t = tb.teacher;
+                          const subs = t?.subjects?.map((s: any) => s.subject?.name).filter(Boolean);
+                          return (
+                            <span
+                              key={tb.id || idx}
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-primary/10 text-primary text-[11px] font-medium border border-primary/20"
+                            >
+                              <GraduationCap className="h-3 w-3 shrink-0" />
+                              <span className="font-semibold text-foreground">{t?.name || "Faculty"}</span>
+                              {subs && subs.length > 0 ? (
+                                <span className="text-[10px] text-primary/80 font-normal">
+                                  ({subs.join(", ")})
+                                </span>
+                              ) : t?.specialization ? (
+                                <span className="text-[10px] text-muted-foreground font-normal">
+                                  ({t.specialization})
+                                </span>
+                              ) : null}
+                            </span>
+                          );
+                        })
                       ) : (
                         <span className="text-muted-foreground italic text-xs">No faculty assigned</span>
                       )}
@@ -961,16 +962,29 @@ export function BatchesManager({
                         </div>
                       </td>
                       <td className="p-3.5">
-                        <div className="flex flex-wrap gap-1 max-w-[200px]">
+                        <div className="flex flex-wrap gap-1 max-w-[250px]">
                           {b.teachers && b.teachers.length > 0 ? (
-                            b.teachers.map((tb: any, idx: number) => (
-                              <span
-                                key={tb.id || idx}
-                                className="px-2 py-0.5 rounded-md bg-muted font-medium text-[10px] text-foreground"
-                              >
-                                {tb.teacher?.name}
-                              </span>
-                            ))
+                            b.teachers.map((tb: any, idx: number) => {
+                              const t = tb.teacher;
+                              const subs = t?.subjects?.map((s: any) => s.subject?.name).filter(Boolean);
+                              return (
+                                <span
+                                  key={tb.id || idx}
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-muted font-medium text-[10px] text-foreground border"
+                                >
+                                  <span>{t?.name}</span>
+                                  {subs && subs.length > 0 ? (
+                                    <span className="text-primary font-semibold text-[9px]">
+                                      ({subs.join(", ")})
+                                    </span>
+                                  ) : t?.specialization ? (
+                                    <span className="text-muted-foreground text-[9px]">
+                                      ({t.specialization})
+                                    </span>
+                                  ) : null}
+                                </span>
+                              );
+                            })
                           ) : (
                             <span className="text-muted-foreground italic text-[11px]">Unassigned</span>
                           )}
@@ -1619,51 +1633,12 @@ export function BatchesManager({
                 <label className="text-xs font-semibold text-foreground">
                   Available Academic Subjects ({subjectsList.length})
                 </label>
-                <button
-                  type="button"
-                  onClick={() => setIsQuickAddSubjectOpen((prev) => !prev)}
-                  className="text-[11px] font-semibold text-primary hover:underline inline-flex items-center gap-1"
-                >
-                  <Plus className="h-3 w-3" />
-                  {isQuickAddSubjectOpen ? "Hide Form" : "Create New Subject"}
-                </button>
+                <span className="text-[10px] text-muted-foreground">Select taught subjects</span>
               </div>
-
-              {/* Quick Add Inline Form */}
-              {isQuickAddSubjectOpen && (
-                <div className="p-3 border rounded-lg bg-muted/30 space-y-2 text-xs animate-in fade-in">
-                  <span className="font-bold text-foreground block">Quick Add Academic Subject:</span>
-                  <div className="grid grid-cols-2 gap-2">
-                    <Input
-                      placeholder="Name (e.g. Organic Chemistry)"
-                      value={newSubjectName}
-                      onChange={(e) => setNewSubjectName(e.target.value)}
-                      className="h-8 text-xs bg-background"
-                    />
-                    <Input
-                      placeholder="Code (e.g. CHE-102)"
-                      value={newSubjectCode}
-                      onChange={(e) => setNewSubjectCode(e.target.value)}
-                      className="h-8 text-xs font-mono uppercase bg-background"
-                    />
-                  </div>
-                  <div className="flex justify-end gap-2">
-                    <Button
-                      type="button"
-                      size="sm"
-                      onClick={handleCreateSubject}
-                      disabled={isCreatingSubject || !newSubjectName.trim() || !newSubjectCode.trim()}
-                      className="h-7 text-xs px-3"
-                    >
-                      {isCreatingSubject ? "Creating..." : "Save Subject"}
-                    </Button>
-                  </div>
-                </div>
-              )}
 
               {subjectsList.length === 0 ? (
                 <p className="text-xs text-muted-foreground italic p-3 border rounded bg-muted/20 text-center">
-                  No subjects configured in the system yet. Click &ldquo;Create New Subject&rdquo; above.
+                  No subjects configured in the system yet. Subjects are configured under the Courses module.
                 </p>
               ) : (
                 <div className="grid grid-cols-1 gap-2 max-h-56 overflow-y-auto pr-1">
@@ -1755,177 +1730,6 @@ export function BatchesManager({
                 className="flex-1 text-xs"
               >
                 {isPending ? "Deleting..." : "Yes, Delete Batch"}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* MANAGE SUBJECTS MODAL */}
-      {isSubjectsModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in">
-          <div className="bg-card border rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6 space-y-5 animate-in zoom-in-95 duration-150">
-            {/* Header */}
-            <div className="flex items-center justify-between pb-3 border-b">
-              <div className="flex items-center gap-2.5">
-                <div className="h-9 w-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
-                  <BookOpen className="h-5 w-5" />
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-foreground">
-                    Academic Subjects Management ({subjectsList.length})
-                  </h3>
-                  <p className="text-xs text-muted-foreground">
-                    Create new academic subjects or delete unlinked subjects.
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => setIsSubjectsModalOpen(false)}
-                className="p-1 rounded text-muted-foreground hover:text-foreground"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            {/* Notifications inside modal */}
-            {subjectSuccess && (
-              <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400 text-xs flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="h-4 w-4 shrink-0" />
-                  <span>{subjectSuccess}</span>
-                </div>
-                <button onClick={() => setSubjectSuccess("")}>
-                  <X className="h-3 w-3" />
-                </button>
-              </div>
-            )}
-            {subjectError && (
-              <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-700 dark:text-red-400 text-xs flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <AlertCircle className="h-4 w-4 shrink-0" />
-                  <span>{subjectError}</span>
-                </div>
-                <button onClick={() => setSubjectError("")}>
-                  <X className="h-3 w-3" />
-                </button>
-              </div>
-            )}
-
-            {/* Create New Subject Card */}
-            <div className="p-4 border rounded-xl bg-muted/20 space-y-3">
-              <h4 className="text-xs font-bold uppercase tracking-wide text-foreground flex items-center gap-1.5">
-                <Plus className="h-3.5 w-3.5 text-primary" />
-                <span>Create New Academic Subject</span>
-              </h4>
-              <form onSubmit={handleCreateSubject} className="space-y-3 text-xs">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="font-semibold text-muted-foreground block mb-1">
-                      Subject Name <span className="text-destructive">*</span>
-                    </label>
-                    <Input
-                      required
-                      placeholder="e.g. Inorganic Chemistry, Calculus"
-                      value={newSubjectName}
-                      onChange={(e) => setNewSubjectName(e.target.value)}
-                      className="text-xs h-9 bg-background"
-                    />
-                  </div>
-                  <div>
-                    <label className="font-semibold text-muted-foreground block mb-1">
-                      Subject Code <span className="text-destructive">*</span>
-                    </label>
-                    <Input
-                      required
-                      placeholder="e.g. CHE-101, MATH-201"
-                      value={newSubjectCode}
-                      onChange={(e) => setNewSubjectCode(e.target.value)}
-                      className="text-xs h-9 font-mono uppercase bg-background"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label className="font-semibold text-muted-foreground block mb-1">
-                    Description (Optional)
-                  </label>
-                  <Input
-                    placeholder="Brief description of curriculum scope"
-                    value={newSubjectDesc}
-                    onChange={(e) => setNewSubjectDesc(e.target.value)}
-                    className="text-xs h-9 bg-background"
-                  />
-                </div>
-                <div className="flex justify-end pt-1">
-                  <Button
-                    type="submit"
-                    size="sm"
-                    disabled={isCreatingSubject || !newSubjectName.trim() || !newSubjectCode.trim()}
-                    className="text-xs inline-flex items-center gap-1.5"
-                  >
-                    <Plus className="h-3.5 w-3.5" />
-                    <span>{isCreatingSubject ? "Creating..." : "Add Subject"}</span>
-                  </Button>
-                </div>
-              </form>
-            </div>
-
-            {/* Existing Subjects List */}
-            <div className="space-y-2">
-              <h4 className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
-                Configured Subjects ({subjectsList.length})
-              </h4>
-              {subjectsList.length === 0 ? (
-                <p className="text-xs text-muted-foreground italic p-4 text-center border rounded-lg">
-                  No subjects configured yet. Use the form above to add your first subject.
-                </p>
-              ) : (
-                <div className="border rounded-xl divide-y max-h-64 overflow-y-auto">
-                  {subjectsList.map((subj: any) => (
-                    <div
-                      key={subj.id}
-                      className="p-3 flex items-center justify-between hover:bg-muted/30 transition-colors text-xs"
-                    >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <Badge variant="outline" className="font-mono text-[10px] shrink-0">
-                          {subj.code}
-                        </Badge>
-                        <div className="min-w-0">
-                          <p className="font-semibold text-foreground truncate">{subj.name}</p>
-                          {subj.description && (
-                            <p className="text-[11px] text-muted-foreground truncate">
-                              {subj.description}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0 ml-2">
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          onClick={() => handleDeleteSubject(subj.id, subj.name)}
-                          className="h-7 px-2 text-[11px] inline-flex items-center gap-1"
-                          title="Delete Subject"
-                        >
-                          <Trash2 className="h-3 w-3" />
-                          <span>Delete</span>
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Footer */}
-            <div className="pt-3 border-t flex justify-end">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setIsSubjectsModalOpen(false)}
-                className="text-xs"
-              >
-                Close
               </Button>
             </div>
           </div>
