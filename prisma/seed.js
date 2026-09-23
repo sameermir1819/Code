@@ -711,6 +711,128 @@ async function main() {
     },
   });
 
+  // 13. Granular RBAC Permissions & System Roles
+  console.log("🌱 Seeding Permissions and RBAC Roles...");
+  const STANDARD_PERMISSIONS = [
+    { code: "users.view", name: "View Users", module: "users", description: "View system user accounts, roles and profiles" },
+    { code: "users.create", name: "Create Users", module: "users", description: "Add new administrative, faculty, and student user accounts" },
+    { code: "users.update", name: "Update Users", module: "users", description: "Edit user profile information, contact details, and branches" },
+    { code: "users.status", name: "Manage User Status", module: "users", description: "Activate, suspend or deactivate user accounts" },
+    { code: "users.role", name: "Manage Roles & Permissions", module: "users", description: "Configure system roles, custom roles, and permission assignments" },
+    { code: "users.permissions", name: "Direct Permissions", module: "users", description: "Assign direct user-level permission overrides" },
+    { code: "users.delete", name: "Delete Users", module: "users", description: "Archive or permanently remove user accounts" },
+    { code: "users.activity", name: "View User Activity", module: "users", description: "Inspect user activity logs, login history, and audit trails" },
+    { code: "students.view", name: "View Students", module: "students", description: "Access student directory, academic profiles, and enrollments" },
+    { code: "students.create", name: "Admit Students", module: "students", description: "Register new student admissions and allocate enrollment numbers" },
+    { code: "students.update", name: "Update Students", module: "students", description: "Modify student personal details, parents, and academic info" },
+    { code: "students.delete", name: "Archive Students", module: "students", description: "Archive or delete student admission records" },
+    { code: "teachers.view", name: "View Faculty", module: "teachers", description: "View faculty directory, profiles, and qualifications" },
+    { code: "teachers.create", name: "Add Faculty", module: "teachers", description: "Onboard new teachers and faculty members" },
+    { code: "teachers.update", name: "Update Faculty", module: "teachers", description: "Edit teacher subject specializations, bios, and assignments" },
+    { code: "courses.view", name: "View Courses", module: "academics", description: "View courses, curriculum structures, and subject syllabi" },
+    { code: "courses.manage", name: "Manage Courses", module: "academics", description: "Create, edit, or archive academic courses and subjects" },
+    { code: "batches.view", name: "View Batches", module: "academics", description: "Browse class batches, timings, and enrolled students" },
+    { code: "batches.manage", name: "Manage Batches", module: "academics", description: "Create class batches, assign faculty, and set room capacities" },
+    { code: "timetable.view", name: "View Timetable", module: "academics", description: "View master lecture schedule and weekly classroom timetables" },
+    { code: "timetable.manage", name: "Manage Timetable", module: "academics", description: "Schedule class periods, assign lecture rooms, and adjust slots" },
+    { code: "attendance.view", name: "View Attendance", module: "attendance", description: "Review daily student and faculty attendance records and percentages" },
+    { code: "attendance.manage", name: "Mark Attendance", module: "attendance", description: "Mark, update, and submit daily batch attendance registers" },
+    { code: "fees.view", name: "View Fees", module: "finance", description: "Access fee structures, student dues, ledger, and transaction logs" },
+    { code: "fees.create", name: "Collect Fees", module: "finance", description: "Record fee payments, issue receipts, and print invoices" },
+    { code: "fees.update", name: "Manage Fee Plans", module: "finance", description: "Configure course fee plans, installment schedules, and discounts" },
+    { code: "exams.view", name: "View Exams", module: "exams", description: "View offline test series, exam schedules, and test papers" },
+    { code: "exams.create", name: "Create Exams", module: "exams", description: "Schedule exams, assessments, and offline test series" },
+    { code: "exams.update", name: "Edit Exams", module: "exams", description: "Modify exam syllabus, duration, marks weighting, and test dates" },
+    { code: "results.view", name: "View Results", module: "exams", description: "View scorecards, merit lists, percentile ranks, and analysis" },
+    { code: "results.manage", name: "Enter Marks & Results", module: "exams", description: "Enter student marks, generate rank sheets, and publish results" },
+    { code: "reports.view", name: "View Reports", module: "reports", description: "Access analytics dashboards, financial summaries, and data exports" },
+    { code: "settings.view", name: "View Settings", module: "settings", description: "View institute configuration, campus profile, and system audit logs" },
+    { code: "settings.manage", name: "Manage Settings", module: "settings", description: "Configure institute preferences, academic sessions, and campuses" },
+  ];
+
+  for (const perm of STANDARD_PERMISSIONS) {
+    await prisma.permission.upsert({
+      where: { code: perm.code },
+      update: { name: perm.name, module: perm.module, description: perm.description },
+      create: { code: perm.code, name: perm.name, module: perm.module, description: perm.description },
+    });
+  }
+
+  const STANDARD_ROLES = [
+    { name: "SUPER_ADMIN", displayName: "Super Administrator", description: "Full master administrative control across all campuses and modules.", isSystem: true },
+    { name: "ADMIN", displayName: "Campus Administrator", description: "Operational management for students, faculty, academics, and exams.", isSystem: true },
+    { name: "ACCOUNTANT", displayName: "Finance & Accounts", description: "Fee collections, payment entries, invoice receipts, and reports.", isSystem: true },
+    { name: "TEACHER", displayName: "Faculty / Teacher", description: "Class batches, attendance, exams, and marks entry.", isSystem: true },
+    { name: "COUNSELOR", displayName: "Admission Counselor", description: "Student inquiries, follow-up CRM leads, and prospective admissions.", isSystem: true },
+    { name: "STAFF", displayName: "Support Staff", description: "General operational staff with view access.", isSystem: true },
+    { name: "STUDENT", displayName: "Student", description: "Student access to course schedule, attendance, marks, and fees.", isSystem: true },
+    { name: "PARENT", displayName: "Parent / Guardian", description: "Guardian portal to monitor attendance, fee dues, and progress.", isSystem: true },
+  ];
+
+  for (const r of STANDARD_ROLES) {
+    await prisma.role.upsert({
+      where: { name: r.name },
+      update: { displayName: r.displayName, description: r.description, isSystem: r.isSystem },
+      create: { name: r.name, displayName: r.displayName, description: r.description, isSystem: r.isSystem },
+    });
+  }
+
+  const ROLE_PERMISSIONS_MAP = {
+    SUPER_ADMIN: STANDARD_PERMISSIONS.map((p) => p.code),
+    ADMIN: [
+      "users.view", "users.create", "users.update", "users.status", "users.activity",
+      "students.view", "students.create", "students.update", "students.delete",
+      "teachers.view", "teachers.create", "teachers.update",
+      "courses.view", "courses.manage", "batches.view", "batches.manage",
+      "timetable.view", "timetable.manage",
+      "attendance.view", "attendance.manage",
+      "fees.view", "fees.create", "fees.update",
+      "exams.view", "exams.create", "exams.update", "results.view", "results.manage",
+      "reports.view", "settings.view", "settings.manage"
+    ],
+    ACCOUNTANT: ["users.view", "students.view", "fees.view", "fees.create", "fees.update", "reports.view"],
+    TEACHER: [
+      "users.view", "students.view", "courses.view", "batches.view", "timetable.view",
+      "attendance.view", "attendance.manage", "exams.view", "exams.update", "results.view", "results.manage"
+    ],
+    COUNSELOR: ["students.view", "courses.view", "batches.view"],
+    STAFF: ["students.view", "attendance.view", "batches.view"],
+    STUDENT: ["courses.view", "batches.view", "timetable.view", "attendance.view", "fees.view", "results.view"],
+    PARENT: ["attendance.view", "fees.view", "results.view"],
+  };
+
+  const allDbPerms = await prisma.permission.findMany();
+  const permMap = new Map(allDbPerms.map((p) => [p.code, p.id]));
+  const allRoles = await prisma.role.findMany();
+
+  for (const role of allRoles) {
+    const codes = ROLE_PERMISSIONS_MAP[role.name] || [];
+    for (const code of codes) {
+      const permId = permMap.get(code);
+      if (permId) {
+        await prisma.rolePermission.upsert({
+          where: { roleId_permissionId: { roleId: role.id, permissionId: permId } },
+          update: {},
+          create: { roleId: role.id, permissionId: permId },
+        });
+      }
+    }
+  }
+
+  // Link all created users to their roles
+  const allUsers = await prisma.user.findMany({ select: { id: true, role: true } });
+  const roleNameMap = new Map(allRoles.map((r) => [r.name, r.id]));
+  for (const u of allUsers) {
+    const rId = roleNameMap.get(u.role);
+    if (rId) {
+      await prisma.userRole.upsert({
+        where: { userId_roleId: { userId: u.id, roleId: rId } },
+        update: {},
+        create: { userId: u.id, roleId: rId },
+      });
+    }
+  }
+
   console.log("✅ Seed completed successfully!");
   console.log("-----------------------------------------");
   console.log("Credentials:");
