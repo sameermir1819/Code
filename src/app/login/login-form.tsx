@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useTransition } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { loginUser } from "@/server/actions/auth";
 import { Button } from "@/components/ui/button";
@@ -175,16 +174,6 @@ export function LoginForm({
 
       {/* ── RIGHT LOGIN CARD PANEL ── */}
       <div className="flex-1 flex flex-col justify-between p-4 sm:p-6 lg:p-6 xl:p-8 h-full relative z-10 overflow-y-auto lg:overflow-hidden">
-        {/* Top Navigation */}
-        <div className="flex items-center justify-end pb-2 sm:pb-3">
-          <Link
-            href="/"
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-white/[0.04] hover:bg-white/10 text-zinc-400 hover:text-white border border-white/10 transition-colors"
-          >
-            <span>← Back to Website</span>
-          </Link>
-        </div>
-
         {/* Centered Auth Card */}
         <div className="w-full max-w-md mx-auto my-auto py-1">
           <div className="p-6 sm:p-7 rounded-2xl sm:rounded-3xl bg-[#0d121f]/85 backdrop-blur-2xl border border-white/[0.08] shadow-2xl shadow-black/80 space-y-4">
