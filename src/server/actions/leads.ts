@@ -448,8 +448,9 @@ export async function getLeadsMetrics() {
 // 8. PUBLIC ADMISSIONS: GET COURSES & SUBMIT ONLINE ENQUIRY (NO AUTH REQUIRED)
 // =========================================================================
 export async function getPublicAdmissionData() {
-  const [institute, courses] = await Promise.all([
+  const [institute, campuses, courses] = await Promise.all([
     db.institute.findFirst({
+      orderBy: { createdAt: "asc" },
       select: {
         id: true,
         name: true,
@@ -458,6 +459,16 @@ export async function getPublicAdmissionData() {
         city: true,
         logoUrl: true,
       },
+    }),
+    db.institute.findMany({
+      select: {
+        id: true,
+        name: true,
+        code: true,
+        city: true,
+        phone: true,
+      },
+      orderBy: { createdAt: "asc" },
     }),
     db.course.findMany({
       where: { status: "ACTIVE" },
@@ -473,7 +484,7 @@ export async function getPublicAdmissionData() {
     }),
   ]);
 
-  return { institute, courses };
+  return { institute, campuses, courses };
 }
 
 export async function submitPublicAdmissionEnquiry(data: {
@@ -483,6 +494,8 @@ export async function submitPublicAdmissionEnquiry(data: {
   parentName?: string;
   parentPhone?: string;
   courseInterest: string;
+  campusId?: string;
+  instituteId?: string;
   currentClass?: string;
   currentSchool?: string;
   city?: string;
@@ -500,14 +513,31 @@ export async function submitPublicAdmissionEnquiry(data: {
     return { success: false, error: "Please enter a valid 10-digit mobile number." };
   }
 
-  const defaultInstitute = await db.institute.findFirst({
-    orderBy: { createdAt: "asc" },
-    select: { id: true },
-  });
+  let targetInstituteId = data.campusId || data.instituteId;
+
+  if (!targetInstituteId) {
+    const defaultInstitute = await db.institute.findFirst({
+      orderBy: { createdAt: "asc" },
+      select: { id: true },
+    });
+    targetInstituteId = defaultInstitute?.id;
+  }
+
+  // Lookup campus name if available
+  const selectedCampus = targetInstituteId
+    ? await db.institute.findUnique({
+        where: { id: targetInstituteId },
+        select: { name: true, city: true, code: true },
+      })
+    : null;
+
+  const campusTag = selectedCampus
+    ? `${selectedCampus.city || selectedCampus.name} (${selectedCampus.code})`
+    : null;
 
   const lead = await db.lead.create({
     data: {
-      instituteId: defaultInstitute?.id || null,
+      instituteId: targetInstituteId || null,
       name: data.name.trim(),
       phone: cleanPhone,
       email: data.email?.trim().toLowerCase() || null,
@@ -519,7 +549,9 @@ export async function submitPublicAdmissionEnquiry(data: {
       source: "WEBSITE",
       status: "NEW",
       priority: "HOT", // Online website applications are high-intent leads
-      notes: data.notes?.trim() || (data.city ? `City/Area: ${data.city}` : null),
+      notes:
+        data.notes?.trim() ||
+        (campusTag ? `Preferred Campus: ${campusTag}` : data.city ? `City: ${data.city}` : null),
     },
   });
 
@@ -529,7 +561,7 @@ export async function submitPublicAdmissionEnquiry(data: {
       leadId: lead.id,
       status: "COMPLETED",
       contactMethod: "WEBSITE",
-      notes: `Online Admission Application received via Website portal for ${data.courseInterest || "General"}.${data.city ? ` City: ${data.city}.` : ""}${data.notes ? ` Notes: ${data.notes}` : ""}`,
+      notes: `Online Admission Application received via Website portal for ${data.courseInterest || "General"}.${campusTag ? ` Campus Preference: ${campusTag}.` : ""}${data.city ? ` City: ${data.city}.` : ""}${data.notes ? ` Notes: ${data.notes}` : ""}`,
       counselorName: "Online Admission Desk",
     },
   });
@@ -544,5 +576,6 @@ export async function submitPublicAdmissionEnquiry(data: {
     name: lead.name,
     phone: lead.phone,
     course: lead.courseInterest,
+    campus: campusTag,
   };
 }

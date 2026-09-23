@@ -13,7 +13,7 @@ export const metadata = {
 };
 
 export default async function ApplyPage() {
-  const { institute, courses } = await getPublicAdmissionData();
+  const { institute, campuses, courses } = await getPublicAdmissionData();
 
   return (
     <div className="min-h-screen bg-[#070b14] text-zinc-100 relative selection:bg-indigo-500 selection:text-white pb-20">
@@ -56,7 +56,11 @@ export default async function ApplyPage() {
 
       {/* Main Content Container */}
       <main className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 pt-8 sm:pt-12">
-        <AdmissionApplicationForm institute={institute} courses={courses} />
+        <AdmissionApplicationForm
+          institute={institute}
+          campuses={campuses}
+          courses={courses}
+        />
       </main>
 
       {/* Footer Branding */}

@@ -24,6 +24,7 @@ import {
   MessageCircle,
   ExternalLink,
   GraduationCap,
+  MapPin,
 } from "lucide-react";
 
 interface CourseItem {
@@ -34,6 +35,14 @@ interface CourseItem {
   standardFee?: number;
 }
 
+interface CampusItem {
+  id: string;
+  name: string;
+  code: string;
+  city?: string | null;
+  phone?: string | null;
+}
+
 interface StudentPortalLandingProps {
   logoUrl: string | null;
   instituteName: string;
@@ -41,6 +50,7 @@ interface StudentPortalLandingProps {
   city?: string | null;
   phone?: string | null;
   email?: string | null;
+  campuses?: CampusItem[];
   courses: CourseItem[];
 }
 
@@ -60,6 +70,7 @@ export function StudentPortalLanding({
   tagline,
   city = "Srinagar",
   phone = "+91 98765 43210",
+  campuses = [],
   courses,
 }: StudentPortalLandingProps) {
   const router = useRouter();
@@ -78,6 +89,7 @@ export function StudentPortalLanding({
     name: "",
     phone: "",
     email: "",
+    campusId: campuses && campuses.length > 0 ? campuses[0].id : "",
     courseInterest: courses.length > 0 ? courses[0].name : "NEET Medical Target",
     currentClass: "Class 11th (Medical - NEET)",
     city: city || "Srinagar",
@@ -514,6 +526,35 @@ export function StudentPortalLanding({
                             }
                             className="w-full px-3 py-1.5 rounded-xl bg-white/[0.04] border border-white/10 text-white placeholder-zinc-500 text-xs font-mono focus:outline-none focus:border-indigo-500"
                           />
+                        </div>
+
+                        <div className="space-y-0.5">
+                          <label className="text-[11px] font-semibold text-zinc-300 flex items-center justify-between">
+                            <span className="flex items-center gap-1">
+                              <MapPin className="w-3 h-3 text-indigo-400" />
+                              <span>Preferred Campus / Branch *</span>
+                            </span>
+                            <span className="text-[9px] text-zinc-400 font-normal">Choose Center</span>
+                          </label>
+                          <select
+                            value={signupForm.campusId}
+                            onChange={(e) =>
+                              setSignupForm({ ...signupForm, campusId: e.target.value })
+                            }
+                            className="w-full px-2.5 py-1.5 rounded-xl bg-[#111625] border border-white/10 text-white text-[11px] focus:outline-none focus:border-indigo-500"
+                          >
+                            {campuses && campuses.length > 0 ? (
+                              campuses.map((c) => (
+                                <option key={c.id} value={c.id} className="bg-[#111625] text-white">
+                                  {c.name} {c.code ? `(${c.code})` : ""}
+                                </option>
+                              ))
+                            ) : (
+                              <option value="" className="bg-[#111625] text-white">
+                                Main Campus
+                              </option>
+                            )}
+                          </select>
                         </div>
 
                         <div className="grid grid-cols-2 gap-2">

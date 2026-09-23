@@ -39,8 +39,17 @@ interface InstituteInfo {
   logoUrl?: string | null;
 }
 
+interface CampusItem {
+  id: string;
+  name: string;
+  code: string;
+  city?: string | null;
+  phone?: string | null;
+}
+
 interface AdmissionApplicationFormProps {
   institute: InstituteInfo | null;
+  campuses: CampusItem[];
   courses: CourseOption[];
 }
 
@@ -58,7 +67,8 @@ const CLASS_OPTIONS = [
 
 export function AdmissionApplicationForm({
   institute,
-  courses,
+  campuses = [],
+  courses = [],
 }: AdmissionApplicationFormProps) {
   const [isPending, startTransition] = useTransition();
 
@@ -67,6 +77,7 @@ export function AdmissionApplicationForm({
     name: "",
     phone: "",
     email: "",
+    campusId: campuses.length > 0 ? campuses[0].id : (institute?.id || ""),
     parentName: "",
     parentPhone: "",
     courseInterest: courses.length > 0 ? courses[0].name : "NEET Medical Target",
@@ -181,6 +192,7 @@ export function AdmissionApplicationForm({
                 name: "",
                 phone: "",
                 email: "",
+                campusId: campuses.length > 0 ? campuses[0].id : "",
                 parentName: "",
                 parentPhone: "",
                 courseInterest: courses.length > 0 ? courses[0].name : "NEET Medical Target",
@@ -324,25 +336,51 @@ export function AdmissionApplicationForm({
           </div>
         </div>
 
-        {/* Section 2: Program of Interest */}
+        {/* Section 2: Program & Campus of Interest */}
         <div className="space-y-4">
           <div className="flex items-center gap-2 pb-1 border-b border-white/5">
             <BookOpen className="w-4 h-4 text-purple-400" />
             <h3 className="text-xs font-extrabold uppercase tracking-wider text-white">
-              2. Target Course & Class
+              2. Target Program &amp; Campus Branch
             </h3>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="space-y-3">
+            {/* Campus Selector */}
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-zinc-300">
-                Course Interested In *
+              <label className="text-xs font-semibold text-zinc-300 flex items-center gap-1.5">
+                <MapPin className="w-3.5 h-3.5 text-amber-400" />
+                <span>Preferred Campus / Branch *</span>
               </label>
               <select
-                value={formData.courseInterest}
-                onChange={(e) => setFormData({ ...formData, courseInterest: e.target.value })}
-                className="w-full px-4 py-2.5 rounded-xl bg-[#111625] border border-white/10 text-white text-xs focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
+                value={formData.campusId}
+                onChange={(e) => setFormData({ ...formData, campusId: e.target.value })}
+                className="w-full px-4 py-2.5 rounded-xl bg-[#111625] border border-white/10 text-white text-xs focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all font-semibold"
               >
+                {campuses.length > 0 ? (
+                  campuses.map((c) => (
+                    <option key={c.id} value={c.id} className="bg-[#111625] text-white">
+                      📍 {c.city || c.name} ({c.code}) — {c.name}
+                    </option>
+                  ))
+                ) : (
+                  <option value="" className="bg-[#111625] text-white">
+                    📍 Main Campus
+                  </option>
+                )}
+              </select>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-zinc-300">
+                  Course Interested In *
+                </label>
+                <select
+                  value={formData.courseInterest}
+                  onChange={(e) => setFormData({ ...formData, courseInterest: e.target.value })}
+                  className="w-full px-4 py-2.5 rounded-xl bg-[#111625] border border-white/10 text-white text-xs focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
+                >
                 {courses.length > 0 ? (
                   courses.map((c) => (
                     <option key={c.id} value={c.name} className="bg-[#111625] text-white">
@@ -389,6 +427,7 @@ export function AdmissionApplicationForm({
             </div>
           </div>
         </div>
+      </div>
 
         {/* Section 3: Parent & Contact Info */}
         <div className="space-y-4">
