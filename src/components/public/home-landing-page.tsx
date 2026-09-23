@@ -3,6 +3,7 @@
 import React, { useState, useTransition, useEffect } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { loginUser } from "@/server/actions/auth";
 import { formatCurrency } from "@/lib/utils";
 import { InstituteLogo } from "@/components/ui/institute-logo";
