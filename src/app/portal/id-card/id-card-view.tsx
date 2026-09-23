@@ -91,7 +91,7 @@ export function StudentIDCardView({ student, institute }: StudentIDProps) {
                     {institute.name}
                   </h2>
                   <span className="text-[10px] text-white/80 font-mono">
-                    CAMPUS: {institute.code || "DELHI-MAIN"}
+                    CAMPUS: {institute.code || "FL-SRINAGAR"}
                   </span>
                 </div>
               </div>

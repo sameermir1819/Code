@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Poppins } from "next/font/google";
 import "./globals.css";
 
@@ -9,9 +9,22 @@ const poppins = Poppins({
   display: "swap",
 });
 
+export const viewport: Viewport = {
+  themeColor: "#06080f",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+  viewportFit: "cover",
+};
+
 export const metadata: Metadata = {
   title: "Futurex Learning — Coaching Institute ERP",
   description: "Enterprise Coaching Institute Management System",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Futurex Student",
+  },
 };
 
 import { ThemeProvider } from "@/components/theme-provider";
