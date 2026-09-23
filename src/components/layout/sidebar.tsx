@@ -77,8 +77,9 @@ const NAV_GROUPS: NavGroup[] = [
       },
       {
         label: "Faculty",
-        href: "/teachers",
+        href: "/faculty",
         icon: GraduationCap,
+        altHrefs: ["/teachers"],
       },
       {
         label: "Attendance (QR)",
@@ -185,6 +186,7 @@ const ITEM_ROLES: Record<string, Role[]> = {
   "/admissions": ["SUPER_ADMIN", "ADMIN"],
   "/leads": ["SUPER_ADMIN", "ADMIN", "ACCOUNTANT", "TEACHER", "COUNSELOR", "STAFF"],
   "/dashboard/batches": ["SUPER_ADMIN", "ADMIN", "TEACHER"],
+  "/faculty": ["SUPER_ADMIN", "ADMIN"],
   "/teachers": ["SUPER_ADMIN", "ADMIN"],
   "/test-series": ["SUPER_ADMIN", "ADMIN", "TEACHER"],
   "/announcements": ["SUPER_ADMIN", "ADMIN", "TEACHER"],

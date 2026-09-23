@@ -197,6 +197,8 @@ export async function assignTeacherSubjects(data: {
   revalidatePath("/batches");
   revalidatePath("/dashboard/batches");
   revalidatePath("/teachers");
+  revalidatePath("/faculty");
+  revalidatePath("/dashboard/faculty");
   revalidatePath("/users");
   revalidatePath("/dashboard/users");
   revalidatePath("/timetable");

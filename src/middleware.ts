@@ -20,6 +20,7 @@ const STAFF_BACKEND_PREFIXES = [
   "/dashboard",
   "/students",
   "/batches",
+  "/faculty",
   "/teachers",
   "/attendance",
   "/exams",

@@ -20,7 +20,7 @@ export async function globalQuickSearch(query: string): Promise<SearchResultItem
   if (!q || q.length < 2) return [];
 
   try {
-    const [students, batches, payments] = await Promise.all([
+    const [students, batches, payments, teachers] = await Promise.all([
       db.student.findMany({
         where: {
           OR: [
@@ -73,6 +73,23 @@ export async function globalQuickSearch(query: string): Promise<SearchResultItem
         },
         take: 4,
       }),
+      db.teacher.findMany({
+        where: {
+          OR: [
+            { name: { contains: q, mode: "insensitive" } },
+            { teacherId: { contains: q, mode: "insensitive" } },
+            { specialization: { contains: q, mode: "insensitive" } },
+          ],
+        },
+        select: {
+          id: true,
+          name: true,
+          teacherId: true,
+          specialization: true,
+          status: true,
+        },
+        take: 3,
+      }),
     ]);
 
     const results: SearchResultItem[] = [];
@@ -109,6 +126,18 @@ export async function globalQuickSearch(query: string): Promise<SearchResultItem
         subtitle: `₹${p.amount.toLocaleString("en-IN")} • ${p.student.name}`,
         category: "RECEIPT",
         href: `/finance/receipts/${p.receiptNo}`,
+      });
+    });
+
+    // Map Faculty / Teachers
+    teachers.forEach((t) => {
+      results.push({
+        id: `faculty-${t.id}`,
+        title: t.name,
+        subtitle: `Faculty ID: ${t.teacherId} • ${t.specialization || "Instructor"}`,
+        category: "NAVIGATION",
+        href: `/faculty`,
+        badge: t.status,
       });
     });
 
