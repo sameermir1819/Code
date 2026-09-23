@@ -1,12 +1,22 @@
 "use client";
 
 import React, { useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { loginUser } from "@/server/actions/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { InstituteLogo } from "@/components/ui/institute-logo";
-import { Lock, Eye, EyeOff, ShieldCheck, AlertCircle, ArrowRight, GraduationCap } from "lucide-react";
+import {
+  Lock,
+  Eye,
+  EyeOff,
+  ShieldCheck,
+  AlertCircle,
+  ArrowRight,
+  GraduationCap,
+  Sparkles,
+} from "lucide-react";
 
 interface StudentLoginFormProps {
   logoUrl: string | null;
@@ -192,6 +202,24 @@ export function StudentLoginForm({ logoUrl, instituteName }: StudentLoginFormPro
               )}
             </Button>
           </form>
+
+          {/* New Admission Apply Callout */}
+          <div className="p-4 rounded-2xl bg-gradient-to-r from-indigo-950/70 via-purple-950/50 to-blue-950/70 border border-indigo-500/30 text-center space-y-2.5 shadow-xl">
+            <div className="flex items-center justify-center gap-1.5 text-[11px] font-bold text-amber-300">
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>New Admissions 2026-2027</span>
+            </div>
+            <p className="text-xs text-zinc-300">
+              Don&apos;t have a student account? Apply online for academic counseling &amp; batch seat reservation.
+            </p>
+            <Link
+              href="/apply"
+              className="w-full py-2.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-md shadow-indigo-600/30 transition-all active:scale-[0.98]"
+            >
+              <GraduationCap className="w-4 h-4" />
+              <span>Apply for New Admission →</span>
+            </Link>
+          </div>
 
           {/* Security Badge */}
           <div className="pt-2 border-t border-white/[0.06] text-center">
