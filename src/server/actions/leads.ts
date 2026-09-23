@@ -49,21 +49,45 @@ export async function getLeads({
   const activeCampusId = campusId || (await getActiveCampusId());
 
   const where: Record<string, any> = {};
+  const andConditions: any[] = [];
 
-  if (activeCampusId && activeCampusId !== "ALL") {
-    where.instituteId = activeCampusId;
+  // Campus scoping:
+  // If specific campusId is requested (e.g. from filter dropdown or URL):
+  if (campusId && campusId !== "ALL") {
+    andConditions.push({
+      OR: [
+        { instituteId: campusId },
+        { source: "WEBSITE" },
+        { instituteId: null },
+      ],
+    });
+  } else if (actor.role !== "SUPER_ADMIN" && activeCampusId && activeCampusId !== "ALL") {
+    andConditions.push({
+      OR: [
+        { instituteId: activeCampusId },
+        { source: "WEBSITE" },
+        { instituteId: null },
+      ],
+    });
   }
+  // (SUPER_ADMIN sees all leads across all campuses by default)
 
   if (search && search.trim() !== "") {
     const q = search.trim();
-    where.OR = [
-      { name: { contains: q, mode: "insensitive" } },
-      { phone: { contains: q } },
-      { email: { contains: q, mode: "insensitive" } },
-      { parentName: { contains: q, mode: "insensitive" } },
-      { courseInterest: { contains: q, mode: "insensitive" } },
-      { currentSchool: { contains: q, mode: "insensitive" } },
-    ];
+    andConditions.push({
+      OR: [
+        { name: { contains: q, mode: "insensitive" } },
+        { phone: { contains: q } },
+        { email: { contains: q, mode: "insensitive" } },
+        { parentName: { contains: q, mode: "insensitive" } },
+        { courseInterest: { contains: q, mode: "insensitive" } },
+        { currentSchool: { contains: q, mode: "insensitive" } },
+      ],
+    });
+  }
+
+  if (andConditions.length > 0) {
+    where.AND = andConditions;
   }
 
   if (status && status !== "ALL") {
@@ -363,12 +387,16 @@ export async function deleteLead(id: string) {
 // 7. GET LEADS CRM METRICS
 // =========================================================================
 export async function getLeadsMetrics() {
-  await requireAuth(["SUPER_ADMIN", "ADMIN", "ACCOUNTANT", "TEACHER"]);
+  const actor = await requireAuth(["SUPER_ADMIN", "ADMIN", "ACCOUNTANT", "TEACHER"]);
   const activeCampusId = await getActiveCampusId();
 
   const where: Record<string, any> = {};
-  if (activeCampusId && activeCampusId !== "ALL") {
-    where.instituteId = activeCampusId;
+  if (actor.role !== "SUPER_ADMIN" && activeCampusId && activeCampusId !== "ALL") {
+    where.OR = [
+      { instituteId: activeCampusId },
+      { source: "WEBSITE" },
+      { instituteId: null },
+    ];
   }
 
   const now = new Date();
@@ -472,7 +500,10 @@ export async function submitPublicAdmissionEnquiry(data: {
     return { success: false, error: "Please enter a valid 10-digit mobile number." };
   }
 
-  const defaultInstitute = await db.institute.findFirst({ select: { id: true } });
+  const defaultInstitute = await db.institute.findFirst({
+    orderBy: { createdAt: "asc" },
+    select: { id: true },
+  });
 
   const lead = await db.lead.create({
     data: {
@@ -504,6 +535,8 @@ export async function submitPublicAdmissionEnquiry(data: {
   });
 
   revalidatePath("/leads");
+  revalidatePath("/dashboard");
+  revalidatePath("/(dashboard)/leads");
 
   return {
     success: true,
