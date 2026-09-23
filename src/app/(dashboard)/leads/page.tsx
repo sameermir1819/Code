@@ -184,11 +184,15 @@ export default function LeadsPage() {
   // ─── Open Single Lead Full History Modal ────────────────────────────
   const handleOpenLeadLogs = async (targetLead: { id: string; name: string; phone: string; [key: string]: any }) => {
     setLeadLogsModal(targetLead as any);
+    setFullLeadLogs(targetLead); // pre-populate with known lead data immediately
     setLoadingLeadLogs(true);
-    setFullLeadLogs(null);
     try {
-      const fullData = await getLead(targetLead.id);
-      setFullLeadLogs(fullData);
+      const res = await getLead(targetLead.id);
+      if (res?.success && res.lead) {
+        setFullLeadLogs(res.lead);
+      } else if (res?.lead) {
+        setFullLeadLogs(res.lead);
+      }
     } catch (err) {
       console.error("Failed to load lead interaction history:", err);
     } finally {
@@ -198,7 +202,8 @@ export default function LeadsPage() {
 
   useEffect(() => {
     loadData();
-  }, [loadData]);
+    fetchLogs();
+  }, [loadData, fetchLogs]);
 
   useEffect(() => {
     if (viewMode === "logs") {
@@ -222,6 +227,7 @@ export default function LeadsPage() {
 
   // ─── Filtered Logs for Global Feed ──────────────────────────────────
   const filteredLogs = useMemo(() => {
+    const q = (logsSearch || search || "").trim().toLowerCase();
     return allLogs.filter((log) => {
       const matchesMethod =
         logsMethodFilter === "ALL" ||
@@ -231,8 +237,10 @@ export default function LeadsPage() {
 
       if (!matchesMethod) return false;
 
-      if (!logsSearch.trim()) return true;
-      const q = logsSearch.toLowerCase();
+      if (priorityFilter !== "ALL" && log.lead?.priority !== priorityFilter) return false;
+      if (sourceFilter !== "ALL" && log.lead?.source !== sourceFilter) return false;
+
+      if (!q) return true;
       const studentName = log.lead?.name?.toLowerCase() || "";
       const phone = log.lead?.phone?.toLowerCase() || "";
       const course = log.lead?.courseInterest?.toLowerCase() || "";
@@ -247,7 +255,7 @@ export default function LeadsPage() {
         notes.includes(q)
       );
     });
-  }, [allLogs, logsSearch, logsMethodFilter]);
+  }, [allLogs, logsSearch, search, logsMethodFilter, priorityFilter, sourceFilter]);
 
   // ─── Handle Add / Edit Submission ───────────────────────────────────
   const handleSubmitLead = async (e: React.FormEvent) => {
@@ -1857,7 +1865,7 @@ export default function LeadsPage() {
                   <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
                   <p className="text-xs">Loading complete interaction timeline...</p>
                 </div>
-              ) : !fullLeadLogs?.followUps || fullLeadLogs.followUps.length === 0 ? (
+              ) : (!fullLeadLogs?.followUps || fullLeadLogs.followUps.length === 0) && !fullLeadLogs?.notes ? (
                 <div className="text-center py-10 border border-dashed border-border rounded-xl p-6">
                   <Clock className="w-8 h-8 text-muted-foreground/50 mx-auto mb-2" />
                   <p className="text-sm font-semibold text-foreground">No Follow-up Logs Recorded Yet</p>
@@ -1867,7 +1875,7 @@ export default function LeadsPage() {
                 </div>
               ) : (
                 <div className="relative pl-6 space-y-4 before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-border">
-                  {fullLeadLogs.followUps.map((fu: any, idx: number) => (
+                  {fullLeadLogs?.followUps?.map((fu: any, idx: number) => (
                     <div key={fu.id || idx} className="relative group">
                       {/* Timeline dot */}
                       <div className="absolute -left-[27px] top-1.5 h-3.5 w-3.5 rounded-full border-2 border-background bg-primary ring-2 ring-primary/20" />
@@ -1904,6 +1912,20 @@ export default function LeadsPage() {
                       </div>
                     </div>
                   ))}
+
+                  {/* Initial lead registration note */}
+                  {fullLeadLogs?.notes && (
+                    <div className="relative group">
+                      <div className="absolute -left-[27px] top-1.5 h-3.5 w-3.5 rounded-full border-2 border-background bg-muted-foreground ring-2 ring-muted/20" />
+                      <div className="bg-muted/10 border border-border/50 rounded-xl p-3.5 text-xs">
+                        <div className="flex items-center justify-between pb-1.5 border-b border-border/30 text-muted-foreground text-[11px]">
+                          <span className="font-semibold text-foreground">Initial Inquiry / Registration Notes</span>
+                          <span className="font-mono">{formatDateTime(fullLeadLogs.createdAt || leadLogsModal.createdAt)}</span>
+                        </div>
+                        <p className="mt-2 text-foreground/80 whitespace-pre-wrap leading-relaxed">{fullLeadLogs.notes}</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

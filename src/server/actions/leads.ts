@@ -141,25 +141,30 @@ export async function getLeads({
 // 2. GET SINGLE LEAD WITH FULL TIMELINE
 // =========================================================================
 export async function getLead(id: string) {
-  await requireAuth(["SUPER_ADMIN", "ADMIN", "ACCOUNTANT", "TEACHER"]);
+  try {
+    await requireAuth(["SUPER_ADMIN", "ADMIN", "ACCOUNTANT", "TEACHER"]);
 
-  const lead = await db.lead.findUnique({
-    where: { id },
-    include: {
-      institute: {
-        select: { id: true, name: true, code: true, city: true },
+    const lead = await db.lead.findUnique({
+      where: { id },
+      include: {
+        institute: {
+          select: { id: true, name: true, code: true, city: true },
+        },
+        followUps: {
+          orderBy: { createdAt: "desc" },
+        },
       },
-      followUps: {
-        orderBy: { createdAt: "desc" },
-      },
-    },
-  });
+    });
 
-  if (!lead) {
-    throw new Error("Lead record not found.");
+    if (!lead) {
+      return { success: false, error: "Lead record not found.", lead: null };
+    }
+
+    return { success: true, lead };
+  } catch (err: any) {
+    console.error(`Failed to fetch lead ${id}:`, err);
+    return { success: false, error: err.message || "Failed to fetch lead.", lead: null };
   }
-
-  return { success: true, lead };
 }
 
 // =========================================================================
@@ -365,36 +370,46 @@ export async function addLeadFollowUp(
 // 5B. GET RECENT LEAD INTERACTION LOGS ACROSS ALL LEADS
 // =========================================================================
 export async function getRecentLeadFollowUps(limit = 100) {
-  const actor = await requireAuth(["SUPER_ADMIN", "ADMIN", "ACCOUNTANT", "TEACHER"]);
-  const campusId = await getActiveCampusId();
+  try {
+    const actor = await requireAuth(["SUPER_ADMIN", "ADMIN", "ACCOUNTANT", "TEACHER"]);
+    const campusId = await getActiveCampusId();
 
-  const where: any = {};
-  if (campusId && actor.role !== "SUPER_ADMIN") {
-    where.lead = {
-      OR: [{ instituteId: campusId }, { instituteId: null }],
-    };
-  }
+    const where: any = {};
+    if (campusId && campusId !== "ALL" && actor.role !== "SUPER_ADMIN") {
+      where.lead = {
+        OR: [
+          { instituteId: campusId },
+          { instituteId: null },
+          { source: "WEBSITE" },
+        ],
+      };
+    }
 
-  const logs = await db.leadFollowUp.findMany({
-    where,
-    orderBy: { createdAt: "desc" },
-    take: limit,
-    include: {
-      lead: {
-        select: {
-          id: true,
-          name: true,
-          phone: true,
-          courseInterest: true,
-          status: true,
-          priority: true,
-          institute: { select: { name: true, code: true, city: true } },
+    const logs = await db.leadFollowUp.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      take: limit,
+      include: {
+        lead: {
+          select: {
+            id: true,
+            name: true,
+            phone: true,
+            courseInterest: true,
+            status: true,
+            priority: true,
+            source: true,
+            institute: { select: { id: true, name: true, code: true, city: true } },
+          },
         },
       },
-    },
-  });
+    });
 
-  return { success: true, logs };
+    return { success: true, logs };
+  } catch (err: any) {
+    console.error("Failed to load recent lead follow-ups:", err);
+    return { success: false, error: err.message || "Failed to load logs.", logs: [] };
+  }
 }
 
 // =========================================================================
