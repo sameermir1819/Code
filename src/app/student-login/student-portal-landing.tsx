@@ -129,7 +129,7 @@ export function StudentPortalLanding({
   };
 
   return (
-    <div className="min-h-screen w-full bg-[#06080f] text-zinc-100 font-sans selection:bg-indigo-500 selection:text-white flex flex-col relative overflow-x-hidden">
+    <div id="top" className="min-h-screen w-full bg-[#06080f] text-zinc-100 font-sans selection:bg-indigo-500 selection:text-white flex flex-col relative overflow-x-hidden">
       {/* ── Ambient Background Lighting ── */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
         <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-[850px] h-[550px] bg-gradient-to-b from-indigo-600/15 via-purple-600/10 to-transparent blur-[150px] rounded-full" />
@@ -142,7 +142,7 @@ export function StudentPortalLanding({
       <header className="sticky top-0 z-40 w-full bg-[#06080f]/80 backdrop-blur-xl border-b border-white/[0.08] transition-all">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           {/* Logo & Institute Branding */}
-          <Link href="/student-login" className="flex items-center gap-3 group">
+          <Link href="/home" className="flex items-center gap-3 group">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-purple-600 p-0.5 shadow-md shadow-indigo-600/30 group-hover:scale-105 transition-transform">
               <div className="w-full h-full rounded-[10px] bg-[#090e1a] flex items-center justify-center text-white overflow-hidden">
                 <InstituteLogo logoUrl={logoUrl} name={instituteName} size={30} />
@@ -154,7 +154,7 @@ export function StudentPortalLanding({
                   {instituteName}
                 </span>
                 <span className="hidden sm:inline-flex items-center px-2 py-0.5 rounded-full bg-indigo-500/15 border border-indigo-500/30 text-[10px] font-bold text-indigo-300">
-                  Student Portal
+                  Home
                 </span>
               </div>
               <p className="text-[11px] text-zinc-400 flex items-center gap-1.5 font-medium -mt-0.5">
@@ -167,6 +167,9 @@ export function StudentPortalLanding({
 
           {/* Center Navigation Links (Desktop) */}
           <nav className="hidden md:flex items-center gap-6 text-xs font-semibold text-zinc-300">
+            <a href="#top" className="text-white hover:text-indigo-300 transition-colors font-bold">
+              Home
+            </a>
             <a href="#portal-features" className="hover:text-white transition-colors">
               Portal Features
             </a>
@@ -215,6 +218,13 @@ export function StudentPortalLanding({
         {/* Mobile Dropdown Menu */}
         {mobileMenuOpen && (
           <div className="md:hidden border-t border-white/10 bg-[#090e1a] px-4 py-3 space-y-2 text-sm text-zinc-300">
+            <a
+              href="#top"
+              onClick={() => setMobileMenuOpen(false)}
+              className="block py-1.5 text-white font-bold"
+            >
+              Home
+            </a>
             <a
               href="#portal-features"
               onClick={() => setMobileMenuOpen(false)}
@@ -662,6 +672,10 @@ export function StudentPortalLanding({
           </div>
 
           <div className="flex items-center gap-4 text-[11px]">
+            <a href="#top" className="hover:text-white transition-colors font-medium">
+              Home
+            </a>
+            <span>•</span>
             <Link href="/apply" className="hover:text-white transition-colors text-indigo-400 font-semibold">
               Apply Online 2026
             </Link>

@@ -6,7 +6,7 @@ import { StudentPortalLanding } from "./student-portal-landing";
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-  title: "Student Portal & Admissions 2026 - Futurex Learning",
+  title: "Home - Futurex Learning",
   description:
     "Official Student Academic Portal. Access timetables, study materials, exam scorecards, or apply online for new batch admissions.",
 };
