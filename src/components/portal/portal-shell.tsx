@@ -21,7 +21,7 @@ import {
   ShieldCheck,
   ChevronRight,
   ExternalLink,
-  Plus,
+  LayoutGrid,
   Clock,
   Compass,
   GraduationCap,
@@ -320,13 +320,13 @@ export function PortalShell({
         aria-label="Mobile Navigation Dock"
         className="fixed bottom-3 inset-x-3 sm:inset-x-6 max-w-md mx-auto z-40 lg:hidden"
       >
-        <div className="relative rounded-full bg-[#0a0f1d]/90 backdrop-blur-2xl border border-white/15 px-3 py-1.5 shadow-2xl shadow-black/80 flex items-center justify-between">
+        <div className="rounded-2xl bg-[#0c111e]/90 backdrop-blur-2xl border border-white/15 px-1.5 py-1.5 shadow-2xl shadow-black/90 flex items-center justify-around">
           {/* Home */}
           <Link
             href="/portal"
-            className={`flex flex-col items-center justify-center p-2 rounded-2xl transition-all ${
+            className={`flex flex-col items-center justify-center py-1.5 px-3 rounded-xl transition-all ${
               pathname === "/portal"
-                ? "text-indigo-400 font-bold"
+                ? "text-indigo-400 font-bold bg-white/[0.06]"
                 : "text-zinc-400 hover:text-white"
             }`}
           >
@@ -337,9 +337,9 @@ export function PortalShell({
           {/* Attendance */}
           <Link
             href="/portal/attendance"
-            className={`flex flex-col items-center justify-center p-2 rounded-2xl transition-all ${
+            className={`flex flex-col items-center justify-center py-1.5 px-3 rounded-xl transition-all ${
               pathname.startsWith("/portal/attendance")
-                ? "text-indigo-400 font-bold"
+                ? "text-indigo-400 font-bold bg-white/[0.06]"
                 : "text-zinc-400 hover:text-white"
             }`}
           >
@@ -347,24 +347,29 @@ export function PortalShell({
             <span className="text-[10px] mt-0.5 tracking-tight font-medium">Attendance</span>
           </Link>
 
-          {/* ⚡ CENTER FLOATING SPEED DIAL ACTION BUTTON */}
-          <div className="relative -top-3">
-            <button
-              onClick={() => setQuickSheetOpen(true)}
-              className="w-13 h-13 rounded-full bg-gradient-to-tr from-indigo-600 via-indigo-500 to-purple-500 text-white flex items-center justify-center shadow-lg shadow-indigo-600/50 border-2 border-[#07090e] active:scale-95 transition-transform"
-              title="Open Quick Launchpad"
-              aria-label="Quick Action Menu"
-            >
-              <Plus className="w-6 h-6 transform transition-transform duration-200" />
-            </button>
-          </div>
+          {/* ⚡ CENTER ALL SERVICES / MENU BUTTON (Inline & Symmetrical) */}
+          <button
+            onClick={() => setQuickSheetOpen(true)}
+            className={`flex flex-col items-center justify-center py-1.5 px-3 rounded-xl transition-all ${
+              quickSheetOpen
+                ? "text-indigo-400 bg-white/[0.08]"
+                : "text-zinc-400 hover:text-white active:scale-95"
+            }`}
+            title="All Services & Quick Menu"
+            aria-label="All Services"
+          >
+            <div className="w-6 h-6 rounded-lg bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 flex items-center justify-center">
+              <LayoutGrid className="w-3.5 h-3.5" />
+            </div>
+            <span className="text-[10px] mt-0.5 tracking-tight font-medium">Menu</span>
+          </button>
 
           {/* Study Notes */}
           <Link
             href="/portal/materials"
-            className={`flex flex-col items-center justify-center p-2 rounded-2xl transition-all ${
+            className={`flex flex-col items-center justify-center py-1.5 px-3 rounded-xl transition-all ${
               pathname.startsWith("/portal/materials")
-                ? "text-indigo-400 font-bold"
+                ? "text-indigo-400 font-bold bg-white/[0.06]"
                 : "text-zinc-400 hover:text-white"
             }`}
           >
@@ -372,12 +377,12 @@ export function PortalShell({
             <span className="text-[10px] mt-0.5 tracking-tight font-medium">Notes</span>
           </Link>
 
-          {/* iPhone Profile */}
+          {/* Profile */}
           <Link
             href="/portal/profile"
-            className={`flex flex-col items-center justify-center p-2 rounded-2xl transition-all ${
+            className={`flex flex-col items-center justify-center py-1.5 px-3 rounded-xl transition-all ${
               pathname.startsWith("/portal/profile")
-                ? "text-indigo-400 font-bold"
+                ? "text-indigo-400 font-bold bg-white/[0.06]"
                 : "text-zinc-400 hover:text-white"
             }`}
           >
