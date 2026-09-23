@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   getLeads,
+  getLead,
+  getRecentLeadFollowUps,
   getLeadsMetrics,
   createLead,
   updateLead,
@@ -54,6 +56,10 @@ import {
   Sparkles,
   ChevronRight,
   Send,
+  History,
+  Globe,
+  MessageCircle,
+  RefreshCw,
 } from "lucide-react";
 
 type Lead = Awaited<ReturnType<typeof getLeads>>["leads"][number];
@@ -92,7 +98,18 @@ export default function LeadsPage() {
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [priorityFilter, setPriorityFilter] = useState<string>("ALL");
   const [sourceFilter, setSourceFilter] = useState<string>("ALL");
-  const [viewMode, setViewMode] = useState<"table" | "pipeline">("table");
+  const [viewMode, setViewMode] = useState<"table" | "pipeline" | "logs">("table");
+
+  // ─── Interaction Logs View State ────────────────────────────────────
+  const [allLogs, setAllLogs] = useState<any[]>([]);
+  const [logsLoading, setLogsLoading] = useState(false);
+  const [logsSearch, setLogsSearch] = useState("");
+  const [logsMethodFilter, setLogsMethodFilter] = useState<string>("ALL");
+
+  // ─── Single Lead Logs Modal State ───────────────────────────────────
+  const [leadLogsModal, setLeadLogsModal] = useState<Lead | null>(null);
+  const [fullLeadLogs, setFullLeadLogs] = useState<any | null>(null);
+  const [loadingLeadLogs, setLoadingLeadLogs] = useState(false);
 
   // ─── Modals State ───────────────────────────────────────────────────
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -149,20 +166,88 @@ export default function LeadsPage() {
     }
   }, [search, statusFilter, priorityFilter, sourceFilter]);
 
+  // ─── Fetch All Interaction Logs ─────────────────────────────────────
+  const fetchLogs = useCallback(async () => {
+    setLogsLoading(true);
+    try {
+      const res = await getRecentLeadFollowUps(150);
+      if (res.success && res.logs) {
+        setAllLogs(res.logs);
+      }
+    } catch (err) {
+      console.error("Failed to fetch interaction logs:", err);
+    } finally {
+      setLogsLoading(false);
+    }
+  }, []);
+
+  // ─── Open Single Lead Full History Modal ────────────────────────────
+  const handleOpenLeadLogs = async (targetLead: { id: string; name: string; phone: string; [key: string]: any }) => {
+    setLeadLogsModal(targetLead as any);
+    setLoadingLeadLogs(true);
+    setFullLeadLogs(null);
+    try {
+      const fullData = await getLead(targetLead.id);
+      setFullLeadLogs(fullData);
+    } catch (err) {
+      console.error("Failed to load lead interaction history:", err);
+    } finally {
+      setLoadingLeadLogs(false);
+    }
+  };
+
   useEffect(() => {
     loadData();
   }, [loadData]);
 
+  useEffect(() => {
+    if (viewMode === "logs") {
+      fetchLogs();
+    }
+  }, [viewMode, fetchLogs]);
+
   // Reactive listener for multi-campus changes or global sync
   useEffect(() => {
-    const handleSync = () => loadData();
+    const handleSync = () => {
+      loadData();
+      if (viewMode === "logs") fetchLogs();
+    };
     window.addEventListener("erp-campus-changed", handleSync);
     window.addEventListener("erp-data-refresh", handleSync);
     return () => {
       window.removeEventListener("erp-campus-changed", handleSync);
       window.removeEventListener("erp-data-refresh", handleSync);
     };
-  }, [loadData]);
+  }, [loadData, fetchLogs, viewMode]);
+
+  // ─── Filtered Logs for Global Feed ──────────────────────────────────
+  const filteredLogs = useMemo(() => {
+    return allLogs.filter((log) => {
+      const matchesMethod =
+        logsMethodFilter === "ALL" ||
+        log.contactMethod === logsMethodFilter ||
+        (logsMethodFilter === "CALL" && (log.contactMethod === "PHONE_CALL" || log.contactMethod === "CALL")) ||
+        (logsMethodFilter === "VISIT" && (log.contactMethod === "IN_PERSON" || log.contactMethod === "VISIT"));
+
+      if (!matchesMethod) return false;
+
+      if (!logsSearch.trim()) return true;
+      const q = logsSearch.toLowerCase();
+      const studentName = log.lead?.name?.toLowerCase() || "";
+      const phone = log.lead?.phone?.toLowerCase() || "";
+      const course = log.lead?.courseInterest?.toLowerCase() || "";
+      const counselor = log.counselorName?.toLowerCase() || "";
+      const notes = log.notes?.toLowerCase() || "";
+
+      return (
+        studentName.includes(q) ||
+        phone.includes(q) ||
+        course.includes(q) ||
+        counselor.includes(q) ||
+        notes.includes(q)
+      );
+    });
+  }, [allLogs, logsSearch, logsMethodFilter]);
 
   // ─── Handle Add / Edit Submission ───────────────────────────────────
   const handleSubmitLead = async (e: React.FormEvent) => {
@@ -273,6 +358,7 @@ export default function LeadsPage() {
         nextFollowUpDate: followUpData.nextFollowUpDate || undefined,
       });
 
+      const loggedLeadId = activeFollowUpLead.id;
       setActiveFollowUpLead(null);
       setFollowUpData({
         method: "CALL",
@@ -281,6 +367,10 @@ export default function LeadsPage() {
         nextFollowUpDate: "",
       });
       loadData();
+      fetchLogs();
+      if (leadLogsModal && leadLogsModal.id === loggedLeadId) {
+        handleOpenLeadLogs(leadLogsModal);
+      }
     } catch (err: any) {
       alert(err.message || "Failed to log follow-up");
     } finally {
@@ -371,6 +461,49 @@ export default function LeadsPage() {
         return <Badge variant="outline" className="border-rose-500 text-rose-400 bg-rose-500/10">Lost</Badge>;
       default:
         return <Badge variant="outline">{status}</Badge>;
+    }
+  };
+
+  const getContactMethodBadge = (method: string) => {
+    switch (method) {
+      case "PHONE_CALL":
+      case "CALL":
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20">
+            <Phone className="w-3 h-3" /> Phone Call
+          </span>
+        );
+      case "WHATSAPP":
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+            <MessageCircle className="w-3 h-3" /> WhatsApp
+          </span>
+        );
+      case "IN_PERSON":
+      case "VISIT":
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-purple-500/10 text-purple-400 border border-purple-500/20">
+            <Users className="w-3 h-3" /> Campus Visit
+          </span>
+        );
+      case "EMAIL":
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20">
+            <Send className="w-3 h-3" /> Email
+          </span>
+        );
+      case "WEBSITE":
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-sky-500/10 text-sky-400 border border-sky-500/20">
+            <Globe className="w-3 h-3" /> Website
+          </span>
+        );
+      default:
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-muted text-muted-foreground border border-border">
+            <MessageSquare className="w-3 h-3" /> {method}
+          </span>
+        );
     }
   };
 
@@ -572,43 +705,283 @@ export default function LeadsPage() {
               <Columns3 className="w-4 h-4" />
               <span className="hidden sm:inline">Pipeline</span>
             </button>
+            <button
+              onClick={() => {
+                setViewMode("logs");
+                fetchLogs();
+              }}
+              className={`p-1.5 rounded text-xs flex items-center gap-1.5 transition-colors ${
+                viewMode === "logs"
+                  ? "bg-primary text-primary-foreground font-medium"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+              title="Interaction & Call Logs Feed"
+            >
+              <History className="w-4 h-4" />
+              <span className="hidden sm:inline">Interaction Logs</span>
+            </button>
           </div>
         </div>
       </div>
 
-      {/* ─── Status Filter Pills ─────────────────────────────────── */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-        <button
-          onClick={() => setStatusFilter("ALL")}
-          className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors border ${
-            statusFilter === "ALL"
-              ? "bg-primary text-primary-foreground border-primary"
-              : "bg-card/60 text-muted-foreground border-border hover:bg-accent hover:text-foreground"
-          }`}
-        >
-          All Inquiries ({metrics.totalLeads})
-        </button>
-        {STATUS_COLUMNS.map((col) => {
-          const count = leads.filter((l) => l.status === col.key).length;
-          const isActive = statusFilter === col.key;
-          return (
-            <button
-              key={col.key}
-              onClick={() => setStatusFilter(col.key)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors border ${
-                isActive
-                  ? "bg-primary text-primary-foreground border-primary"
-                  : "bg-card/60 text-muted-foreground border-border hover:bg-accent hover:text-foreground"
-              }`}
-            >
-              {col.label} ({count})
-            </button>
-          );
-        })}
-      </div>
+      {/* ─── Status Filter Pills / Logs Feed Header ──────────────── */}
+      {viewMode !== "logs" ? (
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+          <button
+            onClick={() => setStatusFilter("ALL")}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors border ${
+              statusFilter === "ALL"
+                ? "bg-primary text-primary-foreground border-primary"
+                : "bg-card/60 text-muted-foreground border-border hover:bg-accent hover:text-foreground"
+            }`}
+          >
+            All Inquiries ({metrics.totalLeads})
+          </button>
+          {STATUS_COLUMNS.map((col) => {
+            const count = leads.filter((l) => l.status === col.key).length;
+            const isActive = statusFilter === col.key;
+            return (
+              <button
+                key={col.key}
+                onClick={() => setStatusFilter(col.key)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors border ${
+                  isActive
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "bg-card/60 text-muted-foreground border-border hover:bg-accent hover:text-foreground"
+                }`}
+              >
+                {col.label} ({count})
+              </button>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="flex items-center justify-between gap-3 bg-card/40 p-2.5 rounded-lg border border-border text-xs text-muted-foreground">
+          <div className="flex items-center gap-2">
+            <span className="font-semibold text-foreground flex items-center gap-1.5">
+              <History className="w-4 h-4 text-primary" />
+              Admissions Interaction &amp; Call Logs:
+            </span>
+            <span className="hidden md:inline">
+              Audit trail of counselor phone calls, WhatsApp messages, campus visits, and website inquiry notes.
+            </span>
+          </div>
+          <span className="font-mono text-primary font-medium shrink-0">
+            {filteredLogs.length} interaction log{filteredLogs.length === 1 ? "" : "s"}
+          </span>
+        </div>
+      )}
 
-      {/* ─── Content: Table View vs Pipeline View ────────────────── */}
-      {loading ? (
+      {/* ─── Content: Table View vs Pipeline View vs Interaction Logs Feed ─── */}
+      {viewMode === "logs" ? (
+        <Card className="border-border overflow-hidden">
+          <div className="p-4 border-b border-border bg-card/60 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5 flex-1 max-w-md">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                <Input
+                  placeholder="Filter logs by student name, phone, notes, counselor..."
+                  value={logsSearch}
+                  onChange={(e) => setLogsSearch(e.target.value)}
+                  className="pl-8 h-8 text-xs bg-background/50 border-border"
+                />
+                {logsSearch && (
+                  <button
+                    onClick={() => setLogsSearch("")}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <select
+                value={logsMethodFilter}
+                onChange={(e) => setLogsMethodFilter(e.target.value)}
+                className="text-xs h-8 rounded-md bg-background/50 border border-border px-2 text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+              >
+                <option value="ALL">All Contact Methods</option>
+                <option value="CALL">Phone Calls</option>
+                <option value="WHATSAPP">WhatsApp Chats</option>
+                <option value="VISIT">Campus Visits</option>
+                <option value="WEBSITE">Website Inquiries</option>
+                <option value="EMAIL">Emails</option>
+              </select>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={fetchLogs}
+                disabled={logsLoading}
+                className="h-8 px-2.5 text-xs border-border flex items-center gap-1.5"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${logsLoading ? "animate-spin" : ""}`} />
+                <span className="hidden sm:inline">Refresh Logs</span>
+              </Button>
+            </div>
+          </div>
+
+          {logsLoading ? (
+            <div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-3">
+              <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+              <p className="text-sm">Fetching all interaction &amp; counselor call logs...</p>
+            </div>
+          ) : filteredLogs.length === 0 ? (
+            <div className="p-12 text-center">
+              <div className="h-12 w-12 rounded-full bg-primary/10 text-primary flex items-center justify-center mx-auto mb-3">
+                <History className="h-6 w-6" />
+              </div>
+              <h3 className="text-base font-semibold text-foreground">No Interaction Logs Found</h3>
+              <p className="text-xs text-muted-foreground max-w-sm mx-auto mt-1 mb-4">
+                {logsSearch || logsMethodFilter !== "ALL"
+                  ? "No call logs matched your filter criteria. Try clearing search or filters."
+                  : "No interaction logs recorded yet. Log follow-up calls or inquiries to build interaction history."}
+              </p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm text-left">
+                <thead className="text-xs uppercase bg-muted/40 text-muted-foreground border-b border-border">
+                  <tr>
+                    <th className="px-4 py-3 font-semibold">Date &amp; Time</th>
+                    <th className="px-4 py-3 font-semibold">Student / Inquiry</th>
+                    <th className="px-4 py-3 font-semibold">Method &amp; Staff</th>
+                    <th className="px-4 py-3 font-semibold">Discussion Outcome &amp; Notes</th>
+                    <th className="px-4 py-3 font-semibold">Stage</th>
+                    <th className="px-4 py-3 font-semibold text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border/60">
+                  {filteredLogs.map((log) => {
+                    const student = log.lead;
+                    return (
+                      <tr key={log.id} className="hover:bg-accent/40 transition-colors group">
+                        {/* Timestamp */}
+                        <td className="px-4 py-3.5 whitespace-nowrap text-xs">
+                          <div className="flex items-center gap-1.5 font-mono text-foreground font-medium">
+                            <Clock className="w-3.5 h-3.5 text-primary/70 shrink-0" />
+                            {formatDateTime(log.createdAt || log.date)}
+                          </div>
+                          {log.scheduledFor && (
+                            <div className="text-[11px] text-amber-400 mt-1 flex items-center gap-1">
+                              <Calendar className="w-3 h-3 shrink-0" />
+                              Next: {formatDate(log.scheduledFor)}
+                            </div>
+                          )}
+                        </td>
+
+                        {/* Student Info */}
+                        <td className="px-4 py-3.5">
+                          {student ? (
+                            <div>
+                              <button
+                                type="button"
+                                onClick={() => handleOpenLeadLogs(student)}
+                                className="font-semibold text-foreground hover:text-primary transition-colors text-left flex items-center gap-1"
+                              >
+                                {student.name}
+                                <History className="w-3 h-3 text-muted-foreground group-hover:text-primary" />
+                              </button>
+                              <div className="text-xs text-muted-foreground flex items-center gap-2 mt-0.5">
+                                <a
+                                  href={`tel:${student.phone}`}
+                                  className="font-mono hover:text-primary flex items-center gap-1"
+                                >
+                                  <Phone className="w-2.5 h-2.5" />
+                                  {student.phone}
+                                </a>
+                                <a
+                                  href={`https://wa.me/91${student.phone.replace(/\D/g, "")}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-[10px] text-emerald-400 font-semibold hover:underline"
+                                >
+                                  WA
+                                </a>
+                              </div>
+                              <div className="text-[11px] text-muted-foreground flex items-center gap-1 mt-0.5">
+                                <GraduationCap className="w-3 h-3 text-primary/70 shrink-0" />
+                                <span className="truncate max-w-[170px]">
+                                  {student.courseInterest || "General Inquiry"}
+                                </span>
+                              </div>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-muted-foreground italic">Lead deleted</span>
+                          )}
+                        </td>
+
+                        {/* Method & Staff */}
+                        <td className="px-4 py-3.5">
+                          <div>{getContactMethodBadge(log.contactMethod)}</div>
+                          <div className="text-xs text-muted-foreground mt-1.5 flex items-center gap-1">
+                            <span>By:</span>
+                            <span className="font-medium text-foreground/90">
+                              {log.counselorName || "Staff"}
+                            </span>
+                          </div>
+                        </td>
+
+                        {/* Notes */}
+                        <td className="px-4 py-3.5 max-w-md">
+                          <p className="text-xs text-foreground/90 whitespace-pre-wrap leading-relaxed bg-muted/20 border border-border/40 p-2.5 rounded-lg">
+                            {log.notes}
+                          </p>
+                        </td>
+
+                        {/* Stage */}
+                        <td className="px-4 py-3.5">
+                          {student?.status ? getStatusBadge(student.status) : <Badge variant="outline">LOGGED</Badge>}
+                        </td>
+
+                        {/* Actions */}
+                        <td className="px-4 py-3.5 text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            {student && (
+                              <>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleOpenLeadLogs(student)}
+                                  className="h-8 px-2 text-xs border-border hover:border-primary/50 text-foreground flex items-center gap-1"
+                                  title="View complete timeline for this inquiry"
+                                >
+                                  <History className="w-3.5 h-3.5 text-primary" />
+                                  History
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => {
+                                    setActiveFollowUpLead(student as any);
+                                    setFollowUpData({
+                                      method: "CALL",
+                                      notes: "",
+                                      newStatus: (student.status || "CONTACTED") as LeadStatus,
+                                      nextFollowUpDate: "",
+                                    });
+                                  }}
+                                  className="h-8 px-2 text-xs border-border hover:border-primary/50 text-foreground flex items-center gap-1"
+                                  title="Log new follow-up interaction"
+                                >
+                                  <MessageSquare className="w-3.5 h-3.5 text-primary" />
+                                  Log Next
+                                </Button>
+                              </>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Card>
+      ) : loading ? (
         <div className="flex flex-col items-center justify-center py-20 text-muted-foreground gap-3">
           <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
           <p className="text-sm">Loading admissions CRM pipeline...</p>
@@ -783,16 +1156,35 @@ export default function LeadsPage() {
                         ) : (
                           <span className="text-xs text-muted-foreground italic">None scheduled</span>
                         )}
-                        {lead._count.followUps > 0 && (
-                          <div className="text-[10px] text-primary mt-0.5">
+                        {lead._count.followUps > 0 ? (
+                          <button
+                            type="button"
+                            onClick={() => handleOpenLeadLogs(lead)}
+                            className="text-[10px] text-primary hover:underline mt-0.5 flex items-center gap-0.5 text-left font-medium"
+                            title="Click to view interaction history"
+                          >
+                            <History className="w-2.5 h-2.5" />
                             {lead._count.followUps} log{lead._count.followUps > 1 ? "s" : ""} recorded
-                          </div>
-                        )}
+                          </button>
+                        ) : null}
                       </td>
 
                       {/* Actions */}
                       <td className="px-4 py-3.5 text-right">
                         <div className="flex items-center justify-end gap-1.5">
+                          {/* View Logs Button */}
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleOpenLeadLogs(lead)}
+                            className="h-8 px-2 text-xs border-border hover:border-primary/50 text-foreground flex items-center gap-1"
+                            title="View Full Call & Follow-up History"
+                          >
+                            <History className="w-3.5 h-3.5 text-primary" />
+                            <span className="hidden xl:inline">Logs</span>
+                            <span>({lead._count?.followUps ?? 0})</span>
+                          </Button>
+
                           {/* Follow-up Log Button */}
                           <Button
                             size="sm"
@@ -923,40 +1315,56 @@ export default function LeadsPage() {
                       </div>
 
                       {/* Card Actions */}
-                      <div className="mt-2.5 pt-2 border-t border-border/40 flex items-center justify-between gap-1">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => {
-                            setActiveFollowUpLead(lead);
-                            setFollowUpData({
-                              method: "CALL",
-                              notes: "",
-                              newStatus: lead.status as LeadStatus,
-                              nextFollowUpDate: "",
-                            });
-                          }}
-                          className="h-6 px-1.5 text-[10px] text-primary hover:bg-primary/10"
-                        >
-                          <MessageSquare className="w-2.5 h-2.5 mr-1" /> Log
-                        </Button>
-
-                        {lead.status !== "CONVERTED" && (
+                      <div className="mt-2.5 pt-2 border-t border-border/40 flex items-center justify-between gap-1 flex-wrap">
+                        <div className="flex items-center gap-0.5">
                           <Button
                             size="sm"
-                            onClick={() => handleConvertToAdmission(lead)}
-                            className="h-6 px-2 text-[10px] bg-emerald-600 hover:bg-emerald-500 text-white font-medium"
+                            variant="ghost"
+                            onClick={() => handleOpenLeadLogs(lead)}
+                            className="h-6 px-1.5 text-[10px] text-muted-foreground hover:text-primary hover:bg-primary/10 flex items-center gap-1"
+                            title="View Follow-up & Interaction Logs"
                           >
-                            <UserPlus className="w-2.5 h-2.5 mr-1" /> Admit
+                            <History className="w-2.5 h-2.5 text-primary" />
+                            <span>Logs ({lead._count?.followUps ?? 0})</span>
                           </Button>
-                        )}
 
-                        <button
-                          onClick={() => openEditModal(lead)}
-                          className="text-muted-foreground hover:text-foreground p-1"
-                        >
-                          <Edit2 className="w-2.5 h-2.5" />
-                        </button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => {
+                              setActiveFollowUpLead(lead);
+                              setFollowUpData({
+                                method: "CALL",
+                                notes: "",
+                                newStatus: lead.status as LeadStatus,
+                                nextFollowUpDate: "",
+                              });
+                            }}
+                            className="h-6 px-1.5 text-[10px] text-primary hover:bg-primary/10"
+                          >
+                            <MessageSquare className="w-2.5 h-2.5 mr-1" /> Log
+                          </Button>
+                        </div>
+
+                        <div className="flex items-center gap-1">
+                          {lead.status !== "CONVERTED" && (
+                            <Button
+                              size="sm"
+                              onClick={() => handleConvertToAdmission(lead)}
+                              className="h-6 px-2 text-[10px] bg-emerald-600 hover:bg-emerald-500 text-white font-medium"
+                            >
+                              <UserPlus className="w-2.5 h-2.5 mr-1" /> Admit
+                            </Button>
+                          )}
+
+                          <button
+                            onClick={() => openEditModal(lead)}
+                            className="text-muted-foreground hover:text-foreground p-1 rounded"
+                            title="Edit Lead"
+                          >
+                            <Edit2 className="w-2.5 h-2.5" />
+                          </button>
+                        </div>
                       </div>
                     </Card>
                   ))}
@@ -1336,6 +1744,186 @@ export default function LeadsPage() {
                 </Button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Dedicated Single Lead Interaction Logs & History Modal ─── */}
+      {leadLogsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm">
+          <div className="bg-card border border-border w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 flex flex-col max-h-[88vh]">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-muted/20">
+              <div className="flex items-center gap-3">
+                <div className="h-9 w-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                  <History className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="font-bold text-foreground text-base">
+                      {leadLogsModal.name}
+                    </h3>
+                    {leadLogsModal.priority && getPriorityBadge(leadLogsModal.priority)}
+                    {leadLogsModal.status && getStatusBadge(leadLogsModal.status)}
+                  </div>
+                  <div className="text-xs text-muted-foreground flex items-center gap-2 mt-0.5 flex-wrap">
+                    <a
+                      href={`tel:${leadLogsModal.phone}`}
+                      className="font-mono text-foreground hover:text-primary flex items-center gap-1"
+                    >
+                      <Phone className="w-3 h-3 text-muted-foreground" />
+                      {leadLogsModal.phone}
+                    </a>
+                    <span>•</span>
+                    <a
+                      href={`https://wa.me/91${leadLogsModal.phone.replace(/\D/g, "")}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[11px] text-emerald-400 font-semibold hover:underline"
+                    >
+                      WhatsApp
+                    </a>
+                    {leadLogsModal.courseInterest && (
+                      <>
+                        <span>•</span>
+                        <span className="text-foreground/90 font-medium">
+                          {leadLogsModal.courseInterest}
+                        </span>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    setActiveFollowUpLead(fullLeadLogs || leadLogsModal);
+                    setFollowUpData({
+                      method: "CALL",
+                      notes: "",
+                      newStatus: (fullLeadLogs?.status || leadLogsModal.status || "CONTACTED") as LeadStatus,
+                      nextFollowUpDate: "",
+                    });
+                  }}
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs h-8 px-2.5 flex items-center gap-1.5 shadow-sm"
+                >
+                  <MessageSquare className="w-3.5 h-3.5" />
+                  + Log Call
+                </Button>
+                <button
+                  onClick={() => {
+                    setLeadLogsModal(null);
+                    setFullLeadLogs(null);
+                  }}
+                  className="text-muted-foreground hover:text-foreground p-1.5 rounded-md hover:bg-accent transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Quick Metadata Bar */}
+            <div className="px-6 py-2.5 bg-muted/10 border-b border-border text-xs text-muted-foreground grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <div>
+                <span className="block text-[10px] uppercase font-semibold text-muted-foreground">Source</span>
+                <span className="font-medium text-foreground">{fullLeadLogs?.source || leadLogsModal.source || "Direct"}</span>
+              </div>
+              <div>
+                <span className="block text-[10px] uppercase font-semibold text-muted-foreground">Campus</span>
+                <span className="font-medium text-foreground">{fullLeadLogs?.institute?.name || "Main Campus"}</span>
+              </div>
+              <div>
+                <span className="block text-[10px] uppercase font-semibold text-muted-foreground">Next Follow-up</span>
+                <span className="font-medium text-foreground">
+                  {fullLeadLogs?.nextFollowUp || leadLogsModal.nextFollowUp
+                    ? formatDateTime(fullLeadLogs?.nextFollowUp || leadLogsModal.nextFollowUp)
+                    : "None scheduled"}
+                </span>
+              </div>
+              <div>
+                <span className="block text-[10px] uppercase font-semibold text-muted-foreground">Total Interactions</span>
+                <span className="font-bold text-primary">
+                  {loadingLeadLogs ? "..." : (fullLeadLogs?.followUps?.length ?? leadLogsModal._count?.followUps ?? 0)} records
+                </span>
+              </div>
+            </div>
+
+            {/* Timeline Content */}
+            <div className="p-6 overflow-y-auto flex-1 space-y-4">
+              {loadingLeadLogs ? (
+                <div className="flex flex-col items-center justify-center py-12 text-muted-foreground gap-2">
+                  <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                  <p className="text-xs">Loading complete interaction timeline...</p>
+                </div>
+              ) : !fullLeadLogs?.followUps || fullLeadLogs.followUps.length === 0 ? (
+                <div className="text-center py-10 border border-dashed border-border rounded-xl p-6">
+                  <Clock className="w-8 h-8 text-muted-foreground/50 mx-auto mb-2" />
+                  <p className="text-sm font-semibold text-foreground">No Follow-up Logs Recorded Yet</p>
+                  <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
+                    Click the &quot;+ Log Call&quot; button above to record the first telephone call, WhatsApp discussion, or campus visit note.
+                  </p>
+                </div>
+              ) : (
+                <div className="relative pl-6 space-y-4 before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-border">
+                  {fullLeadLogs.followUps.map((fu: any, idx: number) => (
+                    <div key={fu.id || idx} className="relative group">
+                      {/* Timeline dot */}
+                      <div className="absolute -left-[27px] top-1.5 h-3.5 w-3.5 rounded-full border-2 border-background bg-primary ring-2 ring-primary/20" />
+
+                      <div className="bg-muted/20 hover:bg-muted/30 border border-border/70 rounded-xl p-3.5 transition-colors shadow-sm">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 pb-2 border-b border-border/50 text-xs">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            {getContactMethodBadge(fu.contactMethod)}
+                            <span className="font-semibold text-foreground">
+                              {fu.counselorName || "Staff / Counselor"}
+                            </span>
+                            {fu.status && (
+                              <Badge variant="outline" className="text-[10px] py-0 px-1.5 bg-background">
+                                {fu.status}
+                              </Badge>
+                            )}
+                          </div>
+                          <span className="font-mono text-muted-foreground text-[11px] flex items-center gap-1 shrink-0">
+                            <Clock className="w-3 h-3 text-primary/70" />
+                            {formatDateTime(fu.createdAt || fu.date)}
+                          </span>
+                        </div>
+
+                        <p className="text-xs text-foreground/90 mt-2.5 whitespace-pre-wrap leading-relaxed">
+                          {fu.notes}
+                        </p>
+
+                        {fu.scheduledFor && (
+                          <div className="mt-2.5 pt-2 border-t border-border/40 text-[11px] text-amber-400 font-medium flex items-center gap-1">
+                            <Calendar className="w-3 h-3 shrink-0" />
+                            <span>Scheduled Next Action: {formatDateTime(fu.scheduledFor)}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-3 border-t border-border bg-muted/20 flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">
+                Inquiry registered: {formatDateTime(fullLeadLogs?.createdAt || leadLogsModal.createdAt)}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setLeadLogsModal(null);
+                  setFullLeadLogs(null);
+                }}
+              >
+                Close History
+              </Button>
+            </div>
           </div>
         </div>
       )}

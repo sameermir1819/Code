@@ -362,6 +362,42 @@ export async function addLeadFollowUp(
 }
 
 // =========================================================================
+// 5B. GET RECENT LEAD INTERACTION LOGS ACROSS ALL LEADS
+// =========================================================================
+export async function getRecentLeadFollowUps(limit = 100) {
+  const actor = await requireAuth(["SUPER_ADMIN", "ADMIN", "ACCOUNTANT", "TEACHER"]);
+  const campusId = await getActiveCampusId();
+
+  const where: any = {};
+  if (campusId && actor.role !== "SUPER_ADMIN") {
+    where.lead = {
+      OR: [{ instituteId: campusId }, { instituteId: null }],
+    };
+  }
+
+  const logs = await db.leadFollowUp.findMany({
+    where,
+    orderBy: { createdAt: "desc" },
+    take: limit,
+    include: {
+      lead: {
+        select: {
+          id: true,
+          name: true,
+          phone: true,
+          courseInterest: true,
+          status: true,
+          priority: true,
+          institute: { select: { name: true, code: true, city: true } },
+        },
+      },
+    },
+  });
+
+  return { success: true, logs };
+}
+
+// =========================================================================
 // 6. DELETE LEAD
 // =========================================================================
 export async function deleteLead(id: string) {
