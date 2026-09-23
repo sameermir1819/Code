@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useTheme } from "next-themes";
 import { Role } from "@/lib/permissions";
 import { logoutUser } from "@/server/actions/auth";
 import { GlobalSearchModal } from "./global-search-modal";
@@ -30,7 +31,14 @@ interface HeaderProps {
 export function Header({ currentRole, userName, unreadCount = 0, campuses = [], activeCampus = null }: HeaderProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
-  const [isDark, setIsDark] = useState(false);
+  const { resolvedTheme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const isDark = mounted ? resolvedTheme === "dark" : false;
 
   const handleLogout = () => {
     startTransition(async () => {
@@ -41,8 +49,7 @@ export function Header({ currentRole, userName, unreadCount = 0, campuses = [], 
   };
 
   const toggleTheme = () => {
-    setIsDark(!isDark);
-    document.documentElement.classList.toggle("dark");
+    setTheme(resolvedTheme === "dark" ? "light" : "dark");
   };
 
   return (
