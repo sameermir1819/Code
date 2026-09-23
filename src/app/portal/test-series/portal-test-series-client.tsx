@@ -20,7 +20,10 @@ import {
   QrCode,
   ShieldCheck,
   X,
+  Check,
 } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
 interface TestExamWithResults {
@@ -134,88 +137,93 @@ export function PortalTestSeriesClient({ registeredSeries, availableSeries, stud
 
   return (
     <div className="space-y-6">
-      {/* ── Header ── */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-2 border-b border-white/10">
+      {/* ── Page Header Banner ── */}
+      <div className="bg-gradient-to-r from-primary/10 via-background to-background p-6 rounded-2xl border flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-2xs">
         <div>
-          <div className="flex items-center gap-2">
-            <span className="p-2 rounded-xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-              <Layers className="w-5 h-5" />
-            </span>
-            <div>
-              <h1 className="text-2xl font-black text-white flex items-center gap-2">
-                Offline Test Series &amp; OMR Rankings
-              </h1>
-              <p className="text-xs text-zinc-400">
-                Official offline mock test programs, Hall Ticket Roll Numbers, and national percentile scorecards.
-              </p>
+          <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+            <Badge variant="default" className="text-[10px] uppercase font-mono tracking-wider">
+              Student Testing Portal
+            </Badge>
+            <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
+              </span>
+              <span>OMR Assessments</span>
             </div>
           </div>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
+            Offline Test Series &amp; OMR Rankings
+          </h1>
+          <p className="text-xs sm:text-sm text-muted-foreground mt-1">
+            Access official offline mock tests, Hall Ticket Roll Numbers, and national percentile scorecards.
+          </p>
         </div>
 
         <div className="flex items-center gap-3">
-          <div className="px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-xs text-zinc-300 backdrop-blur-sm flex items-center gap-2">
-            <ShieldCheck className="w-3.5 h-3.5 text-indigo-400" />
-            <span>Verified Student Enrollment</span>
+          <div className="px-3.5 py-1.5 rounded-xl bg-card border text-xs text-foreground flex items-center gap-2 shadow-2xs">
+            <ShieldCheck className="h-4 w-4 text-primary" />
+            <span className="font-semibold">{student?.name || "Student"} ({student?.studentId})</span>
           </div>
         </div>
       </div>
 
-      {/* ── Feedback Message ── */}
+      {/* ── Status Feedback Message ── */}
       {msg && (
         <div
           className={`p-3.5 rounded-xl border text-xs font-semibold flex items-center gap-2 animate-in fade-in ${
             msg.type === "success"
-              ? "bg-emerald-500/10 text-emerald-300 border-emerald-500/20"
-              : "bg-rose-500/10 text-rose-300 border-rose-500/20"
+              ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30"
+              : "bg-destructive/10 text-destructive border-destructive/30"
           }`}
         >
           {msg.type === "success" ? (
-            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+            <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
           ) : (
-            <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+            <AlertCircle className="h-4 w-4 shrink-0" />
           )}
           <span>{msg.text}</span>
-          <button onClick={() => setMsg(null)} className="ml-auto hover:text-white">
-            <X className="w-3.5 h-3.5" />
+          <button onClick={() => setMsg(null)} className="ml-auto text-muted-foreground hover:text-foreground">
+            <X className="h-3.5 w-3.5" />
           </button>
         </div>
       )}
 
-      {/* ── Sub Navigation (Modern Segmented Pills) ── */}
-      <div className="flex bg-white/[0.03] p-1 rounded-2xl border border-white/[0.08] gap-1 overflow-x-auto text-xs font-medium">
+      {/* ── Clean Segmented Pill Navigation ── */}
+      <div className="flex bg-muted/50 p-1.5 rounded-2xl border gap-1 overflow-x-auto text-xs font-medium">
         <button
           onClick={() => setActiveTab("registered")}
-          className={`py-2 px-3.5 rounded-xl transition-all flex items-center gap-2 ${
+          className={`py-2 px-4 rounded-xl transition-all flex items-center gap-2 ${
             activeTab === "registered"
-              ? "bg-white text-zinc-950 font-semibold shadow-md shadow-white/5"
-              : "text-zinc-400 hover:text-white hover:bg-white/[0.04]"
+              ? "bg-background text-foreground font-semibold shadow-xs"
+              : "text-muted-foreground hover:text-foreground hover:bg-background/40"
           }`}
         >
-          <Layers className="w-3.5 h-3.5" />
+          <Layers className="h-3.5 w-3.5" />
           <span>My Enrolled Series ({registeredSeries.length})</span>
         </button>
 
         <button
           onClick={() => setActiveTab("results")}
-          className={`py-2 px-3.5 rounded-xl transition-all flex items-center gap-2 ${
+          className={`py-2 px-4 rounded-xl transition-all flex items-center gap-2 ${
             activeTab === "results"
-              ? "bg-white text-zinc-950 font-semibold shadow-md shadow-white/5"
-              : "text-zinc-400 hover:text-white hover:bg-white/[0.04]"
+              ? "bg-background text-foreground font-semibold shadow-xs"
+              : "text-muted-foreground hover:text-foreground hover:bg-background/40"
           }`}
         >
-          <Award className="w-3.5 h-3.5" />
+          <Award className="h-3.5 w-3.5" />
           <span>Scorecards &amp; Rankings ({allResults.length})</span>
         </button>
 
         <button
           onClick={() => setActiveTab("explore")}
-          className={`py-2 px-3.5 rounded-xl transition-all flex items-center gap-2 ${
+          className={`py-2 px-4 rounded-xl transition-all flex items-center gap-2 ${
             activeTab === "explore"
-              ? "bg-white text-zinc-950 font-semibold shadow-md shadow-white/5"
-              : "text-zinc-400 hover:text-white hover:bg-white/[0.04]"
+              ? "bg-background text-foreground font-semibold shadow-xs"
+              : "text-muted-foreground hover:text-foreground hover:bg-background/40"
           }`}
         >
-          <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+          <Sparkles className="h-3.5 w-3.5 text-amber-500" />
           <span>Explore Upcoming Series ({availableSeries.length})</span>
         </button>
       </div>
@@ -224,73 +232,73 @@ export function PortalTestSeriesClient({ registeredSeries, availableSeries, stud
       {activeTab === "registered" && (
         <div className="space-y-6">
           {registeredSeries.length === 0 ? (
-            <div className="p-12 text-center rounded-2xl border border-white/10 bg-white/[0.02] text-zinc-400 text-xs space-y-3">
-              <Layers className="w-8 h-8 text-zinc-600 mx-auto" />
-              <p className="font-semibold text-white">You are not enrolled in any offline test series yet.</p>
-              <p className="text-zinc-500 max-w-sm mx-auto">
+            <Card className="rounded-2xl border bg-card/60 p-12 text-center text-xs space-y-3">
+              <Layers className="h-10 w-10 text-muted-foreground/40 mx-auto" />
+              <p className="font-semibold text-foreground text-sm">You are not enrolled in any offline test series yet.</p>
+              <p className="text-muted-foreground max-w-sm mx-auto">
                 Explore available offline test series programs for NEET and JEE to practice on official OMR answer sheets.
               </p>
               <Button
                 onClick={() => setActiveTab("explore")}
-                className="h-9 text-xs font-bold rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white"
+                className="h-8 text-xs font-semibold rounded-lg bg-primary text-primary-foreground"
               >
                 Browse Test Series
               </Button>
-            </div>
+            </Card>
           ) : (
             registeredSeries.map((reg) => (
-              <div
+              <Card
                 key={reg.id}
-                className="p-6 rounded-2xl bg-white/[0.03] border border-white/10 space-y-6 shadow-sm"
+                className="rounded-2xl border bg-card/60 shadow-2xs space-y-5 p-6"
               >
                 {/* Series Banner */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-white/10">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b">
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                      <Badge variant="outline" className="text-[10px] font-mono uppercase font-semibold">
                         {reg.testSeries.targetExam}
-                      </span>
-                      <span className="text-xs font-mono text-zinc-400">{reg.testSeries.code}</span>
+                      </Badge>
+                      <span className="text-xs font-mono font-semibold text-muted-foreground">{reg.testSeries.code}</span>
                     </div>
-                    <h2 className="text-lg font-black text-white">{reg.testSeries.title}</h2>
-                    <p className="text-xs text-zinc-400">{reg.testSeries.description}</p>
+                    <h2 className="text-lg font-bold text-foreground">{reg.testSeries.title}</h2>
+                    <p className="text-xs text-muted-foreground">{reg.testSeries.description}</p>
                   </div>
 
-                  {/* Hall Ticket Roll Number Card */}
-                  <div className="p-4 rounded-2xl bg-indigo-600/15 border border-indigo-500/30 flex items-center gap-4 shrink-0">
+                  {/* Hall Ticket Roll Number Box */}
+                  <div className="p-3.5 rounded-2xl bg-primary/5 border border-primary/20 flex items-center gap-4 shrink-0">
                     <div className="space-y-0.5">
-                      <span className="text-[10px] font-semibold text-indigo-300 uppercase block">
+                      <span className="text-[10px] font-semibold text-primary uppercase tracking-wider block">
                         EXAM HALL ROLL NUMBER
                       </span>
-                      <span className="text-xl font-black font-mono text-white tracking-wider">
+                      <span className="text-xl font-black font-mono text-primary tracking-widest">
                         {reg.rollNumber}
                       </span>
-                      <span className="text-[10px] text-zinc-400 block">Fill on OMR answer sheet</span>
+                      <span className="text-[10px] text-muted-foreground block">Quote on OMR Answer Sheet</span>
                     </div>
                     <Button
                       onClick={() => setSelectedAdmitSlip(reg)}
                       variant="outline"
                       size="sm"
-                      className="h-8 text-xs font-bold border-indigo-500/40 text-indigo-200 hover:bg-indigo-500/20 gap-1 rounded-xl"
+                      className="h-8 text-xs font-semibold gap-1 rounded-lg hover:bg-muted"
                     >
-                      <Printer className="w-3.5 h-3.5" />
+                      <Printer className="h-3.5 w-3.5" />
                       <span>Admit Slip</span>
                     </Button>
                   </div>
                 </div>
 
                 {/* Exam Hall Venue Info */}
-                <div className="flex items-center gap-2 text-xs text-zinc-300 p-3 rounded-xl bg-white/[0.02] border border-white/5">
-                  <MapPin className="w-4 h-4 text-amber-400 shrink-0" />
+                <div className="flex items-center gap-2 text-xs text-muted-foreground p-3 rounded-xl bg-muted/40 border">
+                  <MapPin className="h-4 w-4 text-amber-500 shrink-0" />
                   <span>
-                    <strong>Official Test Center Venue:</strong>{" "}
+                    <strong className="text-foreground">Official Examination Center:</strong>{" "}
                     {reg.testSeries.testCenterVenue || "Main Campus Examination Center"}
                   </span>
                 </div>
 
-                {/* Tests Schedule List inside this series */}
+                {/* Tests Schedule List */}
                 <div className="space-y-3">
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                     Offline Tests Schedule &amp; OMR Syllabus ({reg.testSeries.exams.length} Tests)
                   </h3>
 
@@ -302,33 +310,30 @@ export function PortalTestSeriesClient({ registeredSeries, availableSeries, stud
                       return (
                         <div
                           key={exam.id}
-                          className="p-4 rounded-xl bg-white/[0.02] border border-white/5 space-y-3 hover:border-white/15 transition-all"
+                          className="p-4 rounded-xl bg-muted/20 border space-y-2.5 hover:border-primary/40 transition-all text-xs"
                         >
                           <div className="flex items-start justify-between">
                             <div>
-                              <span className="text-[10px] font-mono font-bold text-indigo-400">
+                              <span className="text-[10px] font-mono font-bold text-primary">
                                 Test #{exam.testNumber} • {exam.code}
                               </span>
-                              <h4 className="text-xs font-bold text-white leading-tight mt-0.5">
+                              <h4 className="text-sm font-bold text-foreground leading-tight mt-0.5">
                                 {exam.title}
                               </h4>
                             </div>
 
-                            <span
-                              className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                                hasResult
-                                  ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
-                                  : "bg-blue-500/20 text-blue-400 border-blue-500/30"
-                              }`}
+                            <Badge
+                              variant={hasResult ? "success" : "outline"}
+                              className="text-[10px]"
                             >
                               {hasResult ? "Scorecard Ready" : "Upcoming"}
-                            </span>
+                            </Badge>
                           </div>
 
-                          <div className="grid grid-cols-2 gap-2 text-[11px] text-zinc-400">
+                          <div className="grid grid-cols-2 gap-2 text-[11px] text-muted-foreground">
                             <div>
-                              <span className="text-zinc-500 block">Exam Date:</span>
-                              <span className="text-zinc-200 font-semibold">
+                              <span className="text-[10px] block">Exam Date:</span>
+                              <span className="text-foreground font-semibold">
                                 {new Date(exam.examDate).toLocaleDateString("en-IN", {
                                   month: "short",
                                   day: "numeric",
@@ -337,33 +342,33 @@ export function PortalTestSeriesClient({ registeredSeries, availableSeries, stud
                               </span>
                             </div>
                             <div>
-                              <span className="text-zinc-500 block">Duration &amp; Marks:</span>
-                              <span className="text-zinc-200 font-semibold">
+                              <span className="text-[10px] block">Duration &amp; Marks:</span>
+                              <span className="text-foreground font-semibold">
                                 {exam.durationMinutes} mins • {exam.maxMarks} M
                               </span>
                             </div>
                           </div>
 
-                          <div className="text-[11px] text-zinc-400 space-y-1 pt-1 border-t border-white/5">
+                          <div className="text-[11px] text-muted-foreground space-y-0.5 pt-1.5 border-t">
                             <div>
-                              <span className="text-zinc-500">Seating:</span>{" "}
-                              <span className="text-zinc-300">{exam.venueRoom}</span>
+                              <span>Seating:</span>{" "}
+                              <span className="text-foreground font-medium">{exam.venueRoom}</span>
                             </div>
                             {exam.syllabus && (
-                              <div>
-                                <span className="text-zinc-500">Syllabus:</span>{" "}
-                                <span className="text-zinc-300">{exam.syllabus}</span>
+                              <div className="truncate">
+                                <span>Syllabus:</span>{" "}
+                                <span className="text-foreground font-medium">{exam.syllabus}</span>
                               </div>
                             )}
                           </div>
 
-                          {/* Quick Score badge if available */}
+                          {/* Quick Score summary badge */}
                           {hasResult && result && (
-                            <div className="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-between text-xs">
-                              <span className="font-semibold text-emerald-300">
+                            <div className="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-between text-xs mt-1">
+                              <span className="font-semibold text-emerald-600 dark:text-emerald-400">
                                 Score: {result.marksObtained}/{result.maxMarks} ({result.percentage}%)
                               </span>
-                              <span className="font-mono font-bold text-white">
+                              <span className="font-mono font-bold text-foreground">
                                 Rank #{result.rank || "—"} ({result.percentile}%ile)
                               </span>
                             </div>
@@ -373,7 +378,7 @@ export function PortalTestSeriesClient({ registeredSeries, availableSeries, stud
                     })}
                   </div>
                 </div>
-              </div>
+              </Card>
             ))
           )}
         </div>
@@ -383,13 +388,13 @@ export function PortalTestSeriesClient({ registeredSeries, availableSeries, stud
       {activeTab === "results" && (
         <div className="space-y-4">
           {allResults.length === 0 ? (
-            <div className="p-12 text-center rounded-2xl border border-white/10 bg-white/[0.02] text-zinc-400 text-xs space-y-2">
-              <Award className="w-8 h-8 text-zinc-600 mx-auto" />
-              <p className="font-semibold text-white">No published offline test results yet.</p>
-              <p className="text-zinc-500">
+            <Card className="rounded-2xl border bg-card/60 p-12 text-center text-xs space-y-2">
+              <Award className="h-10 w-10 text-muted-foreground/40 mx-auto" />
+              <p className="font-semibold text-foreground text-sm">No published offline test results yet.</p>
+              <p className="text-muted-foreground max-w-sm mx-auto">
                 Scorecards and nationwide rank analytics will appear here as soon as offline OMR papers are evaluated.
               </p>
-            </div>
+            </Card>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {allResults.map(({ exam, result, testSeriesTitle, rollNumber }) => {
@@ -403,79 +408,80 @@ export function PortalTestSeriesClient({ registeredSeries, availableSeries, stud
                 }
 
                 return (
-                  <div
+                  <Card
                     key={result.id}
-                    className="p-5 rounded-2xl bg-white/[0.03] border border-white/10 space-y-4 shadow-sm"
+                    className="rounded-2xl border bg-card/60 shadow-2xs space-y-4 p-5 hover:border-primary/50 transition-all text-xs"
                   >
                     <div className="flex items-start justify-between">
                       <div>
-                        <span className="text-[10px] font-mono text-zinc-400 block">
+                        <span className="text-[10px] font-mono text-muted-foreground block">
                           Roll No: {rollNumber} • {exam.code}
                         </span>
-                        <h3 className="text-sm font-bold text-white mt-0.5">{exam.title}</h3>
-                        <span className="text-xs text-indigo-400">{testSeriesTitle}</span>
+                        <h3 className="text-base font-bold text-foreground mt-0.5">{exam.title}</h3>
+                        <span className="text-xs text-primary font-medium">{testSeriesTitle}</span>
                       </div>
 
                       <div className="text-right">
-                        <span className="text-xs font-black text-emerald-400 block text-lg">
+                        <span className="text-xl font-extrabold text-emerald-600 dark:text-emerald-400 block leading-tight">
                           {result.marksObtained}
-                          <span className="text-xs font-normal text-zinc-400">/{result.maxMarks}</span>
+                          <span className="text-xs font-normal text-muted-foreground">/{result.maxMarks}</span>
                         </span>
-                        <span className="text-[10px] font-semibold text-zinc-400">
+                        <span className="text-[10px] font-semibold text-muted-foreground">
                           {result.percentage}% Score
                         </span>
                       </div>
                     </div>
 
-                    {/* Rank & Percentile Cards */}
-                    <div className="grid grid-cols-2 gap-2 text-xs">
-                      <div className="p-3 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-center">
-                        <span className="text-[10px] font-semibold text-indigo-300 block">OVERALL RANK</span>
-                        <span className="text-xl font-black text-white">#{result.rank || "—"}</span>
+                    {/* Rank & Percentile Metric Cards */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="p-3 rounded-xl bg-primary/10 border border-primary/20 text-center">
+                        <span className="text-[10px] font-semibold text-primary block uppercase tracking-wider">OVERALL RANK</span>
+                        <span className="text-2xl font-black text-foreground">#{result.rank || "—"}</span>
                       </div>
 
                       <div className="p-3 rounded-xl bg-purple-500/10 border border-purple-500/20 text-center">
-                        <span className="text-[10px] font-semibold text-purple-300 block">PERCENTILE</span>
-                        <span className="text-xl font-black text-white">{result.percentile || "—"}%</span>
+                        <span className="text-[10px] font-semibold text-purple-600 dark:text-purple-400 block uppercase tracking-wider">PERCENTILE</span>
+                        <span className="text-2xl font-black text-foreground">{result.percentile || "—"}%</span>
                       </div>
                     </div>
 
-                    {/* Subject-Wise Breakdown if available */}
+                    {/* Subject-Wise Breakdown */}
                     {Object.keys(subjectBreakup).length > 0 && (
-                      <div className="space-y-1.5 p-3 rounded-xl bg-white/[0.02] border border-white/5 text-xs">
-                        <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block">
-                          Subject-Wise Marks
+                      <div className="space-y-1.5 p-3 rounded-xl bg-muted/40 border">
+                        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">
+                          Subject-Wise Score Breakdown
                         </span>
                         <div className="grid grid-cols-3 gap-2">
                           {Object.entries(subjectBreakup).map(([subj, marks]) => (
-                            <div key={subj} className="p-2 rounded-lg bg-white/5 text-center">
-                              <span className="text-[10px] text-zinc-400 block truncate">{subj}</span>
-                              <span className="font-bold text-white">{marks} M</span>
+                            <div key={subj} className="p-2 rounded-lg bg-card border text-center">
+                              <span className="text-[10px] text-muted-foreground block truncate">{subj}</span>
+                              <span className="font-bold text-foreground">{marks} M</span>
                             </div>
                           ))}
                         </div>
                       </div>
                     )}
 
-                    {/* Remarks & Solutions */}
+                    {/* Faculty Remarks */}
                     {result.remarks && (
-                      <div className="text-xs text-zinc-300 italic p-2.5 rounded-xl bg-white/[0.02]">
+                      <div className="text-xs text-muted-foreground italic p-2.5 rounded-xl bg-muted/30 border">
                         "{result.remarks}"
                       </div>
                     )}
 
+                    {/* Answer Key / Solutions Link */}
                     {exam.answerKeyUrl && (
                       <a
                         href={exam.answerKeyUrl}
                         target="_blank"
                         rel="noreferrer"
-                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-indigo-400 hover:text-indigo-300 pt-1"
+                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline pt-1"
                       >
-                        <FileText className="w-3.5 h-3.5" />
+                        <FileText className="h-3.5 w-3.5" />
                         <span>Download Official Answer Key &amp; Solutions PDF</span>
                       </a>
                     )}
-                  </div>
+                  </Card>
                 );
               })}
             </div>
@@ -488,39 +494,39 @@ export function PortalTestSeriesClient({ registeredSeries, availableSeries, stud
         <div className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {availableSeries.length === 0 ? (
-              <div className="col-span-3 py-12 text-center text-zinc-500 text-xs">
+              <div className="col-span-3 py-16 text-center text-muted-foreground text-xs">
                 You are currently enrolled in all active test series programs!
               </div>
             ) : (
               availableSeries.map((series) => (
-                <div
+                <Card
                   key={series.id}
-                  className="p-5 rounded-2xl bg-white/[0.03] border border-white/10 hover:border-indigo-500/40 transition-all flex flex-col justify-between space-y-4"
+                  className="rounded-2xl border bg-card/60 shadow-2xs hover:border-primary/50 transition-all flex flex-col justify-between p-5 space-y-4"
                 >
-                  <div className="space-y-2">
+                  <div className="space-y-2.5">
                     <div className="flex items-center justify-between">
-                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 uppercase">
+                      <Badge variant="outline" className="text-[10px] font-mono uppercase font-semibold">
                         {series.targetExam}
-                      </span>
-                      <span className="text-xs font-mono font-bold text-zinc-400">{series.code}</span>
+                      </Badge>
+                      <span className="text-xs font-mono font-semibold text-muted-foreground">{series.code}</span>
                     </div>
 
-                    <h3 className="text-base font-bold text-white leading-tight">{series.title}</h3>
-                    <p className="text-xs text-zinc-400">{series.description}</p>
+                    <h3 className="text-base font-bold text-foreground leading-snug">{series.title}</h3>
+                    <p className="text-xs text-muted-foreground line-clamp-2">{series.description}</p>
 
-                    <div className="p-3 rounded-xl bg-white/[0.02] border border-white/5 space-y-1 text-xs text-zinc-300">
+                    <div className="p-3 rounded-xl bg-muted/40 border space-y-1.5 text-xs">
                       <div className="flex justify-between">
-                        <span className="text-zinc-500">One-Time Fee:</span>
-                        <span className="font-bold text-emerald-400">
+                        <span className="text-muted-foreground">One-Time Fee:</span>
+                        <span className="font-bold text-emerald-600 dark:text-emerald-400">
                           ₹{series.fee.toLocaleString("en-IN")}
                         </span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-zinc-500">Total Mock Tests:</span>
-                        <span className="font-semibold text-white">{series.totalTests} Offline Tests</span>
+                        <span className="text-muted-foreground">Total Mock Tests:</span>
+                        <span className="font-semibold text-foreground">{series.totalTests} Offline Tests</span>
                       </div>
-                      <div className="flex items-center gap-1.5 pt-1 text-[11px] text-zinc-400">
-                        <MapPin className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                      <div className="flex items-center gap-1.5 pt-1 border-t text-[11px] text-muted-foreground">
+                        <MapPin className="h-3.5 w-3.5 text-amber-500 shrink-0" />
                         <span className="truncate">{series.testCenterVenue}</span>
                       </div>
                     </div>
@@ -529,12 +535,12 @@ export function PortalTestSeriesClient({ registeredSeries, availableSeries, stud
                   <Button
                     onClick={() => handleSelfEnroll(series.id)}
                     disabled={isPending}
-                    className="w-full h-10 text-xs font-bold rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white gap-2 shadow-lg shadow-indigo-600/20"
+                    className="w-full h-9 text-xs font-semibold rounded-xl bg-primary text-primary-foreground gap-2 shadow-xs hover:bg-primary/90"
                   >
-                    <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                    <Sparkles className="h-3.5 w-3.5 text-amber-400" />
                     <span>{isPending ? "Registering..." : `Register for ₹${series.fee}`}</span>
                   </Button>
-                </div>
+                </Card>
               ))
             )}
           </div>
@@ -543,55 +549,55 @@ export function PortalTestSeriesClient({ registeredSeries, availableSeries, stud
 
       {/* ── Admit Card & Roll Number Slip Modal ── */}
       {selectedAdmitSlip && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white text-zinc-900 rounded-3xl w-full max-w-md p-6 space-y-5 shadow-2xl animate-in zoom-in-95">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in">
+          <div className="bg-card text-card-foreground border rounded-3xl w-full max-w-md p-6 space-y-5 shadow-2xl animate-in zoom-in-95 text-xs">
             <div className="flex items-center justify-between border-b pb-3">
               <div>
-                <span className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider block">
+                <span className="text-[10px] font-bold text-primary uppercase tracking-wider block">
                   OFFICIAL ADMISSION &amp; ROLL NUMBER SLIP
                 </span>
-                <h3 className="text-base font-extrabold text-zinc-900">Offline Test Series Verification</h3>
+                <h3 className="text-base font-extrabold text-foreground">Offline Test Series Verification</h3>
               </div>
               <button
                 onClick={() => setSelectedAdmitSlip(null)}
-                className="text-zinc-500 hover:text-zinc-900"
+                className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted"
               >
-                <X className="w-5 h-5" />
+                <X className="h-5 w-5" />
               </button>
             </div>
 
-            <div className="p-4 rounded-2xl bg-zinc-50 border border-zinc-200 text-center space-y-1">
-              <span className="text-[11px] font-semibold text-zinc-500">EXAM HALL ROLL NUMBER</span>
-              <div className="text-2xl font-black text-indigo-700 tracking-wider">
+            <div className="p-4 rounded-2xl bg-primary/5 border border-primary/20 text-center space-y-1">
+              <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">EXAM HALL ROLL NUMBER</span>
+              <div className="text-2xl font-black text-primary tracking-widest font-mono">
                 {selectedAdmitSlip.rollNumber}
               </div>
-              <span className="text-[10px] text-zinc-400">Quote this Roll No on offline OMR Answer Sheets</span>
+              <span className="text-[10px] text-muted-foreground">Quote this Roll No on offline OMR Answer Sheets</span>
             </div>
 
-            <div className="space-y-2 text-xs border-y py-3">
+            <div className="space-y-2.5 text-xs border-y py-3.5">
               <div className="flex justify-between">
-                <span className="text-zinc-500">Candidate Name:</span>
-                <span className="font-bold text-zinc-900">{student?.name}</span>
+                <span className="text-muted-foreground">Candidate Name:</span>
+                <span className="font-bold text-foreground">{student?.name}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-zinc-500">Test Series:</span>
-                <span className="font-bold text-zinc-900 text-right max-w-[200px] truncate">
+                <span className="text-muted-foreground">Test Series:</span>
+                <span className="font-bold text-foreground text-right max-w-[200px] truncate">
                   {selectedAdmitSlip.testSeries?.title}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-zinc-500">Receipt Number:</span>
-                <span className="font-mono font-bold text-zinc-800">{selectedAdmitSlip.receiptNo}</span>
+                <span className="text-muted-foreground">Receipt Number:</span>
+                <span className="font-mono font-bold text-foreground">{selectedAdmitSlip.receiptNo}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-zinc-500">One-Time Fee Paid:</span>
-                <span className="font-bold text-emerald-600">
+                <span className="text-muted-foreground">One-Time Fee Paid:</span>
+                <span className="font-bold text-emerald-600 dark:text-emerald-400">
                   ₹{selectedAdmitSlip.feeAmount?.toLocaleString("en-IN")} ({selectedAdmitSlip.paymentMethod})
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-zinc-500">Center Venue:</span>
-                <span className="font-medium text-zinc-800 text-right max-w-[200px]">
+                <span className="text-muted-foreground">Center Venue:</span>
+                <span className="font-medium text-foreground text-right max-w-[200px]">
                   {selectedAdmitSlip.testSeries?.testCenterVenue}
                 </span>
               </div>
@@ -600,15 +606,15 @@ export function PortalTestSeriesClient({ registeredSeries, availableSeries, stud
             <div className="flex items-center gap-2">
               <Button
                 onClick={() => window.print()}
-                className="flex-1 h-10 text-xs font-bold rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white gap-2"
+                className="flex-1 h-9 text-xs font-semibold rounded-xl bg-primary text-primary-foreground gap-2"
               >
-                <Printer className="w-4 h-4" />
+                <Printer className="h-4 w-4" />
                 <span>Print Official Slip</span>
               </Button>
               <Button
                 onClick={() => setSelectedAdmitSlip(null)}
                 variant="outline"
-                className="h-10 text-xs rounded-xl"
+                className="h-9 text-xs rounded-xl"
               >
                 Close
               </Button>
@@ -619,4 +625,3 @@ export function PortalTestSeriesClient({ registeredSeries, availableSeries, stud
     </div>
   );
 }
-
