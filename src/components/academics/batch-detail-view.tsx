@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useRef, useMemo } from "react";
+import { useState, useTransition, useRef, useMemo, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { formatDate } from "@/lib/utils";
@@ -78,6 +78,13 @@ export function BatchDetailView({
   // Initial faculty IDs assigned to this batch
   const initialFacultyIds = (batch.teachers?.map((bt: any) => bt.teacherId || bt.teacher?.id).filter(Boolean) || []) as string[];
   const [selectedFacultyIds, setSelectedFacultyIds] = useState<string[]>(initialFacultyIds);
+
+  // Sync state if initialBatch prop updates from server revalidation
+  useEffect(() => {
+    setBatch(initialBatch);
+    const fIds = (initialBatch.teachers?.map((bt: any) => bt.teacherId || bt.teacher?.id).filter(Boolean) || []) as string[];
+    setSelectedFacultyIds(fIds);
+  }, [initialBatch]);
 
   // ── Upload Material Form & File State ──
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -175,9 +182,13 @@ export function BatchDetailView({
     e.preventDefault();
     startTransition(async () => {
       try {
-        await updateBatch(batch.id, {
+        const res = await updateBatch(batch.id, {
           teacherIds: selectedFacultyIds,
         });
+
+        if (res.success && res.batch) {
+          setBatch(res.batch);
+        }
 
         setFeedback({ type: "success", message: "Batch faculty updated successfully!" });
         setIsAssignFacultyModalOpen(false);

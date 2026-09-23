@@ -206,7 +206,7 @@ export async function assignTeacherSubjects(data: {
   return { success: true, specialization: specializationStr };
 }
 
-export async function getTeachers() {
+export async function getTeachers({ campusId: explicitCampusId }: { campusId?: string } = {}) {
   await requireAuth();
 
   // Auto-heal/sync: ensure any User with role 'TEACHER' has a corresponding Teacher record
@@ -221,31 +221,29 @@ export async function getTeachers() {
     });
 
     if (unlinkedTeacherUsers.length > 0) {
-      const institute = await db.institute.findFirst();
-      if (institute) {
-        for (const tu of unlinkedTeacherUsers) {
-          const teacherCount = await db.teacher.count();
-          const teacherId = `TCH-${String(teacherCount + 1).padStart(3, "0")}`;
-          await db.teacher.create({
-            data: {
-              instituteId: institute.id,
-              userId: tu.id,
-              teacherId,
-              name: tu.name,
-              email: tu.email,
-              phone: tu.phone || "0000000000",
-              status: "ACTIVE",
-            },
-          });
-        }
+      const defaultInstitute = await db.institute.findFirst();
+      for (const tu of unlinkedTeacherUsers) {
+        const teacherCount = await db.teacher.count();
+        const teacherId = `TCH-${String(teacherCount + 1).padStart(3, "0")}`;
+        await db.teacher.create({
+          data: {
+            instituteId: tu.instituteId || defaultInstitute?.id || "",
+            userId: tu.id,
+            teacherId,
+            name: tu.name,
+            email: tu.email,
+            phone: tu.phone || "0000000000",
+            status: "ACTIVE",
+          },
+        });
       }
     }
   } catch (syncErr) {
     console.error("Auto-syncing teachers warning:", syncErr);
   }
 
-  const campusId = await getActiveCampusId();
-  return await db.teacher.findMany({
+  const campusId = explicitCampusId || (await getActiveCampusId());
+  let teachers = await db.teacher.findMany({
     where: {
       status: "ACTIVE",
       ...(campusId ? { instituteId: campusId } : {}),
@@ -253,8 +251,25 @@ export async function getTeachers() {
     orderBy: { name: "asc" },
     include: {
       subjects: { include: { subject: true } },
+      batches: { include: { batch: true } },
     },
   });
+
+  // Fallback: If no teachers found under the specific branch, return all active institute faculty so batch assignment is never empty!
+  if (teachers.length === 0) {
+    teachers = await db.teacher.findMany({
+      where: {
+        status: "ACTIVE",
+      },
+      orderBy: { name: "asc" },
+      include: {
+        subjects: { include: { subject: true } },
+        batches: { include: { batch: true } },
+      },
+    });
+  }
+
+  return teachers;
 }
 
 // ==========================================
@@ -282,7 +297,17 @@ export async function getBatches({
           },
         },
       },
-      teachers: { include: { teacher: true } },
+      teachers: {
+        include: {
+          teacher: {
+            include: {
+              subjects: {
+                include: { subject: true },
+              },
+            },
+          },
+        },
+      },
       timetableSlots: {
         include: { subject: true, teacher: true },
         orderBy: [{ dayOfWeek: "asc" }, { startTime: "asc" }],
@@ -507,6 +532,27 @@ export async function createBatch(data: {
     }
   }
 
+  const fullBatch = await db.batch.findUnique({
+    where: { id: batch.id },
+    include: {
+      course: true,
+      teachers: {
+        include: {
+          teacher: {
+            include: {
+              subjects: { include: { subject: true } },
+            },
+          },
+        },
+      },
+      _count: {
+        select: {
+          enrollments: { where: { status: "ACTIVE" } },
+        },
+      },
+    },
+  });
+
   await logAudit({
     action: "BATCH_CREATED",
     entity: "Batch",
@@ -518,7 +564,7 @@ export async function createBatch(data: {
   revalidatePath("/dashboard/batches");
   revalidatePath("/timetable");
   revalidatePath("/dashboard");
-  return { success: true, batch };
+  return { success: true, batch: fullBatch || batch };
 }
 
 export async function updateBatch(
@@ -549,20 +595,6 @@ export async function updateBatch(
   if (data.room !== undefined) updateData.room = data.room.trim();
   if (data.status !== undefined) updateData.status = data.status;
 
-  const updatedBatch = await db.batch.update({
-    where: { id },
-    data: updateData,
-    include: {
-      course: true,
-      teachers: { include: { teacher: true } },
-      _count: {
-        select: {
-          enrollments: { where: { status: "ACTIVE" } },
-        },
-      },
-    },
-  });
-
   if (data.teacherIds !== undefined) {
     await db.teacherBatch.deleteMany({ where: { batchId: id } });
     if (data.teacherIds.length > 0) {
@@ -574,6 +606,28 @@ export async function updateBatch(
     }
   }
 
+  const updatedBatch = await db.batch.update({
+    where: { id },
+    data: updateData,
+    include: {
+      course: true,
+      teachers: {
+        include: {
+          teacher: {
+            include: {
+              subjects: { include: { subject: true } },
+            },
+          },
+        },
+      },
+      _count: {
+        select: {
+          enrollments: { where: { status: "ACTIVE" } },
+        },
+      },
+    },
+  });
+
   await logAudit({
     action: "BATCH_UPDATED",
     entity: "Batch",
@@ -583,6 +637,8 @@ export async function updateBatch(
 
   revalidatePath("/batches");
   revalidatePath("/dashboard/batches");
+  revalidatePath(`/dashboard/batches/${id}`);
+  revalidatePath(`/batches/${id}`);
   revalidatePath("/timetable");
   revalidatePath("/dashboard");
 

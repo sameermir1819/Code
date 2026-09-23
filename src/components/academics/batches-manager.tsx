@@ -3,6 +3,7 @@
 import { useState, useTransition, useMemo, useEffect } from "react";
 import {
   getBatches,
+  getTeachers,
   createBatch,
   updateBatch,
   deleteBatch,
@@ -62,17 +63,22 @@ export function BatchesManager({
   const [teacherList, setTeacherList] = useState(teachers);
   const [isPending, startTransition] = useTransition();
 
-  // Sync state when initialBatches prop changes
+  // Sync state when initialBatches or teachers prop changes
   useEffect(() => {
     setBatches(initialBatches);
   }, [initialBatches]);
+
+  useEffect(() => {
+    if (teachers) setTeacherList(teachers);
+  }, [teachers]);
 
   // Reactive auto-refresh when campus or data changes globally
   useEffect(() => {
     const handleReactiveRefresh = async () => {
       try {
-        const fresh = await getBatches();
+        const [fresh, freshTeachers] = await Promise.all([getBatches(), getTeachers()]);
         setBatches(fresh);
+        if (freshTeachers) setTeacherList(freshTeachers);
       } catch (err) {
         console.error("Failed to auto-refresh batches:", err);
       }
