@@ -64,8 +64,14 @@ export default async function ApplyPage() {
       </main>
 
       {/* Footer Branding */}
-      <footer className="mt-16 text-center text-xs text-zinc-500 space-y-1">
+      <footer className="mt-16 text-center text-xs text-zinc-500 space-y-1.5 pb-8">
         <p>© {new Date().getFullYear()} {institute?.name || "Futurex Learning"}. All Rights Reserved.</p>
+        <div className="flex items-center justify-center gap-1.5 text-xs text-zinc-400">
+          <span>Made with love by</span>
+          <span className="font-bold text-white bg-white/10 px-2 py-0.5 rounded-md border border-white/10 text-[11px]">
+            Mr. Sameer ❤️
+          </span>
+        </div>
         <p className="text-[11px] text-zinc-600">
           Official Admissions Portal &amp; Telecalling CRM Engine
         </p>

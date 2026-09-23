@@ -327,8 +327,16 @@ export function LoginForm({
         </div>
 
         {/* Bottom copyright notice */}
-        <div className="text-center text-[10px] text-zinc-600 pt-2">
-          <span>&copy; {new Date().getFullYear()} {instituteName}. All rights reserved.</span>
+        <div className="text-center text-[11px] text-zinc-500 pt-2 space-y-1">
+          <div>
+            <span>&copy; {new Date().getFullYear()} {instituteName}. All rights reserved.</span>
+          </div>
+          <div className="flex items-center justify-center gap-1.5 text-[11px] text-zinc-400">
+            <span>Made with love by</span>
+            <span className="font-bold text-white bg-white/10 px-2 py-0.5 rounded-md border border-white/10 text-[10px]">
+              Mr. Sameer ❤️
+            </span>
+          </div>
         </div>
       </div>
     </div>
