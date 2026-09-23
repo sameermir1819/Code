@@ -4,6 +4,7 @@ import { getSession } from "@/lib/auth";
 import { BatchDetailView } from "@/components/academics/batch-detail-view";
 
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 interface BatchPageProps {
   params: { id: string };

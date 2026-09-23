@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { formatDate } from "@/lib/utils";
 import {
   updateBatch,
+  getTeachers,
   createTimetableSlot,
   deleteTimetableSlot,
 } from "@/server/actions/academics";
@@ -78,6 +79,41 @@ export function BatchDetailView({
   // Initial faculty IDs assigned to this batch
   const initialFacultyIds = (batch.teachers?.map((bt: any) => bt.teacherId || bt.teacher?.id).filter(Boolean) || []) as string[];
   const [selectedFacultyIds, setSelectedFacultyIds] = useState<string[]>(initialFacultyIds);
+
+  // Faculty List state with client-side live fetch fallback
+  const [teacherList, setTeacherList] = useState<any[]>(allTeachers || []);
+
+  useEffect(() => {
+    if (allTeachers && allTeachers.length > 0) {
+      setTeacherList(allTeachers);
+    }
+  }, [allTeachers]);
+
+  useEffect(() => {
+    const loadFreshTeachers = async () => {
+      try {
+        const fresh = await getTeachers();
+        if (fresh && fresh.length > 0) {
+          setTeacherList(fresh);
+        }
+      } catch (err) {
+        console.error("Failed to load teachers in BatchDetailView:", err);
+      }
+    };
+    if (!teacherList || teacherList.length === 0) {
+      loadFreshTeachers();
+    }
+  }, []);
+
+  const openAssignModal = async () => {
+    try {
+      const fresh = await getTeachers();
+      if (fresh && fresh.length > 0) {
+        setTeacherList(fresh);
+      }
+    } catch {}
+    setIsAssignFacultyModalOpen(true);
+  };
 
   // Sync state if initialBatch prop updates from server revalidation
   useEffect(() => {
@@ -432,7 +468,7 @@ export function BatchDetailView({
 
             {activeTab === "subjects" && (
               <Button
-                onClick={() => setIsAssignFacultyModalOpen(true)}
+                onClick={openAssignModal}
                 className="gap-2 text-xs font-semibold h-10 shadow-xs cursor-pointer"
               >
                 <Plus className="h-4 w-4" />
@@ -595,7 +631,7 @@ export function BatchDetailView({
               <p className="text-xs text-muted-foreground">Faculty members assigned to this batch with their respective subject specializations</p>
             </div>
             <Button
-              onClick={() => setIsAssignFacultyModalOpen(true)}
+              onClick={openAssignModal}
               size="sm"
               className="gap-1.5 text-xs font-semibold shadow-xs cursor-pointer"
             >
@@ -612,7 +648,7 @@ export function BatchDetailView({
                 Assign teaching faculty to this batch. Faculty will appear along with the subjects they teach.
               </p>
               <Button
-                onClick={() => setIsAssignFacultyModalOpen(true)}
+                onClick={openAssignModal}
                 size="sm"
                 className="mt-4 gap-2 text-xs font-semibold cursor-pointer"
               >
@@ -710,7 +746,7 @@ export function BatchDetailView({
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => setIsAssignFacultyModalOpen(true)}
+                          onClick={openAssignModal}
                           className="h-7 text-[11px] text-muted-foreground hover:text-foreground gap-1 px-2 cursor-pointer"
                         >
                           <span>Manage</span>
@@ -1078,10 +1114,10 @@ export function BatchDetailView({
 
             <form onSubmit={handleSaveBatchFaculty} className="space-y-4 text-xs">
               <div className="max-h-72 overflow-y-auto space-y-2 pr-1 divide-y divide-border/40">
-                {allTeachers.length === 0 ? (
+                {teacherList.length === 0 ? (
                   <p className="text-muted-foreground text-center py-4">No active faculty found in the institute.</p>
                 ) : (
-                  allTeachers.map((teacher: any) => {
+                  teacherList.map((teacher: any) => {
                     const isSelected = selectedFacultyIds.includes(teacher.id);
                     const teacherSubjects = teacher.subjects?.map((ts: any) => ts.subject?.name).filter(Boolean) || [];
 
