@@ -415,3 +415,101 @@ export async function getLeadsMetrics() {
     conversionRate,
   };
 }
+
+// =========================================================================
+// 8. PUBLIC ADMISSIONS: GET COURSES & SUBMIT ONLINE ENQUIRY (NO AUTH REQUIRED)
+// =========================================================================
+export async function getPublicAdmissionData() {
+  const [institute, courses] = await Promise.all([
+    db.institute.findFirst({
+      select: {
+        id: true,
+        name: true,
+        phone: true,
+        email: true,
+        city: true,
+        logoUrl: true,
+      },
+    }),
+    db.course.findMany({
+      where: { status: "ACTIVE" },
+      select: {
+        id: true,
+        name: true,
+        code: true,
+        gradeClass: true,
+        duration: true,
+        standardFee: true,
+      },
+      orderBy: { name: "asc" },
+    }),
+  ]);
+
+  return { institute, courses };
+}
+
+export async function submitPublicAdmissionEnquiry(data: {
+  name: string;
+  phone: string;
+  email?: string;
+  parentName?: string;
+  parentPhone?: string;
+  courseInterest: string;
+  currentClass?: string;
+  currentSchool?: string;
+  city?: string;
+  notes?: string;
+}) {
+  if (!data.name || !data.name.trim()) {
+    return { success: false, error: "Please enter your full name." };
+  }
+  if (!data.phone || !data.phone.trim()) {
+    return { success: false, error: "Please enter a valid mobile number." };
+  }
+
+  const cleanPhone = data.phone.trim().replace(/[^\d+]/g, "");
+  if (cleanPhone.length < 10) {
+    return { success: false, error: "Please enter a valid 10-digit mobile number." };
+  }
+
+  const defaultInstitute = await db.institute.findFirst({ select: { id: true } });
+
+  const lead = await db.lead.create({
+    data: {
+      instituteId: defaultInstitute?.id || null,
+      name: data.name.trim(),
+      phone: cleanPhone,
+      email: data.email?.trim().toLowerCase() || null,
+      parentName: data.parentName?.trim() || null,
+      parentPhone: data.parentPhone?.trim() || null,
+      courseInterest: data.courseInterest?.trim() || "General Admission Inquiry",
+      currentClass: data.currentClass?.trim() || null,
+      currentSchool: data.currentSchool?.trim() || null,
+      source: "WEBSITE",
+      status: "NEW",
+      priority: "HOT", // Online website applications are high-intent leads
+      notes: data.notes?.trim() || (data.city ? `City/Area: ${data.city}` : null),
+    },
+  });
+
+  // Automatically record initial follow-up interaction
+  await db.leadFollowUp.create({
+    data: {
+      leadId: lead.id,
+      status: "COMPLETED",
+      contactMethod: "WEBSITE",
+      notes: `Online Admission Application received via Website portal for ${data.courseInterest || "General"}.${data.city ? ` City: ${data.city}.` : ""}${data.notes ? ` Notes: ${data.notes}` : ""}`,
+      counselorName: "Online Admission Desk",
+    },
+  });
+
+  revalidatePath("/leads");
+
+  return {
+    success: true,
+    leadId: lead.id,
+    name: lead.name,
+    phone: lead.phone,
+    course: lead.courseInterest,
+  };
+}

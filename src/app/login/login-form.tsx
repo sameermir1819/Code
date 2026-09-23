@@ -336,10 +336,25 @@ export function LoginForm({
               </div>
               <div className="inline-flex items-center gap-1 text-zinc-500">
                 <ShieldCheck className="h-3 w-3 text-emerald-400" />
-                <span>Authorized Staff Only</span>
+                <span>Authorized Access</span>
               </div>
             </div>
           </div>
+        </div>
+
+        {/* New Admissions Inquiry Callout */}
+        <div className="p-3.5 rounded-2xl bg-gradient-to-r from-indigo-950/40 via-purple-950/30 to-blue-950/40 border border-indigo-500/20 text-center flex items-center justify-between gap-3">
+          <div className="text-left">
+            <span className="text-xs font-bold text-white block">New Admission 2026-2027?</span>
+            <span className="text-[11px] text-zinc-400 block">Reserve seat &amp; get free counseling</span>
+          </div>
+          <Link
+            href="/apply"
+            className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shrink-0 shadow-md shadow-indigo-600/30 transition-all flex items-center gap-1"
+          >
+            <span>Apply Online</span>
+            <ArrowRight className="w-3 h-3" />
+          </Link>
         </div>
 
         {/* Bottom copyright notice */}
