@@ -134,8 +134,15 @@ export function StudentPortalLanding({
           </div>
         </div>
 
-        {/* Header Action Buttons: Apply for Admission & Staff Login */}
-        <div className="flex items-center gap-2.5">
+        {/* Header Action Buttons: Home, Apply for Admission & Staff Login */}
+        <div className="flex items-center gap-2 sm:gap-2.5">
+          <Link
+            href="/"
+            className="text-xs text-zinc-400 hover:text-white px-2.5 py-1.5 rounded-xl hover:bg-white/5 transition-all font-medium"
+          >
+            ← Home
+          </Link>
+
           <Link
             href="/apply"
             className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold text-xs shadow-md shadow-indigo-600/25 transition-all active:scale-[0.98]"
