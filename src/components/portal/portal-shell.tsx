@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import Link from "next/navigation";
+import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { InstituteLogo } from "@/components/ui/institute-logo";
 import { logoutUser } from "@/server/actions/auth";
@@ -21,6 +21,10 @@ import {
   ShieldCheck,
   ChevronRight,
   ExternalLink,
+  Plus,
+  Clock,
+  Compass,
+  GraduationCap,
 } from "lucide-react";
 
 interface StudentInfo {
@@ -52,6 +56,66 @@ const NAV_ITEMS = [
   { href: "/portal/profile", label: "My Profile", icon: User },
 ];
 
+// Quick Action Sheet items for mobile speed-dial
+const QUICK_ACTIONS = [
+  {
+    href: "/portal",
+    label: "Timetable & Batches",
+    sub: "View classes & lectures",
+    icon: Clock,
+    color: "bg-indigo-500 text-white",
+  },
+  {
+    href: "/portal/materials",
+    label: "Study Materials",
+    sub: "Notes, PDFs & Books",
+    icon: BookOpen,
+    color: "bg-purple-500 text-white",
+  },
+  {
+    href: "/portal/id-card",
+    label: "Digital ID Card",
+    sub: "High-DPI PVC card",
+    icon: QrCode,
+    color: "bg-pink-500 text-white",
+  },
+  {
+    href: "/portal/attendance",
+    label: "Attendance Feed",
+    sub: "Daily logs & stats",
+    icon: CalendarCheck2,
+    color: "bg-emerald-500 text-white",
+  },
+  {
+    href: "/portal/test-series",
+    label: "Offline Test Series",
+    sub: "OMR marks & rank",
+    icon: Layers,
+    color: "bg-sky-500 text-white",
+  },
+  {
+    href: "/portal/results",
+    label: "Exams & Results",
+    sub: "Scorecards & reports",
+    icon: Award,
+    color: "bg-amber-500 text-white",
+  },
+  {
+    href: "/portal/fees",
+    label: "Fees & Receipts",
+    sub: "Installments & ledger",
+    icon: Receipt,
+    color: "bg-teal-500 text-white",
+  },
+  {
+    href: "/portal/profile",
+    label: "Apple ID Profile",
+    sub: "Account & security",
+    icon: User,
+    color: "bg-blue-600 text-white",
+  },
+];
+
 export function PortalShell({
   student,
   instituteName,
@@ -62,6 +126,7 @@ export function PortalShell({
   const pathname = usePathname();
   const router = useRouter();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [quickSheetOpen, setQuickSheetOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
 
   const handleLogout = async () => {
@@ -70,6 +135,8 @@ export function PortalShell({
     router.push("/login");
     router.refresh();
   };
+
+  const studentInitial = student?.name ? student.name[0].toUpperCase() : "S";
 
   return (
     <div className="min-h-screen bg-[#07090e] text-zinc-100 flex flex-col font-sans selection:bg-indigo-500/25 selection:text-white">
@@ -97,24 +164,24 @@ export function PortalShell({
       <header className="sticky top-0 z-40 w-full border-b border-white/[0.08] bg-[#070a12]/90 backdrop-blur-xl">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           {/* Left: Brand */}
-          <div className="flex items-center gap-3">
-            <div className="p-1 rounded-xl bg-white/[0.04] border border-white/10">
+          <Link href="/portal" className="flex items-center gap-3 group">
+            <div className="p-1 rounded-xl bg-white/[0.04] border border-white/10 group-hover:border-indigo-500/40 transition-colors">
               <InstituteLogo logoUrl={instituteLogoUrl} name={instituteName} size={34} />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="font-bold text-sm tracking-wide text-white uppercase truncate max-w-[180px] sm:max-w-xs">
+                <span className="font-bold text-sm tracking-wide text-white uppercase truncate max-w-[170px] sm:max-w-xs">
                   {instituteName}
                 </span>
                 <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 shrink-0">
-                  STUDENT PORTAL
+                  PORTAL
                 </span>
               </div>
               <p className="text-[11px] text-zinc-500 hidden sm:block">
-                Academic &amp; Examination Workspace
+                Academic &amp; Student Workspace
               </p>
             </div>
-          </div>
+          </Link>
 
           {/* Center / Right: Desktop Links */}
           <nav className="hidden lg:flex items-center gap-1">
@@ -126,7 +193,7 @@ export function PortalShell({
                   : pathname.startsWith(item.href);
 
               return (
-                <a
+                <Link
                   key={item.href}
                   href={item.href}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
@@ -137,21 +204,29 @@ export function PortalShell({
                 >
                   <Icon className="w-3.5 h-3.5" />
                   <span>{item.label}</span>
-                </a>
+                </Link>
               );
             })}
           </nav>
 
           {/* Right: Student Profile & Logout */}
           <div className="hidden sm:flex items-center gap-3">
-            <div className="text-right">
-              <span className="text-xs font-bold text-white block leading-tight truncate max-w-[140px]">
-                {student?.name || "Student"}
-              </span>
-              <span className="text-[10px] font-mono text-zinc-400 block">
-                {student?.studentId || "ID: Pending"}
-              </span>
-            </div>
+            <Link
+              href="/portal/profile"
+              className="flex items-center gap-2.5 p-1.5 pr-2.5 rounded-2xl bg-white/[0.03] hover:bg-white/[0.06] border border-white/10 transition-colors"
+            >
+              <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-600 to-purple-600 flex items-center justify-center text-white text-xs font-bold shadow-sm">
+                {studentInitial}
+              </div>
+              <div className="text-left">
+                <span className="text-xs font-bold text-white block leading-tight truncate max-w-[120px]">
+                  {student?.name || "Student"}
+                </span>
+                <span className="text-[10px] font-mono text-zinc-400 block">
+                  {student?.studentId || "ID: Pending"}
+                </span>
+              </div>
+            </Link>
 
             <button
               onClick={handleLogout}
@@ -163,8 +238,15 @@ export function PortalShell({
             </button>
           </div>
 
-          {/* Mobile Hamburger Button */}
+          {/* Mobile Right: Profile Avatar & Quick Action trigger */}
           <div className="flex items-center gap-2 lg:hidden">
+            <Link
+              href="/portal/profile"
+              className="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-600 to-purple-600 flex items-center justify-center text-white text-xs font-bold shadow-md shadow-indigo-600/30 border border-white/10"
+              title="My Profile"
+            >
+              {studentInitial}
+            </Link>
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               className="p-2 rounded-xl text-zinc-300 hover:text-white hover:bg-white/10 border border-white/10 transition-colors"
@@ -175,10 +257,10 @@ export function PortalShell({
           </div>
         </div>
 
-        {/* Mobile Dropdown Menu */}
+        {/* Mobile Dropdown Menu (Secondary backup) */}
         {mobileMenuOpen && (
           <div className="lg:hidden border-t border-white/10 bg-[#090e18] px-4 py-4 space-y-2 animate-in slide-in-from-top duration-200">
-            <div className="p-3 rounded-xl bg-white/[0.04] border border-white/10 flex items-center justify-between mb-3">
+            <div className="p-3 rounded-2xl bg-white/[0.04] border border-white/10 flex items-center justify-between mb-3">
               <div>
                 <span className="text-xs font-bold text-white block">
                   {student?.name || "Student"}
@@ -189,7 +271,7 @@ export function PortalShell({
               </div>
               <button
                 onClick={handleLogout}
-                className="px-3 py-1.5 rounded-lg text-xs font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30 flex items-center gap-1.5"
+                className="px-3 py-1.5 rounded-xl text-xs font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30 flex items-center gap-1.5"
               >
                 <LogOut className="w-3.5 h-3.5" />
                 <span>Logout</span>
@@ -205,13 +287,13 @@ export function PortalShell({
                     : pathname.startsWith(item.href);
 
                 return (
-                  <a
+                  <Link
                     key={item.href}
                     href={item.href}
                     onClick={() => setMobileMenuOpen(false)}
                     className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
                       isActive
-                        ? "bg-primary text-white"
+                        ? "bg-indigo-600 text-white font-bold"
                         : "text-zinc-300 hover:text-white hover:bg-white/5"
                     }`}
                   >
@@ -220,7 +302,7 @@ export function PortalShell({
                       <span>{item.label}</span>
                     </div>
                     <ChevronRight className="w-3.5 h-3.5 opacity-50" />
-                  </a>
+                  </Link>
                 );
               })}
             </div>
@@ -228,13 +310,168 @@ export function PortalShell({
         )}
       </header>
 
-      {/* Main Content Area */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
+      {/* Main Content Area (Extra bottom padding on mobile for floating dock) */}
+      <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-6 pb-28 lg:pb-8">
         {children}
       </main>
 
+      {/* ── MOBILE FLOATING BOTTOM DOCK (iOS Style Island) ── */}
+      <nav
+        aria-label="Mobile Navigation Dock"
+        className="fixed bottom-3 inset-x-3 sm:inset-x-6 max-w-md mx-auto z-40 lg:hidden"
+      >
+        <div className="relative rounded-full bg-[#0a0f1d]/90 backdrop-blur-2xl border border-white/15 px-3 py-1.5 shadow-2xl shadow-black/80 flex items-center justify-between">
+          {/* Home */}
+          <Link
+            href="/portal"
+            className={`flex flex-col items-center justify-center p-2 rounded-2xl transition-all ${
+              pathname === "/portal"
+                ? "text-indigo-400 font-bold"
+                : "text-zinc-400 hover:text-white"
+            }`}
+          >
+            <LayoutDashboard className="w-5 h-5" />
+            <span className="text-[10px] mt-0.5 tracking-tight font-medium">Home</span>
+          </Link>
+
+          {/* Attendance */}
+          <Link
+            href="/portal/attendance"
+            className={`flex flex-col items-center justify-center p-2 rounded-2xl transition-all ${
+              pathname.startsWith("/portal/attendance")
+                ? "text-indigo-400 font-bold"
+                : "text-zinc-400 hover:text-white"
+            }`}
+          >
+            <CalendarCheck2 className="w-5 h-5" />
+            <span className="text-[10px] mt-0.5 tracking-tight font-medium">Attendance</span>
+          </Link>
+
+          {/* ⚡ CENTER FLOATING SPEED DIAL ACTION BUTTON */}
+          <div className="relative -top-3">
+            <button
+              onClick={() => setQuickSheetOpen(true)}
+              className="w-13 h-13 rounded-full bg-gradient-to-tr from-indigo-600 via-indigo-500 to-purple-500 text-white flex items-center justify-center shadow-lg shadow-indigo-600/50 border-2 border-[#07090e] active:scale-95 transition-transform"
+              title="Open Quick Launchpad"
+              aria-label="Quick Action Menu"
+            >
+              <Plus className="w-6 h-6 transform transition-transform duration-200" />
+            </button>
+          </div>
+
+          {/* Study Notes */}
+          <Link
+            href="/portal/materials"
+            className={`flex flex-col items-center justify-center p-2 rounded-2xl transition-all ${
+              pathname.startsWith("/portal/materials")
+                ? "text-indigo-400 font-bold"
+                : "text-zinc-400 hover:text-white"
+            }`}
+          >
+            <BookOpen className="w-5 h-5" />
+            <span className="text-[10px] mt-0.5 tracking-tight font-medium">Notes</span>
+          </Link>
+
+          {/* iPhone Profile */}
+          <Link
+            href="/portal/profile"
+            className={`flex flex-col items-center justify-center p-2 rounded-2xl transition-all ${
+              pathname.startsWith("/portal/profile")
+                ? "text-indigo-400 font-bold"
+                : "text-zinc-400 hover:text-white"
+            }`}
+          >
+            <User className="w-5 h-5" />
+            <span className="text-[10px] mt-0.5 tracking-tight font-medium">Profile</span>
+          </Link>
+        </div>
+      </nav>
+
+      {/* ── iOS QUICK ACTION SHEET MODAL (Speed Dial) ── */}
+      {quickSheetOpen && (
+        <div className="fixed inset-0 z-50 lg:hidden flex flex-col justify-end">
+          {/* Backdrop blur */}
+          <div
+            onClick={() => setQuickSheetOpen(false)}
+            className="fixed inset-0 bg-black/70 backdrop-blur-md transition-opacity"
+          />
+
+          {/* Bottom Sheet Card */}
+          <div className="relative z-10 w-full max-w-lg mx-auto bg-[#0d1220] border-t border-white/15 rounded-t-3xl p-5 pb-8 space-y-4 shadow-2xl animate-in slide-in-from-bottom duration-200 max-h-[85vh] overflow-y-auto">
+            {/* iOS Drag Handle Bar */}
+            <div className="w-12 h-1.5 rounded-full bg-white/20 mx-auto" />
+
+            {/* Header */}
+            <div className="flex items-center justify-between pt-1">
+              <div>
+                <h3 className="text-base font-bold text-white tracking-tight">
+                  Student Action Hub
+                </h3>
+                <p className="text-[11px] text-zinc-400">
+                  Instant mobile access to all academic services
+                </p>
+              </div>
+              <button
+                onClick={() => setQuickSheetOpen(false)}
+                className="p-1.5 rounded-full bg-white/10 hover:bg-white/15 text-zinc-300 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* 8 iOS Squircle App Shortcuts */}
+            <div className="grid grid-cols-2 gap-2.5 pt-1">
+              {QUICK_ACTIONS.map((action) => {
+                const Icon = action.icon;
+                const isCurrent =
+                  action.href === "/portal"
+                    ? pathname === "/portal"
+                    : pathname.startsWith(action.href);
+
+                return (
+                  <Link
+                    key={action.href}
+                    href={action.href}
+                    onClick={() => setQuickSheetOpen(false)}
+                    className={`p-3.5 rounded-2xl border transition-all flex items-start gap-3 text-left ${
+                      isCurrent
+                        ? "bg-indigo-950/40 border-indigo-500/40"
+                        : "bg-white/[0.03] border-white/10 hover:bg-white/[0.06] hover:border-white/20"
+                    }`}
+                  >
+                    <div
+                      className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 shadow-sm ${action.color}`}
+                    >
+                      <Icon className="w-4 h-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <span className="text-xs font-bold text-white block leading-snug truncate">
+                        {action.label}
+                      </span>
+                      <span className="text-[10px] text-zinc-400 block truncate">
+                        {action.sub}
+                      </span>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+
+            {/* Bottom Dismiss Button */}
+            <div className="pt-2">
+              <button
+                onClick={() => setQuickSheetOpen(false)}
+                className="w-full py-3 rounded-2xl bg-white/[0.06] hover:bg-white/[0.1] text-zinc-200 text-xs font-bold transition-all border border-white/10"
+              >
+                Close Menu
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Bottom Footer */}
-      <footer className="border-t border-white/10 py-6 text-center text-xs text-zinc-500">
+      <footer className="border-t border-white/10 py-6 text-center text-xs text-zinc-500 hidden lg:block">
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
           <span>
             &copy; {new Date().getFullYear()} {instituteName}. Authorized Student Portal.
@@ -248,4 +485,3 @@ export function PortalShell({
     </div>
   );
 }
-

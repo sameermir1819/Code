@@ -718,3 +718,4 @@ function SlotCard({ slot }: { slot: TimetableSlot }) {
     </div>
   );
 }
+

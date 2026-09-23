@@ -38,7 +38,21 @@ export default async function StudentProfilePage() {
         city: student.city,
         emergencyContact: student.emergencyContact,
         gradeClass: student.gradeClass,
+        photoUrl: student.photoUrl,
+        status: student.status,
+        admissionDate: student.admissionDate,
         parent: student.parent,
+        institute: student.institute
+          ? {
+              name: student.institute.name,
+              code: student.institute.code,
+            }
+          : null,
+        session: student.session
+          ? {
+              name: student.session.name,
+            }
+          : null,
       }}
     />
   );

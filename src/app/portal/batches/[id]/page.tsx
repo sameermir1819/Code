@@ -41,3 +41,4 @@ export default async function StudentBatchDetailPage({ params }: BatchPageProps)
 
   return <PortalBatchDetail batch={res.data.batch as any} />;
 }
+

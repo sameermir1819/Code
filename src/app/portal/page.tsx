@@ -106,6 +106,52 @@ export default async function StudentPortalPage() {
         </div>
       </div>
 
+      {/* ── Mobile Phone Quick-Action Bar (Scrollable on phones) ── */}
+      <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1 sm:hidden">
+        <Link
+          href="#batches"
+          className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-indigo-500/15 text-indigo-300 border border-indigo-500/30 text-xs font-bold shrink-0"
+        >
+          <Clock className="w-3.5 h-3.5 text-indigo-400" />
+          <span>📅 Classes</span>
+        </Link>
+        <Link
+          href="/portal/materials"
+          className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-purple-500/15 text-purple-300 border border-purple-500/30 text-xs font-bold shrink-0"
+        >
+          <BookOpen className="w-3.5 h-3.5 text-purple-400" />
+          <span>📚 Study Notes</span>
+        </Link>
+        <Link
+          href="/portal/id-card"
+          className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-pink-500/15 text-pink-300 border border-pink-500/30 text-xs font-bold shrink-0"
+        >
+          <QrCode className="w-3.5 h-3.5 text-pink-400" />
+          <span>🪪 ID Card</span>
+        </Link>
+        <Link
+          href="/portal/attendance"
+          className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-blue-500/15 text-blue-300 border border-blue-500/30 text-xs font-bold shrink-0"
+        >
+          <CalendarCheck2 className="w-3.5 h-3.5 text-blue-400" />
+          <span>📊 Attendance</span>
+        </Link>
+        <Link
+          href="/portal/fees"
+          className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 text-xs font-bold shrink-0"
+        >
+          <Receipt className="w-3.5 h-3.5 text-emerald-400" />
+          <span>💳 Fees</span>
+        </Link>
+        <Link
+          href="/portal/results"
+          className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-amber-500/15 text-amber-300 border border-amber-500/30 text-xs font-bold shrink-0"
+        >
+          <Award className="w-3.5 h-3.5 text-amber-400" />
+          <span>🏆 Results</span>
+        </Link>
+      </div>
+
       {/* ── KPI Stat Cards ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Attendance */}
@@ -223,7 +269,7 @@ export default async function StudentPortalPage() {
         {/* Left Column (2 Cols wide): Classes, Attendance Trail & Results */}
         <div className="lg:col-span-2 space-y-6">
           {/* Active Enrolled Batches */}
-          <div className="p-6 rounded-2xl bg-white/[0.03] border border-white/10 space-y-4">
+          <div id="batches" className="p-6 rounded-2xl bg-white/[0.03] border border-white/10 space-y-4 scroll-mt-20">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <GraduationCap className="w-5 h-5 text-primary" />
