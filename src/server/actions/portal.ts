@@ -105,6 +105,12 @@ export async function getStudentPortalOverview() {
           teachers: {
             include: { teacher: true },
           },
+          _count: {
+            select: {
+              timetableSlots: true,
+              studyMaterials: true,
+            },
+          },
         },
       },
       course: true,
@@ -408,3 +414,131 @@ export async function updateStudentPassword(formData: {
   revalidatePath("/portal/profile");
   return { success: true };
 }
+
+/**
+ * Returns full batch details for an enrolled student (or admin preview),
+ * including weekly timetable schedule, assigned faculty, and study materials.
+ */
+export async function getStudentBatchDetails(batchId: string) {
+  const { student, session } = await resolveCurrentStudent();
+
+  if (!student) {
+    return {
+      success: false,
+      error: "No student profile linked to your account. Please contact campus administration.",
+      data: null,
+      isPreview: false,
+    };
+  }
+
+  const isPreview = session.role === "SUPER_ADMIN" || session.role === "ADMIN";
+
+  // Check enrollment unless staff preview
+  if (!isPreview) {
+    const isEnrolled = await db.enrollment.findFirst({
+      where: {
+        studentId: student.id,
+        batchId: batchId,
+      },
+    });
+
+    if (!isEnrolled) {
+      return {
+        success: false,
+        error: "You are not enrolled in this batch.",
+        data: null,
+        isPreview: false,
+      };
+    }
+  }
+
+  const batch = await db.batch.findUnique({
+    where: { id: batchId },
+    include: {
+      course: {
+        include: {
+          subjects: {
+            include: { subject: true },
+          },
+        },
+      },
+      teachers: {
+        include: {
+          teacher: {
+            include: {
+              subjects: {
+                include: { subject: true },
+              },
+            },
+          },
+        },
+      },
+      timetableSlots: {
+        include: {
+          subject: true,
+          teacher: true,
+        },
+        orderBy: [
+          { dayOfWeek: "asc" },
+          { startTime: "asc" },
+        ],
+      },
+      studyMaterials: {
+        include: {
+          subject: true,
+          uploadedBy: true,
+        },
+        orderBy: { createdAt: "desc" },
+      },
+      session: true,
+      _count: {
+        select: {
+          enrollments: true,
+          timetableSlots: true,
+          studyMaterials: true,
+        },
+      },
+    },
+  });
+
+  if (!batch) {
+    return {
+      success: false,
+      error: "Batch not found or no longer active.",
+      data: null,
+      isPreview,
+    };
+  }
+
+  // Also include course-wide study materials for this batch's course
+  const courseMaterials = await db.studyMaterial.findMany({
+    where: {
+      courseId: batch.courseId,
+      batchId: null,
+    },
+    include: {
+      subject: true,
+      uploadedBy: true,
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  // Combine materials, prioritizing batch-specific ones
+  const allMaterials = [
+    ...batch.studyMaterials,
+    ...courseMaterials.filter((cm) => !batch.studyMaterials.some((bm) => bm.id === cm.id)),
+  ];
+
+  return {
+    success: true,
+    isPreview,
+    student,
+    data: {
+      batch: {
+        ...batch,
+        allMaterials,
+      },
+    },
+  };
+}
+

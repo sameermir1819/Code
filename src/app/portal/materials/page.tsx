@@ -93,6 +93,17 @@ export default async function StudentMaterialsPage() {
                         <span className="text-zinc-300 font-medium">{mat.subject.name}</span>
                       </div>
                     )}
+                    {mat.batch && (
+                      <div className="flex items-center justify-between">
+                        <span>Batch:</span>
+                        <a
+                          href={`/portal/batches/${mat.batch.id}`}
+                          className="text-indigo-400 hover:underline font-medium"
+                        >
+                          {mat.batch.name}
+                        </a>
+                      </div>
+                    )}
                     {mat.uploadedBy && (
                       <div className="flex items-center justify-between">
                         <span>Instructor:</span>

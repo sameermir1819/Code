@@ -1,4 +1,5 @@
 import React from "react";
+import Link from "next/link";
 import { getStudentPortalOverview } from "@/server/actions/portal";
 import {
   CalendarCheck2,
@@ -235,40 +236,87 @@ export default async function StudentPortalPage() {
               </span>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {enrollments.map((enr) => (
-                <div
-                  key={enr.id}
-                  className="p-4 rounded-xl bg-white/[0.02] border border-white/5 space-y-2.5"
-                >
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <h4 className="font-bold text-white text-sm leading-tight">
-                        {enr.batch.name}
-                      </h4>
-                      <p className="text-xs text-zinc-400">{enr.course.name}</p>
-                    </div>
-                    <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-primary/20 text-primary border border-primary/30 shrink-0">
-                      {enr.batch.room || "Room 1"}
-                    </span>
-                  </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {enrollments.map((enr) => {
+                const timetableCount = (enr.batch as any)._count?.timetableSlots ?? 0;
+                const materialsCount = (enr.batch as any)._count?.studyMaterials ?? 0;
 
-                  <div className="text-[11px] text-zinc-400 space-y-1 pt-1 border-t border-white/5">
-                    <div className="flex items-center justify-between">
-                      <span>Batch Code:</span>
-                      <span className="font-mono text-zinc-300">{enr.batch.code}</span>
-                    </div>
-                    {enr.batch.teachers.length > 0 && (
-                      <div className="flex items-center justify-between">
-                        <span>Faculty:</span>
-                        <span className="text-zinc-300 font-medium truncate max-w-[150px]">
-                          {enr.batch.teachers.map((t) => t.teacher.name).join(", ")}
+                return (
+                  <div
+                    key={enr.id}
+                    className="p-5 rounded-2xl bg-white/[0.03] hover:bg-white/[0.05] border border-white/10 hover:border-indigo-500/40 transition-all flex flex-col justify-between space-y-4 group relative overflow-hidden"
+                  >
+                    <div className="space-y-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <div className="flex items-center gap-1.5 mb-1.5">
+                            <span className="text-[10px] px-2 py-0.5 rounded-full font-mono bg-white/10 text-zinc-300 border border-white/10">
+                              {enr.batch.code}
+                            </span>
+                            <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                              ACTIVE
+                            </span>
+                          </div>
+                          <Link
+                            href={`/portal/batches/${enr.batch.id}`}
+                            className="font-bold text-white text-base leading-snug group-hover:text-indigo-400 transition-colors block"
+                          >
+                            {enr.batch.name}
+                          </Link>
+                          <p className="text-xs text-zinc-400 mt-0.5">{enr.course.name}</p>
+                        </div>
+
+                        <span className="text-[10px] px-2.5 py-1 rounded-xl font-semibold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 shrink-0 flex items-center gap-1">
+                          <Building2 className="w-3 h-3" />
+                          {enr.batch.room || "Room 1"}
                         </span>
                       </div>
-                    )}
+
+                      <div className="text-[11px] text-zinc-400 space-y-1.5 pt-2 border-t border-white/5">
+                        {enr.batch.teachers.length > 0 && (
+                          <div className="flex items-center justify-between">
+                            <span className="text-zinc-500">Faculty:</span>
+                            <span className="text-zinc-300 font-medium truncate max-w-[170px]">
+                              {enr.batch.teachers.map((t) => t.teacher.name).join(", ")}
+                            </span>
+                          </div>
+                        )}
+                        <div className="flex items-center justify-between">
+                          <span className="text-zinc-500">Weekly Classes:</span>
+                          <span className="text-indigo-300 font-mono font-medium">
+                            {timetableCount} {timetableCount === 1 ? "Slot" : "Slots"}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Interactive Quick Links into Batch */}
+                    <div className="pt-2 border-t border-white/5 flex items-center gap-2">
+                      <Link
+                        href={`/portal/batches/${enr.batch.id}?tab=timetable`}
+                        className="flex-1 py-2 px-3 rounded-xl bg-white/[0.04] hover:bg-indigo-600/30 text-zinc-300 hover:text-white border border-white/5 hover:border-indigo-500/50 text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-all"
+                      >
+                        <Clock className="w-3 h-3 text-indigo-400" />
+                        <span>Timetable</span>
+                      </Link>
+                      <Link
+                        href={`/portal/batches/${enr.batch.id}?tab=materials`}
+                        className="flex-1 py-2 px-3 rounded-xl bg-white/[0.04] hover:bg-indigo-600/30 text-zinc-300 hover:text-white border border-white/5 hover:border-indigo-500/50 text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-all"
+                      >
+                        <BookOpen className="w-3 h-3 text-purple-400" />
+                        <span>Notes ({materialsCount})</span>
+                      </Link>
+                      <Link
+                        href={`/portal/batches/${enr.batch.id}`}
+                        title="View Batch Details"
+                        className="p-2 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] text-zinc-400 hover:text-white border border-white/5 transition-all"
+                      >
+                        <ChevronRight className="w-3.5 h-3.5" />
+                      </Link>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 
