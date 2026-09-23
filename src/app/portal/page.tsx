@@ -41,7 +41,7 @@ export default async function StudentPortalPage() {
             "Your login is not yet linked to an active student registration. Please contact your campus administration with your Admission Number."}
         </p>
         <a
-          href="/login"
+          href="/student-login"
           className="inline-block px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs shadow-md transition-all"
         >
           Return to Login

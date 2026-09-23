@@ -18,7 +18,7 @@ export default async function PortalLayout({
   const session = await getSession();
 
   if (!session) {
-    redirect("/login?redirect=/portal");
+    redirect("/student-login");
   }
 
   const [{ student }, activeCampus] = await Promise.all([

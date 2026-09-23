@@ -134,7 +134,7 @@ export function StudentPortalLanding({
           </div>
         </div>
 
-        {/* Header Action Buttons: Home, Apply for Admission & Staff Login */}
+        {/* Header Action Buttons: Home & Apply for Admission */}
         <div className="flex items-center gap-2 sm:gap-2.5">
           <Link
             href="/"
@@ -149,13 +149,6 @@ export function StudentPortalLanding({
           >
             <Sparkles className="w-3.5 h-3.5 text-amber-300" />
             <span>Apply for Admission</span>
-          </Link>
-
-          <Link
-            href="/login"
-            className="text-xs text-zinc-400 hover:text-white px-3 py-1.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 transition-all font-medium hidden sm:inline-flex items-center gap-1"
-          >
-            <span>Staff Login</span>
           </Link>
         </div>
       </header>

@@ -16,8 +16,6 @@ import {
   ShieldCheck,
   AlertCircle,
   ArrowRight,
-  GraduationCap,
-  ChevronRight,
   Layers,
   CalendarCheck,
   CreditCard,
@@ -177,16 +175,13 @@ export function LoginForm({
 
       {/* ── RIGHT LOGIN CARD PANEL ── */}
       <div className="flex-1 flex flex-col justify-between p-4 sm:p-6 lg:p-6 xl:p-8 h-full relative z-10 overflow-y-auto lg:overflow-hidden">
-        {/* Top Switch to Student Portal */}
-        <div className="flex items-center justify-between sm:justify-end gap-3 pb-2 sm:pb-3">
-          <span className="text-xs text-zinc-400 hidden sm:inline">Are you an enrolled student?</span>
+        {/* Top Navigation */}
+        <div className="flex items-center justify-end pb-2 sm:pb-3">
           <Link
-            href="/student-login"
-            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-white/[0.05] hover:bg-white/10 text-zinc-300 hover:text-white border border-white/10 transition-colors"
+            href="/"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-white/[0.04] hover:bg-white/10 text-zinc-400 hover:text-white border border-white/10 transition-colors"
           >
-            <GraduationCap className="h-3.5 w-3.5 text-indigo-400" />
-            <span>Student Portal</span>
-            <ChevronRight className="h-3 w-3 text-zinc-500" />
+            <span>← Back to Website</span>
           </Link>
         </div>
 

@@ -45,10 +45,10 @@ export default async function ApplyPage() {
 
           <div className="flex items-center gap-3">
             <Link
-              href="/login"
+              href="/student-login"
               className="text-xs font-semibold px-4 py-2 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] text-zinc-300 hover:text-white border border-white/10 transition-all"
             >
-              Student / Staff Login
+              Student Login
             </Link>
           </div>
         </div>

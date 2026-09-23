@@ -86,7 +86,7 @@ export function StudentProfileClient({ student }: ProfileProps) {
   const handleLogout = async () => {
     setLoggingOut(true);
     await logoutUser();
-    router.push("/login");
+    router.push("/student-login");
     router.refresh();
   };
 
