@@ -10,6 +10,7 @@ import {
   registerStudentForTestSeries,
   submitTestResults,
   updateTestSeries,
+  updateTestSeriesPayment,
 } from "@/server/actions/test-series";
 import {
   Layers,
@@ -138,6 +139,14 @@ export function TestSeriesClient({ seriesList, stats, enrolledStudents }: Props)
   const [admitSlipModalData, setAdmitSlipModalData] = useState<any | null>(null);
   const [editingSeries, setEditingSeries] = useState<TestSeriesItem | null>(null);
   const [seriesToDelete, setSeriesToDelete] = useState<TestSeriesItem | null>(null);
+
+  // Payment update modal state
+  const [paymentModalReg, setPaymentModalReg] = useState<any | null>(null);
+  const [paymentFormData, setPaymentFormData] = useState({
+    paymentStatus: "PAID",
+    paymentMethod: "UPI",
+    remarks: "",
+  });
 
   // Dedicated View Enrolled Students Modal ("Bache dekhne ke liye")
   const [viewStudentsModalSeries, setViewStudentsModalSeries] = useState<TestSeriesItem | null>(null);
@@ -338,6 +347,57 @@ export function TestSeriesClient({ seriesList, stats, enrolledStudents }: Props)
         router.refresh();
       } else {
         setActionErrorMsg(res.error || "Failed to register candidate.");
+      }
+    });
+  };
+
+  // Open Payment Update Modal
+  const handleOpenPaymentModal = (reg: any) => {
+    setPaymentModalReg(reg);
+    setPaymentFormData({
+      paymentStatus: reg.paymentStatus || "PAID",
+      paymentMethod: reg.paymentMethod || "UPI",
+      remarks: reg.remarks || "",
+    });
+    setActionErrorMsg("");
+  };
+
+  // Handle Submit Payment Update
+  const handleUpdatePaymentSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!paymentModalReg) return;
+    setActionErrorMsg("");
+    setActionSuccessMsg("");
+
+    startTransition(async () => {
+      const res = await updateTestSeriesPayment(paymentModalReg.id, paymentFormData);
+      if (res.success) {
+        setActionSuccessMsg(
+          `Payment updated to "${paymentFormData.paymentStatus}" for Roll No: ${paymentModalReg.rollNumber}!`
+        );
+        // Also update local modal state if View Students modal is open
+        if (viewStudentsModalSeries) {
+          setViewStudentsModalSeries((prev) => {
+            if (!prev) return null;
+            return {
+              ...prev,
+              registrations: prev.registrations.map((r) =>
+                r.id === paymentModalReg.id
+                  ? {
+                      ...r,
+                      paymentStatus: paymentFormData.paymentStatus,
+                      paymentMethod: paymentFormData.paymentMethod,
+                      paidAt: paymentFormData.paymentStatus === "PAID" ? new Date() : null,
+                    }
+                  : r
+              ),
+            };
+          });
+        }
+        setPaymentModalReg(null);
+        router.refresh();
+      } else {
+        setActionErrorMsg(res.error || "Failed to update payment.");
       }
     });
   };
@@ -858,6 +918,21 @@ export function TestSeriesClient({ seriesList, stats, enrolledStudents }: Props)
 
                         <td className="py-3 px-4 text-right">
                           <div className="flex items-center justify-end gap-1.5">
+                            <Button
+                              onClick={() => handleOpenPaymentModal(reg)}
+                              variant={reg.paymentStatus === "PAID" ? "outline" : "default"}
+                              size="sm"
+                              className={`h-7 px-2.5 text-xs font-semibold rounded-lg gap-1.5 transition-all ${
+                                reg.paymentStatus === "PAID"
+                                  ? "hover:bg-muted text-muted-foreground hover:text-foreground"
+                                  : "bg-amber-600 hover:bg-amber-700 text-white font-bold shadow-xs animate-pulse"
+                              }`}
+                              title={reg.paymentStatus === "PAID" ? "View / Edit payment details" : "Collect pending fee & update status"}
+                            >
+                              <CreditCard className="h-3.5 w-3.5" />
+                              <span>{reg.paymentStatus === "PAID" ? "Payment" : "Update Payment"}</span>
+                            </Button>
+
                             {reg.student?.id && (
                               <Link
                                 href={`/students/${reg.student.id}`}
@@ -1274,6 +1349,21 @@ export function TestSeriesClient({ seriesList, stats, enrolledStudents }: Props)
                         </td>
                         <td className="py-2.5 px-3 text-right">
                           <div className="flex items-center justify-end gap-1.5">
+                            <Button
+                              onClick={() => handleOpenPaymentModal(reg)}
+                              variant={reg.paymentStatus === "PAID" ? "outline" : "default"}
+                              size="sm"
+                              className={`h-6 px-2 text-[11px] font-medium rounded gap-1 ${
+                                reg.paymentStatus === "PAID"
+                                  ? "hover:bg-muted text-muted-foreground hover:text-foreground"
+                                  : "bg-amber-600 hover:bg-amber-700 text-white font-bold shadow-xs"
+                              }`}
+                              title="Update Payment"
+                            >
+                              <CreditCard className="h-3 w-3" />
+                              <span>{reg.paymentStatus === "PAID" ? "Paid" : "Update"}</span>
+                            </Button>
+
                             {reg.student?.id && (
                               <Link
                                 href={`/students/${reg.student.id}`}
@@ -1910,6 +2000,129 @@ export function TestSeriesClient({ seriesList, stats, enrolledStudents }: Props)
                 Close
               </Button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL 5: Update Candidate Fee Payment Status (Pending to Paid) ── */}
+      {paymentModalReg && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto animate-in fade-in">
+          <div className="bg-card text-card-foreground border rounded-3xl w-full max-w-md p-6 space-y-4 shadow-2xl animate-in zoom-in-95 text-xs">
+            <div className="flex items-center justify-between border-b pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="h-9 w-9 rounded-2xl bg-amber-500/10 text-amber-500 flex items-center justify-center">
+                  <CreditCard className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-extrabold text-foreground">Update Payment Status</h3>
+                  <p className="text-[11px] text-muted-foreground">
+                    Record offline fee collection or update candidate payment
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setPaymentModalReg(null)}
+                className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="p-3.5 rounded-2xl bg-muted/40 border space-y-1.5 text-xs">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Candidate:</span>
+                <span className="font-bold text-foreground">
+                  {paymentModalReg.student?.name || paymentModalReg.externalStudentName}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Hall Roll No:</span>
+                <span className="font-mono font-bold text-primary">{paymentModalReg.rollNumber}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Receipt No:</span>
+                <span className="font-mono text-muted-foreground">{paymentModalReg.receiptNo}</span>
+              </div>
+              <div className="flex justify-between pt-1 border-t">
+                <span className="text-muted-foreground">Fee Amount:</span>
+                <span className="font-bold text-sm text-foreground">
+                  ₹{paymentModalReg.feeAmount?.toLocaleString("en-IN")}
+                </span>
+              </div>
+            </div>
+
+            <form onSubmit={handleUpdatePaymentSubmit} className="space-y-3.5">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="font-semibold block text-foreground">
+                    Payment Status *
+                  </label>
+                  <select
+                    value={paymentFormData.paymentStatus}
+                    onChange={(e) =>
+                      setPaymentFormData({ ...paymentFormData, paymentStatus: e.target.value })
+                    }
+                    className="w-full h-9 px-3 rounded-xl border border-input bg-background text-foreground text-xs"
+                  >
+                    <option value="PAID">PAID (Fees Cleared)</option>
+                    <option value="PENDING">PENDING (Unpaid)</option>
+                    <option value="EXEMPTED">EXEMPTED (Scholarship)</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="font-semibold block text-foreground">
+                    Payment Mode *
+                  </label>
+                  <select
+                    value={paymentFormData.paymentMethod}
+                    onChange={(e) =>
+                      setPaymentFormData({ ...paymentFormData, paymentMethod: e.target.value })
+                    }
+                    className="w-full h-9 px-3 rounded-xl border border-input bg-background text-foreground text-xs"
+                  >
+                    <option value="UPI">UPI / QR Code</option>
+                    <option value="CASH">Cash at Counter</option>
+                    <option value="CARD">Debit / Credit Card</option>
+                    <option value="BANK_TRANSFER">Bank NetBanking</option>
+                    <option value="CHEQUE">Bank Cheque</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="font-semibold block text-foreground">
+                  Remarks / Note (Optional)
+                </label>
+                <Input
+                  value={paymentFormData.remarks}
+                  onChange={(e) =>
+                    setPaymentFormData({ ...paymentFormData, remarks: e.target.value })
+                  }
+                  placeholder="e.g. Received cash at counter"
+                  className="h-9 text-xs rounded-xl"
+                />
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setPaymentModalReg(null)}
+                  disabled={isPending}
+                  className="flex-1 text-xs h-9 rounded-xl"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={isPending}
+                  className="flex-1 text-xs h-9 rounded-xl bg-primary text-primary-foreground font-semibold"
+                >
+                  {isPending ? "Updating..." : "Confirm & Save Payment"}
+                </Button>
+              </div>
+            </form>
           </div>
         </div>
       )}

@@ -613,3 +613,49 @@ export async function enrollStudentSelf(testSeriesId: string, paymentMethod: str
     };
   }
 }
+
+/**
+ * Update payment status & method for an offline test series candidate registration
+ */
+export async function updateTestSeriesPayment(
+  registrationId: string,
+  formData: {
+    paymentStatus: string; // "PAID" | "PENDING" | "EXEMPTED"
+    paymentMethod: string; // "CASH" | "UPI" | "CARD" | "BANK_TRANSFER"
+    remarks?: string;
+  }
+) {
+  await requireAuth();
+
+  if (!registrationId) {
+    return { success: false, error: "Registration ID is required." };
+  }
+
+  try {
+    const existing = await db.testSeriesRegistration.findUnique({
+      where: { id: registrationId },
+    });
+
+    if (!existing) {
+      return { success: false, error: "Candidate registration not found." };
+    }
+
+    const updated = await db.testSeriesRegistration.update({
+      where: { id: registrationId },
+      data: {
+        paymentStatus: formData.paymentStatus,
+        paymentMethod: formData.paymentMethod || existing.paymentMethod,
+        paidAt: formData.paymentStatus === "PAID" ? (existing.paidAt || new Date()) : null,
+        remarks: formData.remarks !== undefined ? formData.remarks.trim() : existing.remarks,
+      },
+    });
+
+    revalidateTestSeriesPaths();
+    return { success: true, registration: updated };
+  } catch (err: unknown) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to update payment status.",
+    };
+  }
+}

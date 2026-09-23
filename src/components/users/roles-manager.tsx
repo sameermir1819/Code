@@ -507,22 +507,29 @@ export function RolesManager({
                     <span>Edit Rights</span>
                   </Button>
 
-                  {!r.isSystem ? (
+                  {r.name === "SUPER_ADMIN" ? (
+                    <span
+                      title="Master Super Administrator role is the system root anchor and cannot be deleted."
+                      className="text-[10px] text-primary/90 font-medium p-1 px-2 border border-primary/20 rounded bg-primary/5 flex items-center gap-1"
+                    >
+                      <ShieldCheck className="h-3 w-3 text-primary" /> Root Anchor
+                    </span>
+                  ) : actorRole === "SUPER_ADMIN" || !r.isSystem ? (
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={() => setDeletingRole(r)}
                       className="text-xs h-8 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/40 px-2.5"
-                      title="Delete Custom Role"
+                      title={`Delete ${r.displayName}`}
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
                   ) : (
                     <span
-                      title="Built-in system roles cannot be deleted to protect security integrity."
+                      title="Built-in system roles can only be managed by a Super Administrator."
                       className="text-[10px] text-muted-foreground p-1 px-2 border rounded bg-muted/30 cursor-not-allowed flex items-center gap-1"
                     >
-                      <Lock className="h-3 w-3" /> Locked
+                      <Lock className="h-3 w-3" /> System Role
                     </span>
                   )}
                 </div>

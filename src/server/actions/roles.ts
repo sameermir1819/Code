@@ -467,9 +467,14 @@ export async function deleteRole(id: string) {
     throw new Error("Target role not found.");
   }
 
-  // Security Rule: Built-in system roles can NEVER be deleted
-  if (targetRole.isSystem) {
-    throw new Error(`FORBIDDEN: "${targetRole.displayName}" is a protected system role and cannot be deleted.`);
+  // Security Rule: Master SUPER_ADMIN root role can NEVER be deleted
+  if (targetRole.name === "SUPER_ADMIN") {
+    throw new Error(`FORBIDDEN: The master Super Administrator role is the system root anchor and cannot be deleted.`);
+  }
+
+  // Non-Super Admin cannot delete built-in system roles
+  if (targetRole.isSystem && actor.role !== "SUPER_ADMIN") {
+    throw new Error(`FORBIDDEN: Built-in system role "${targetRole.displayName}" can only be managed or deleted by a Super Administrator.`);
   }
 
   // Security Rule: Zero Orphan Protection — check active users
