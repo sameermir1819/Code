@@ -10,7 +10,7 @@ export const metadata = {
 };
 
 export default async function HomePage() {
-  const [institute, campuses, courses, testSeries, studentCount] = await Promise.all([
+  const [institute, campuses, testSeries, studentCount] = await Promise.all([
     db.institute.findFirst({
       orderBy: { createdAt: "asc" },
       select: {
@@ -35,20 +35,6 @@ export default async function HomePage() {
       },
       orderBy: { createdAt: "asc" },
     }),
-    db.course.findMany({
-      where: { status: "ACTIVE" },
-      select: {
-        id: true,
-        name: true,
-        code: true,
-        gradeClass: true,
-        duration: true,
-        standardFee: true,
-        description: true,
-      },
-      orderBy: { name: "asc" },
-      take: 6,
-    }),
     db.testSeries.findMany({
       where: { status: "ACTIVE" },
       select: {
@@ -72,7 +58,6 @@ export default async function HomePage() {
     <HomeLandingPage
       institute={institute}
       campuses={campuses}
-      courses={courses}
       testSeries={testSeries}
       studentCount={studentCount}
     />

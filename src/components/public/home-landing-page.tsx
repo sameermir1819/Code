@@ -46,16 +46,6 @@ interface CampusItem {
   address?: string | null;
 }
 
-interface CourseItem {
-  id: string;
-  name: string;
-  code: string;
-  gradeClass?: string | null;
-  duration?: string | null;
-  standardFee?: number | null;
-  description?: string | null;
-}
-
 interface TestSeriesItem {
   id: string;
   title: string;
@@ -82,7 +72,6 @@ interface InstituteInfo {
 interface HomeLandingPageProps {
   institute: InstituteInfo | null;
   campuses: CampusItem[];
-  courses: CourseItem[];
   testSeries?: TestSeriesItem[];
   studentCount?: number;
 }
@@ -90,7 +79,6 @@ interface HomeLandingPageProps {
 export function HomeLandingPage({
   institute,
   campuses = [],
-  courses = [],
   testSeries = [],
   studentCount = 1250,
 }: HomeLandingPageProps) {
@@ -170,14 +158,11 @@ export function HomeLandingPage({
 
           {/* Desktop Navigation Links */}
           <nav className="hidden lg:flex items-center gap-7 text-xs font-semibold text-zinc-300">
-            <a href="#courses" className="hover:text-white transition-colors">
-              Programs &amp; Batches
+            <a href="#test-series" className="hover:text-white transition-colors">
+              Offline Test Series
             </a>
             <a href="#features" className="hover:text-white transition-colors">
               Student Cloud
-            </a>
-            <a href="#test-series" className="hover:text-white transition-colors">
-              OMR Test Series
             </a>
             <a href="#campuses" className="hover:text-white transition-colors">
               Campuses
@@ -241,11 +226,11 @@ export function HomeLandingPage({
           <div className="sm:hidden px-4 pt-3 pb-6 border-b border-white/10 bg-[#070a14] space-y-3">
             <div className="flex flex-col space-y-2 text-sm font-medium text-zinc-300">
               <a
-                href="#courses"
+                href="#test-series"
                 onClick={() => setMobileMenuOpen(false)}
                 className="py-1.5 px-3 rounded-lg hover:bg-white/5"
               >
-                Programs &amp; Batches
+                Offline Test Series &amp; OMR
               </a>
               <a
                 href="#features"
@@ -363,91 +348,7 @@ export function HomeLandingPage({
         </div>
       </section>
 
-      {/* ── 2. PROGRAMS & BATCHES ── */}
-      <section id="courses" className="relative z-10 py-16 sm:py-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto border-t border-white/5">
-        <div className="text-center max-w-3xl mx-auto space-y-2 mb-12">
-          <span className="text-xs font-bold uppercase tracking-wider text-indigo-400 bg-indigo-500/10 px-3 py-1 rounded-full border border-indigo-500/20 inline-block">
-            Target Batch Architecture
-          </span>
-          <h2 className="text-2xl sm:text-4xl font-black text-white tracking-tight">
-            Comprehensive Courses for 2026-2027
-          </h2>
-          <p className="text-xs sm:text-sm text-zinc-400">
-            Systematically structured curricula designed to transition school board candidates into top national competitive rank holders.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {courses.length > 0 ? (
-            courses.map((course) => (
-              <div
-                key={course.id}
-                className="rounded-3xl bg-white/[0.02] border border-white/10 p-6 space-y-4 hover:border-indigo-500/40 transition-all flex flex-col justify-between group shadow-lg"
-              >
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-mono font-bold uppercase px-2.5 py-0.5 rounded-full bg-indigo-500/15 text-indigo-300 border border-indigo-500/30">
-                      {course.code}
-                    </span>
-                    <span className="text-xs text-zinc-400 font-medium">{course.gradeClass || "Target 2026"}</span>
-                  </div>
-                  <h3 className="text-lg font-bold text-white group-hover:text-indigo-300 transition-colors">
-                    {course.name}
-                  </h3>
-                  <p className="text-xs text-zinc-400 leading-relaxed line-clamp-3">
-                    {course.description || "Rigorous problem solving, conceptual lectures, and regular OMR ranking benchmarks."}
-                  </p>
-                </div>
-
-                <div className="pt-4 border-t border-white/5 flex items-center justify-between">
-                  <div>
-                    <span className="text-[10px] text-zinc-500 block">Annual Tuition</span>
-                    <span className="text-base font-extrabold text-white">
-                      {course.standardFee ? formatCurrency(course.standardFee) : "Contact Campus"}
-                    </span>
-                  </div>
-                  <Link
-                    href={`/apply?course=${encodeURIComponent(course.name)}`}
-                    className="px-4 py-2 rounded-xl bg-white/10 hover:bg-indigo-600 text-white font-bold text-xs transition-colors flex items-center gap-1.5"
-                  >
-                    <span>Enroll Now</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </Link>
-                </div>
-              </div>
-            ))
-          ) : (
-            <>
-              <div className="rounded-3xl bg-white/[0.02] border border-white/10 p-6 space-y-4">
-                <span className="text-[10px] font-mono font-bold uppercase px-2.5 py-0.5 rounded-full bg-rose-500/15 text-rose-300 border border-rose-500/30">
-                  NEET MEDICAL
-                </span>
-                <h3 className="text-lg font-bold text-white">NEET Medical Target 2026-2027</h3>
-                <p className="text-xs text-zinc-400">Class 11, 12 &amp; Dropper batches with daily Biology, Chemistry and Physics drills.</p>
-                <Link href="/apply" className="block text-center py-2 rounded-xl bg-indigo-600 text-xs font-bold text-white">Apply Online</Link>
-              </div>
-              <div className="rounded-3xl bg-white/[0.02] border border-white/10 p-6 space-y-4">
-                <span className="text-[10px] font-mono font-bold uppercase px-2.5 py-0.5 rounded-full bg-blue-500/15 text-blue-300 border border-blue-500/30">
-                  JEE ENGINEERING
-                </span>
-                <h3 className="text-lg font-bold text-white">JEE Main &amp; Advanced 2-Year</h3>
-                <p className="text-xs text-zinc-400">Rigorous problem solving, calculus drills, and national mock rank assessments.</p>
-                <Link href="/apply" className="block text-center py-2 rounded-xl bg-indigo-600 text-xs font-bold text-white">Apply Online</Link>
-              </div>
-              <div className="rounded-3xl bg-white/[0.02] border border-white/10 p-6 space-y-4">
-                <span className="text-[10px] font-mono font-bold uppercase px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
-                  FOUNDATION
-                </span>
-                <h3 className="text-lg font-bold text-white">Class 9th &amp; 10th Olympiad + Board</h3>
-                <p className="text-xs text-zinc-400">Solid fundamental conceptual clarity for NTSE, Olympiads, and future competitive edge.</p>
-                <Link href="/apply" className="block text-center py-2 rounded-xl bg-indigo-600 text-xs font-bold text-white">Apply Online</Link>
-              </div>
-            </>
-          )}
-        </div>
-      </section>
-
-      {/* ── 3. TEST SERIES & OMR SHOWCASE ── */}
+      {/* ── 2. TEST SERIES & OMR SHOWCASE ── */}
       <section id="test-series" className="relative z-10 py-16 sm:py-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto border-t border-white/5">
         <div className="text-center max-w-3xl mx-auto space-y-2 mb-12">
           <span className="text-xs font-bold uppercase tracking-wider text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20 inline-block">
