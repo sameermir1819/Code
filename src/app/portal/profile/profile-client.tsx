@@ -138,14 +138,14 @@ export function StudentProfileClient({ student }: ProfileProps) {
 
   return (
     <div className="max-w-2xl mx-auto space-y-6 pb-12">
-      {/* ── iOS Settings Page Header ── */}
+      {/* ── Settings Page Header ── */}
       <div className="px-1 flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-extrabold text-white tracking-tight font-sans">
-            Profile &amp; Apple ID
+            Student Profile
           </h1>
           <p className="text-xs text-zinc-400 mt-0.5">
-            Student Identity, Academic Credentials &amp; Security
+            Student Identity, Academic Records &amp; Security Credentials
           </p>
         </div>
         <Link
@@ -610,9 +610,9 @@ export function StudentProfileClient({ student }: ProfileProps) {
         </button>
       </div>
 
-      {/* Bottom iOS Info Note */}
+      {/* Bottom Info Note */}
       <p className="text-[11px] text-center text-zinc-500 font-sans">
-        Antigravity Student Portal • Designed for Apple iOS &amp; Mobile Web
+        Official Student Portal • Secure &amp; End-to-End Encrypted
       </p>
     </div>
   );

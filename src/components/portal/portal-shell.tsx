@@ -109,7 +109,7 @@ const QUICK_ACTIONS = [
   },
   {
     href: "/portal/profile",
-    label: "Apple ID Profile",
+    label: "My Profile",
     sub: "Account & security",
     icon: User,
     color: "bg-blue-600 text-white",

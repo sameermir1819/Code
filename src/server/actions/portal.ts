@@ -105,6 +105,10 @@ export async function getStudentPortalOverview() {
           teachers: {
             include: { teacher: true },
           },
+          timetableSlots: {
+            include: { subject: true, teacher: true },
+            orderBy: { startTime: "asc" },
+          },
           _count: {
             select: {
               timetableSlots: true,
