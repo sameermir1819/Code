@@ -7,6 +7,7 @@ import { getEffectivePermissions } from "@/lib/auth";
 import { logAudit } from "./audit";
 import { revalidatePath } from "next/cache";
 import { getActiveCampusId } from "./campus";
+import { authorizedCampusId } from "@/lib/campus-scope";
 
 // ==========================================
 // COURSES
@@ -441,89 +442,71 @@ export async function createBatch(data: {
   room?: string;
   teacherIds?: string[];
 }) {
-  await requireStaffPermission("batches.manage");
-  const campusId = await getActiveCampusId();
-  if (!campusId) throw new Error("No active campus found");
-
-  let resolvedCourseId = data.courseId;
-  if (!resolvedCourseId) {
-    const defaultCourse = await db.course.findFirst({
-      where: { instituteId: campusId },
-    });
-    if (defaultCourse) {
-      resolvedCourseId = defaultCourse.id;
-    } else {
-      const created = await db.course.create({
+  const actor = await requireStaffPermission("batches.manage");
+  const name = data.name?.trim();
+  const code = data.code?.trim().toUpperCase();
+  if (!name || !code) return { success: false as const, error: "Enter a batch name and code." };
+  const startDate = new Date(data.startDate);
+  const endDate = new Date(data.endDate);
+  if (!Number.isFinite(startDate.getTime()) || !Number.isFinite(endDate.getTime()) || endDate < startDate) {
+    return { success: false as const, error: "Choose valid dates. End date must be on or after start date." };
+  }
+  const capacity = data.capacity ?? 40;
+  if (!Number.isInteger(capacity) || capacity < 1 || capacity > 200) {
+    return { success: false as const, error: "Seat capacity must be a whole number from 1 to 200." };
+  }
+  const campusId = authorizedCampusId(actor, await getActiveCampusId());
+  const teacherIds = [...new Set(data.teacherIds || [])];
+  try {
+    const result = await db.$transaction(async (tx) => {
+      // Serialize default-course creation for this campus, including concurrent submissions.
+      await tx.$queryRaw`SELECT id FROM "Institute" WHERE id = ${campusId} FOR UPDATE`;
+      if (await tx.batch.findUnique({ where: { code }, select: { id: true } })) {
+        return { success: false as const, error: "This batch code already exists. Use a different code." };
+      }
+      const teacherCount = await tx.teacher.count({ where: { id: { in: teacherIds }, instituteId: campusId, status: "ACTIVE" } });
+      if (teacherCount !== teacherIds.length) {
+        return { success: false as const, error: "One or more instructors are unavailable in this campus. Refresh and select them again." };
+      }
+      let course = await tx.course.findFirst({
+        where: { instituteId: campusId, status: "ACTIVE", ...(data.courseId ? { id: data.courseId } : {}) },
+        orderBy: { createdAt: "asc" },
+      });
+      if (!course && data.courseId) return { success: false as const, error: "Select an active course from this campus." };
+      if (!course) {
+        course = await tx.course.create({ data: {
+          instituteId: campusId, name: "General Academic Program", code: "GEN-PROG-" + campusId,
+          duration: "1 Year", gradeClass: "All", standardFee: 100000, registrationFee: 5000, status: "ACTIVE",
+        } });
+      }
+      const batch = await tx.batch.create({
         data: {
-          instituteId: campusId,
-          name: "General Academic Program",
-          code: "GEN-PROG",
-          duration: "1 Year",
-          gradeClass: "All",
-          standardFee: 100000,
-          registrationFee: 5000,
-          status: "ACTIVE",
+          instituteId: campusId, name, code, courseId: course.id, startDate, endDate, capacity,
+          room: data.room?.trim() || "Lecture Hall 1", status: "ACTIVE",
+          teachers: { create: teacherIds.map((teacherId) => ({ teacherId })) },
         },
-      });
-      resolvedCourseId = created.id;
-    }
-  }
-
-  const batch = await db.batch.create({
-    data: {
-      instituteId: campusId,
-      name: data.name,
-      code: data.code.toUpperCase(),
-      courseId: resolvedCourseId,
-      startDate: new Date(data.startDate),
-      endDate: new Date(data.endDate),
-      capacity: data.capacity || 40,
-      room: data.room || "Lecture Hall 1",
-      status: "ACTIVE",
-    },
-  });
-
-  if (data.teacherIds && data.teacherIds.length > 0) {
-    for (const tId of data.teacherIds) {
-      await db.teacherBatch.create({
-        data: { batchId: batch.id, teacherId: tId },
-      });
-    }
-  }
-
-  const fullBatch = await db.batch.findUnique({
-    where: { id: batch.id },
-    include: {
-      course: true,
-      teachers: {
         include: {
-          teacher: {
-            include: {
-              subjects: { include: { subject: true } },
-            },
-          },
+          course: true,
+          teachers: { include: { teacher: { include: { subjects: { include: { subject: true } } } } } },
+          _count: { select: { enrollments: { where: { status: "ACTIVE" } } } },
         },
-      },
-      _count: {
-        select: {
-          enrollments: { where: { status: "ACTIVE" } },
-        },
-      },
-    },
-  });
-
-  await logAudit({
-    action: "BATCH_CREATED",
-    entity: "Batch",
-    entityId: batch.id,
-    details: `Batch created: ${batch.name} (${batch.code})`,
-  });
-
-  revalidatePath("/batches");
-  revalidatePath("/dashboard/batches");
-  revalidatePath("/timetable");
-  revalidatePath("/dashboard");
-  return { success: true, batch: fullBatch || batch };
+      });
+      return { success: true as const, batch };
+    });
+    if (!result.success) return result;
+    await logAudit({ action: "BATCH_CREATED", entity: "Batch", entityId: result.batch.id, details: "Batch created: " + name + " (" + code + ")" });
+    revalidatePath("/batches");
+    revalidatePath("/dashboard/batches");
+    revalidatePath("/timetable");
+    revalidatePath("/dashboard");
+    return result;
+  } catch (error) {
+    if ((error as { code?: string }).code === "P2002") {
+      return { success: false as const, error: "This code is already in use. Refresh and choose another batch code." };
+    }
+    console.error("Batch creation failed", error);
+    return { success: false as const, error: "Could not save the batch. Please refresh the page and try again." };
+  }
 }
 
 export async function updateBatch(

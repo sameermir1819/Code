@@ -316,3 +316,62 @@ test('navigation uses effective permissions for custom roles', () => {
   assert.equal(api.canNavigate('/portal/fees', []), false);
   assert.equal(api.canNavigate('/profile', []), true);
 });
+
+function batchCreationFixture({ campus = 'campus-two', duplicate = false, failCreate = false, teacherCount = 0 } = {}) {
+  const writes = [];
+  const pending = [];
+  const tx = {
+    $queryRaw: async () => [{ id: campus }],
+    teacher: { count: async () => teacherCount },
+    course: {
+      findFirst: async () => null,
+      create: async ({ data }) => { pending.push({ type: 'course', ...data }); return { id: 'course', ...data }; },
+    },
+    batch: {
+      findUnique: async () => duplicate ? { id: 'existing' } : null,
+      create: async ({ data }) => {
+        if (failCreate) throw new Error('Teacher link failed');
+        pending.push({ type: 'batch', ...data }); return { id: 'batch', ...data };
+      },
+    },
+  };
+  const api = load('src/server/actions/academics.ts', {
+    '@/lib/db': { db: { $transaction: async fn => { const result = await fn(tx); writes.push(...pending); return result; } } },
+    '@/lib/auth': { getSession: async () => ({ id: 'actor', role: 'ADMIN', instituteId: campus }) },
+    '@/lib/campus-scope': scope,
+    './campus': { getActiveCampusId: async () => 'forged-campus' },
+    './audit': { logAudit: async () => {} },
+    'next/cache': { revalidatePath() {} },
+  });
+  return { api, writes };
+}
+const validBatch = { name: ' Class 11 ', code: ' bat-11 ', startDate: '2026-09-01', endDate: '2027-09-01', capacity: 40 };
+test('batch creation uses campus-specific default course and saves teacher links atomically', async () => {
+  const f = batchCreationFixture({ teacherCount: 1 });
+  const result = await f.api.createBatch({ ...validBatch, teacherIds: ['teacher', 'teacher'] });
+  assert.equal(result.success, true);
+  assert.equal(f.writes[0].code, 'GEN-PROG-campus-two');
+  assert.equal(f.writes[1].instituteId, 'campus-two');
+  assert.equal(f.writes[1].code, 'BAT-11');
+  assert.equal(f.writes[1].name, 'Class 11');
+  assert.deepEqual(clean(f.writes[1].teachers.create), [{ teacherId: 'teacher' }]);
+});
+test('duplicate batch code returns an actionable error without creating records', async () => {
+  const f = batchCreationFixture({ duplicate: true });
+  const result = await f.api.createBatch(validBatch);
+  assert.equal(result.success, false);
+  assert.match(result.error, /code already exists/);
+  assert.equal(f.writes.length, 0);
+});
+test('batch creation rejects invalid dates, capacity, foreign teachers and courses', async () => {
+  for (const patch of [{ endDate: '2020-01-01' }, { startDate: '' }, { capacity: 0 }, { capacity: 1.5 }, { capacity: 201 }, { teacherIds: ['foreign'] }, { courseId: 'foreign' }]) {
+    const f = batchCreationFixture();
+    assert.equal((await f.api.createBatch({ ...validBatch, ...patch })).success, false);
+    assert.equal(f.writes.length, 0);
+  }
+});
+test('failed batch insert rolls back default course creation', async () => {
+  const f = batchCreationFixture({ failCreate: true });
+  assert.equal((await f.api.createBatch(validBatch)).success, false);
+  assert.equal(f.writes.length, 0);
+});

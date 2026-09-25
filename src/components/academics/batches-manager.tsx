@@ -1,7 +1,7 @@
 "use client";
 import { usePermissions } from "@/components/layout/permission-provider";
 
-import { useState, useTransition, useMemo, useEffect } from "react";
+import { useState, useTransition, useMemo, useEffect, useRef } from "react";
 import {
   getBatches,
   getTeachers,
@@ -91,6 +91,8 @@ export function BatchesManager({
       window.removeEventListener("erp-data-refresh", handleReactiveRefresh);
     };
   }, []);
+  const creatingBatch = useRef(false);
+  const [isCreatingBatch, setIsCreatingBatch] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
 
@@ -332,6 +334,7 @@ export function BatchesManager({
   // Create Batch Submission
   const handleCreateBatch = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (creatingBatch.current) return;
     setErrorMsg("");
     setSuccessMsg("");
 
@@ -340,50 +343,46 @@ export function BatchesManager({
       return;
     }
 
-    startTransition(async () => {
-      try {
-        const res = await createBatch({
-          name: formData.name.trim(),
-          code: formData.code.trim() || `BAT-${Date.now().toString().slice(-4)}`,
-          startDate: formData.startDate,
-          endDate: formData.endDate,
-          capacity: Number(formData.capacity) || 40,
-          room: formData.room || "Room 101",
-          teacherIds: formData.selectedTeacherIds,
-        });
+    creatingBatch.current = true;
+    setIsCreatingBatch(true);
+    try {
+      const res = await createBatch({
+        name: formData.name.trim(),
+        code: formData.code.trim() || `BAT-${Date.now().toString().slice(-4)}`,
+        startDate: formData.startDate,
+        endDate: formData.endDate,
+        capacity: Number(formData.capacity),
+        room: formData.room || "Room 101",
+        teacherIds: formData.selectedTeacherIds,
+      });
 
-        if (res?.success && res.batch) {
-          setSuccessMsg(`Batch "${formData.name}" created successfully!`);
-          setIsCreateModalOpen(false);
-
-          const assignedTeachers = teachers
-            .filter((t) => formData.selectedTeacherIds.includes(t.id))
-            .map((t) => ({ teacher: t }));
-
-          setBatches((prev) => [
-            {
-              ...res.batch,
-              teachers: assignedTeachers,
-              _count: { enrollments: 0 },
-            },
-            ...prev,
-          ]);
-
-          // Reset form
-          setFormData({
-            name: "",
-            code: "",
-            startDate: new Date().toISOString().split("T")[0],
-            endDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
-            capacity: 40,
-            room: "Lecture Hall 101",
-            selectedTeacherIds: [],
-          });
-        }
-      } catch (err: any) {
-        setErrorMsg(err.message || "Failed to create class.");
+      if (!res.success) {
+        setErrorMsg(res.error);
+        return;
       }
-    });
+      if (res.batch) {
+        setSuccessMsg(`Batch "${formData.name}" created successfully!`);
+        setIsCreateModalOpen(false);
+
+        setBatches((prev) => [res.batch, ...prev.filter((batch) => batch.id !== res.batch.id)]);
+
+        // Reset form
+        setFormData({
+          name: "",
+          code: "",
+          startDate: new Date().toISOString().split("T")[0],
+          endDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+          capacity: 40,
+          room: "Lecture Hall 101",
+          selectedTeacherIds: [],
+        });
+      }
+    } catch (err: any) {
+      setErrorMsg(err.message || "Failed to create class.");
+    } finally {
+      creatingBatch.current = false;
+      setIsCreatingBatch(false);
+    }
   };
 
   // Update Batch Submission
@@ -1092,6 +1091,7 @@ export function BatchesManager({
                 </p>
               </div>
               <button
+                disabled={isCreatingBatch}
                 onClick={() => setIsCreateModalOpen(false)}
                 className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted"
               >
@@ -1100,6 +1100,7 @@ export function BatchesManager({
             </div>
 
             <form onSubmit={handleCreateBatch} className="space-y-4 text-xs">
+              {errorMsg && <p role="alert" className="rounded-lg border border-red-300 bg-red-50 p-3 text-red-700">{errorMsg}</p>}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="sm:col-span-2">
                   <label className="font-semibold block mb-1 text-foreground">
@@ -1168,6 +1169,7 @@ export function BatchesManager({
                   <Input
                     type="date"
                     required
+                    min={formData.startDate}
                     value={formData.endDate}
                     onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
                   />
@@ -1252,12 +1254,12 @@ export function BatchesManager({
                   type="button"
                   variant="outline"
                   onClick={() => setIsCreateModalOpen(false)}
-                  disabled={isPending}
+                  disabled={isCreatingBatch}
                 >
                   Cancel
                 </Button>
-                <Button type="submit" disabled={isPending}>
-                  {isPending ? "Creating..." : "Create Batch"}
+                <Button type="submit" disabled={isCreatingBatch}>
+                  {isCreatingBatch ? "Creating..." : "Create Batch"}
                 </Button>
               </div>
             </form>
