@@ -58,22 +58,38 @@ test('permission catalog synchronization never restores a removed existing grant
   const permissions = require('./auth-mock.cjs').permissions;
   const catalog = new Map(permissions.ALL_PERMISSION_CODES.map(code => [code, { id: code, code }]));
   const grants = [];
+  const existingGrants = new Set();
+  let advisoryLocks = 0;
   const tx = {
-    $queryRaw: async () => {},
+    $queryRaw: async () => { advisoryLocks++; },
     permission: { findMany: async () => [...catalog.values()], upsert: async ({ create }) => { if (!catalog.has(create.code)) catalog.set(create.code, { ...create, id: create.code }); } },
     role: { findUnique: async ({ where }) => ({ id: where.name, name: where.name }) },
-    rolePermission: { createMany: async ({ data }) => grants.push(...data) },
+    rolePermission: {
+      upsert: async ({ where, create }) => {
+        const key = `${where.roleId_permissionId.roleId}:${where.roleId_permissionId.permissionId}`;
+        if (!existingGrants.has(key)) {
+          existingGrants.add(key);
+          grants.push(create);
+        }
+      },
+    },
   };
   const db = { $transaction: async fn => fn(tx) };
+  const environment = { DATABASE_URL: 'postgresql://localhost/test' };
   function load(file, mocks) {
     const exports = {};
     const code = ts.transpileModule(fs.readFileSync(path.join(root, file), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
-    vm.runInNewContext(code, { exports, require: id => { if (!(id in mocks)) throw new Error(id); return mocks[id]; } });
+    vm.runInNewContext(code, { exports, process: { env: environment }, require: id => { if (!(id in mocks)) throw new Error(id); return mocks[id]; } });
     return exports;
   }
   const definitions = load('src/lib/permission-definitions.ts', { './permissions': permissions });
   const api = load('src/lib/permission-catalog.ts', { './db': { db }, './permissions': permissions, './permission-definitions': definitions });
   await api.syncPermissionCatalog();
+  assert.equal(advisoryLocks, 1, 'PostgreSQL sync must acquire the advisory lock');
+  environment.DATABASE_URL = 'file:local.sqlite';
+  await api.syncPermissionCatalog();
+  assert.equal(advisoryLocks, 1, 'SQLite sync must not issue the PostgreSQL-only advisory lock');
+  environment.DATABASE_URL = 'postgresql://localhost/test';
   assert.equal(grants.length, 0, 'existing catalog grants must be left untouched');
   catalog.delete('materials.manage');
   await api.syncPermissionCatalog();

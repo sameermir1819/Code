@@ -6,7 +6,9 @@ import { ROLE_PERMISSIONS, NEW_PERMISSION_CODES } from "./permissions";
 // assignments are authoritative: only new roles/new module codes get defaults.
 export async function syncPermissionCatalog() {
   await db.$transaction(async (tx) => {
-    await tx.$queryRaw`SELECT pg_advisory_xact_lock(73190421)`;
+    if (!process.env.DATABASE_URL?.startsWith("file:")) {
+      await tx.$queryRaw`SELECT pg_advisory_xact_lock(73190421)`;
+    }
     const existing = new Set((await tx.permission.findMany({ select: { code: true } })).map((p) => p.code));
     for (const permission of STANDARD_PERMISSIONS) {
       await tx.permission.upsert({ where: { code: permission.code }, update: {}, create: permission });
@@ -18,7 +20,13 @@ export async function syncPermissionCatalog() {
       const defaults = ROLE_PERMISSIONS[definition.name] ?? [];
       const grant = permissions.filter((p) => defaults.includes(p.code as never) &&
         (!oldRole || (!existing.has(p.code) && NEW_PERMISSION_CODES.includes(p.code as never))));
-      if (grant.length) await tx.rolePermission.createMany({ data: grant.map((p) => ({ roleId: role.id, permissionId: p.id })), skipDuplicates: true });
+      for (const permission of grant) {
+        await tx.rolePermission.upsert({
+          where: { roleId_permissionId: { roleId: role.id, permissionId: permission.id } },
+          update: {},
+          create: { roleId: role.id, permissionId: permission.id },
+        });
+      }
     }
   }, { timeout: 30_000 });
 }
