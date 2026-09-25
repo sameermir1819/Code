@@ -36,7 +36,7 @@ export default async function HomePage() {
       orderBy: { createdAt: "asc" },
     }),
     db.testSeries.findMany({
-      where: { status: "ACTIVE" },
+      where: { status: { in: ["ACTIVE", "UPCOMING"] } },
       select: {
         id: true,
         title: true,
@@ -49,7 +49,6 @@ export default async function HomePage() {
         testCenterVenue: true,
       },
       orderBy: { createdAt: "desc" },
-      take: 6,
     }),
     db.student.count(),
   ]);

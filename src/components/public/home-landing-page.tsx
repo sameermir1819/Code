@@ -414,61 +414,10 @@ export function HomeLandingPage({
               </div>
             ))
           ) : (
-            <>
-              <div className="p-6 rounded-3xl bg-white/[0.03] border border-white/10 space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold px-3 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 uppercase">
-                    NEET UG 2026
-                  </span>
-                  <span className="text-xs font-mono text-zinc-400">12 Full Tests</span>
-                </div>
-                <h3 className="text-lg font-bold text-white">NEET All-Kashmir Ranker Drill</h3>
-                <p className="text-xs text-zinc-400">Complete NCERT Biology, Organic Chemistry, and Physics mechanics mock series.</p>
-                <div className="pt-4 border-t border-white/5 flex items-center justify-between">
-                  <span className="text-lg font-black text-white">₹3,000</span>
-                  <Link href="/apply?interest=NEET+Test+Series" className="px-4 py-2 rounded-xl bg-emerald-600 text-white font-bold text-xs flex items-center gap-1">
-                    <span>Enroll Now</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </Link>
-                </div>
-              </div>
-
-              <div className="p-6 rounded-3xl bg-white/[0.03] border border-white/10 space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold px-3 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30 uppercase">
-                    JEE MAIN 2026
-                  </span>
-                  <span className="text-xs font-mono text-zinc-400">10 Full Tests</span>
-                </div>
-                <h3 className="text-lg font-bold text-white">JEE Rank Accelerator Series</h3>
-                <p className="text-xs text-zinc-400">Computerized &amp; pen-paper mock drill series with speed-accuracy error analysis.</p>
-                <div className="pt-4 border-t border-white/5 flex items-center justify-between">
-                  <span className="text-lg font-black text-white">₹2,500</span>
-                  <Link href="/apply?interest=JEE+Test+Series" className="px-4 py-2 rounded-xl bg-indigo-600 text-white font-bold text-xs flex items-center gap-1">
-                    <span>Enroll Now</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </Link>
-                </div>
-              </div>
-
-              <div className="p-6 rounded-3xl bg-white/[0.03] border border-white/10 space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold px-3 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30 uppercase">
-                    FOUNDATION
-                  </span>
-                  <span className="text-xs font-mono text-zinc-400">8 Chapter Tests</span>
-                </div>
-                <h3 className="text-lg font-bold text-white">Class 9th &amp; 10th Olympiad Benchmark</h3>
-                <p className="text-xs text-zinc-400">Conceptual foundation test series for NTSE, Maths Olympiads and Board exams.</p>
-                <div className="pt-4 border-t border-white/5 flex items-center justify-between">
-                  <span className="text-lg font-black text-white">₹1,800</span>
-                  <Link href="/apply?interest=Foundation+Test+Series" className="px-4 py-2 rounded-xl bg-purple-600 text-white font-bold text-xs flex items-center gap-1">
-                    <span>Enroll Now</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </Link>
-                </div>
-              </div>
-            </>
+            <div className="md:col-span-2 lg:col-span-3 rounded-3xl border border-dashed border-white/10 bg-white/[0.02] px-6 py-10 text-center">
+              <p className="text-sm font-semibold text-zinc-300">No active test series available right now.</p>
+              <p className="mt-1 text-xs text-zinc-500">New test series published by the institute will appear here.</p>
+            </div>
           )}
         </div>
       </section>
