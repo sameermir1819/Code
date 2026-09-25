@@ -217,11 +217,12 @@ export async function markBatchUnscannedAsAbsent(batchId: string, dateStr: strin
 }
 
 export async function getAttendanceDefaulters(thresholdPercentage = 75) {
-  await requireStaffPermission("attendance.view");
+  const session = await requireStaffPermission("attendance.view");
+  const instituteId = authorizedCampusId(session, await getActiveCampusId());
 
   // Calculate attendance rate per active student
   const students = await db.student.findMany({
-    where: { status: "ACTIVE" },
+    where: { status: "ACTIVE", instituteId },
     include: {
       parent: true,
       enrollments: {
@@ -291,16 +292,18 @@ export async function getMonthlyAttendanceReport(
   month: number, // 1-12
   year: number
 ): Promise<MonthlyAttendanceReport> {
-  await requireStaffPermission("attendance.view");
+  const session = await requireStaffPermission("attendance.view");
+  const instituteId = authorizedCampusId(session, await getActiveCampusId());
 
   const monthStart = startOfMonth(new Date(year, month - 1, 1));
   const monthEnd = endOfMonth(new Date(year, month - 1, 1));
 
   // Get batch info
-  const batch = await db.batch.findUnique({
-    where: { id: batchId },
+  const batch = await db.batch.findFirst({
+    where: { id: batchId, instituteId },
     select: { name: true },
   });
+  if (!batch) throw new Error("Batch not found");
 
   // Get all active enrollments for this batch
   const enrollments = await db.enrollment.findMany({

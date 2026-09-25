@@ -219,6 +219,10 @@ function financeFixture() {
         if (!payment) return null;
         return structuredClone({ ...payment, student, refunds: state.refunds.filter((r) => r.paymentId === payment.id), feePlan: { ...state.plan, installments: [...state.installments].reverse() } });
       },
+      findFirst: async ({ where }) => {
+        const payment = await db.payment.findUnique({ where: { id: where.id } });
+        return payment && payment.student.instituteId === where.student.instituteId ? payment : null;
+      },
       update: async ({ where, data }) => Object.assign(state.payments.find((p) => p.id === where.id), data),
     },
     refundAdjustment: { create: async ({ data }) => {

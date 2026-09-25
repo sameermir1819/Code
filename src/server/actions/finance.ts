@@ -408,13 +408,14 @@ export async function processRefund(data: {
 }) {
   await requireStaffPermission("fees.update");
   const session = await requireAuth(["SUPER_ADMIN"]);
+  const instituteId = authorizedCampusId(session, await getActiveCampusId());
 
   validateAmount(data.amount);
   if (!data.reason?.trim()) throw new Error("Refund reason is required");
 
   const result = await financeTransaction(async (tx) => {
-    const payment = await tx.payment.findUnique({
-      where: { id: data.paymentId },
+    const payment = await tx.payment.findFirst({
+      where: { id: data.paymentId, student: { instituteId } },
       include: {
         refunds: true,
         feePlan: { include: { installments: { orderBy: { installmentNumber: "desc" } } } },

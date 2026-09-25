@@ -136,7 +136,8 @@ export async function getTestSeriesDetails(id: string) {
  * Create a new Offline Test Series
  */
 export async function createTestSeries(formData: TestSeriesFormInput) {
-  await requireStaffPermission("test-series.manage");
+  const session = await requireStaffPermission("test-series.manage");
+  const instituteId = authorizedCampusId(session, await getActiveCampusId());
 
   if (!formData.title || !formData.code) {
     return { success: false, error: "Title and Code are required." };
@@ -153,16 +154,10 @@ export async function createTestSeries(formData: TestSeriesFormInput) {
     return { success: false, error: "End date cannot be before start date." };
   }
 
-  // Get institute ID
-  const institute = await db.institute.findFirst();
-  if (!institute) {
-    return { success: false, error: "Institute record not found." };
-  }
-
   try {
     const newSeries = await db.testSeries.create({
       data: {
-        instituteId: institute.id,
+        instituteId,
         title: formData.title.trim(),
         code: formData.code.trim().toUpperCase(),
         description: formData.description?.trim(),
@@ -190,7 +185,8 @@ export async function createTestSeries(formData: TestSeriesFormInput) {
  * Update an existing Offline Test Series
  */
 export async function updateTestSeries(id: string, formData: TestSeriesFormInput) {
-  await requireStaffPermission("test-series.manage");
+  const session = await requireStaffPermission("test-series.manage");
+  const instituteId = authorizedCampusId(session, await getActiveCampusId());
 
   if (!id) {
     return { success: false, error: "Test Series ID is required." };
@@ -212,6 +208,13 @@ export async function updateTestSeries(id: string, formData: TestSeriesFormInput
   }
 
   try {
+    const existingSeries = await db.testSeries.findFirst({
+      where: { id, instituteId },
+      select: { id: true },
+    });
+    if (!existingSeries) {
+      return { success: false, error: "Test Series not found in the active campus." };
+    }
     const updatedSeries = await db.testSeries.update({
       where: { id },
       data: {
@@ -242,15 +245,16 @@ export async function updateTestSeries(id: string, formData: TestSeriesFormInput
  * Delete an Offline Test Series and its linked registrations, exams, and results
  */
 export async function deleteTestSeries(id: string) {
-  await requireStaffPermission("test-series.manage");
+  const session = await requireStaffPermission("test-series.manage");
+  const instituteId = authorizedCampusId(session, await getActiveCampusId());
 
   if (!id) {
     return { success: false, error: "Test Series ID is required." };
   }
 
   try {
-    const existing = await db.testSeries.findUnique({
-      where: { id },
+    const existing = await db.testSeries.findFirst({
+      where: { id, instituteId },
       select: { title: true },
     });
 
@@ -288,13 +292,21 @@ export async function createTestSeriesExam(formData: {
   questionPaperUrl?: string;
   answerKeyUrl?: string;
 }) {
-  await requireStaffPermission("test-series.manage");
+  const session = await requireStaffPermission("test-series.manage");
+  const instituteId = authorizedCampusId(session, await getActiveCampusId());
 
   if (!formData.title || !formData.code || !formData.testSeriesId) {
     return { success: false, error: "Title, Code, and Test Series ID are required." };
   }
 
   try {
+    const series = await db.testSeries.findFirst({
+      where: { id: formData.testSeriesId, instituteId },
+      select: { id: true },
+    });
+    if (!series) {
+      return { success: false, error: "Test Series not found in the active campus." };
+    }
     const exam = await db.testSeriesExam.create({
       data: {
         testSeriesId: formData.testSeriesId,
@@ -339,7 +351,8 @@ export async function registerStudentForTestSeries(formData: {
   remarks?: string;
 }) {
   await requireStaffPermission("fees.create");
-  await requireStaffPermission("test-series.manage");
+  const session = await requireStaffPermission("test-series.manage");
+  const instituteId = authorizedCampusId(session, await getActiveCampusId());
 
   if (!formData.testSeriesId) {
     return { success: false, error: "Please select a test series." };
@@ -354,6 +367,22 @@ export async function registerStudentForTestSeries(formData: {
 
   try {
     // Generate unique roll number & receipt number
+    const series = await db.testSeries.findFirst({
+      where: { id: formData.testSeriesId, instituteId },
+      select: { id: true },
+    });
+    if (!series) {
+      return { success: false, error: "Test Series not found in the active campus." };
+    }
+    if (formData.studentId) {
+      const student = await db.student.findFirst({
+        where: { id: formData.studentId, instituteId },
+        select: { id: true },
+      });
+      if (!student) {
+        return { success: false, error: "Student does not belong to the active campus." };
+      }
+    }
     const count = await db.testSeriesRegistration.count({
       where: { testSeriesId: formData.testSeriesId },
     });
@@ -412,13 +441,33 @@ export async function submitTestResults(
     remarks?: string;
   }>
 ) {
-  await requireStaffPermission("results.manage");
+  const session = await requireStaffPermission("results.manage");
+  const instituteId = authorizedCampusId(session, await getActiveCampusId());
 
   if (!testSeriesExamId || !results || results.length === 0) {
     return { success: false, error: "Invalid test results data submitted." };
   }
 
   try {
+    const exam = await db.testSeriesExam.findFirst({
+      where: { id: testSeriesExamId, testSeries: { instituteId } },
+      select: { testSeriesId: true },
+    });
+    if (!exam) {
+      return { success: false, error: "Test Series exam not found in the active campus." };
+    }
+    const registrationIds = [...new Set(results.map((result) => result.registrationId))];
+    const registrations = await db.testSeriesRegistration.findMany({
+      where: {
+        id: { in: registrationIds },
+        testSeriesId: exam.testSeriesId,
+        OR: [{ studentId: null }, { student: { instituteId } }],
+      },
+      select: { id: true },
+    });
+    if (registrations.length !== registrationIds.length) {
+      return { success: false, error: "A registration does not belong to this test series." };
+    }
     // Filter present students to compute rank
     const presentResults = results
       .filter((r) => r.attendance === "PRESENT")
@@ -639,15 +688,20 @@ export async function updateTestSeriesPayment(
     remarks?: string;
   }
 ) {
-  await requireStaffPermission("fees.update");
+  const session = await requireStaffPermission("fees.update");
+  const instituteId = authorizedCampusId(session, await getActiveCampusId());
 
   if (!registrationId) {
     return { success: false, error: "Registration ID is required." };
   }
 
   try {
-    const existing = await db.testSeriesRegistration.findUnique({
-      where: { id: registrationId },
+    const existing = await db.testSeriesRegistration.findFirst({
+      where: {
+        id: registrationId,
+        testSeries: { instituteId },
+        OR: [{ studentId: null }, { student: { instituteId } }],
+      },
     });
 
     if (!existing) {

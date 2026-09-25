@@ -118,7 +118,13 @@ export async function createExam(data: {
   durationMinutes: number;
   instructions?: string;
 }) {
-  await requireStaffPermission("exams.create");
+  const session = await requireStaffPermission("exams.create");
+  const instituteId = authorizedCampusId(session, await getActiveCampusId());
+  const batch = await db.batch.findFirst({
+    where: { id: data.batchId, instituteId },
+    select: { id: true },
+  });
+  if (!batch) throw new Error("Batch not found");
 
   const exam = await db.exam.create({
     data: {

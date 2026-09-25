@@ -358,12 +358,20 @@ export async function createBatchSubject(data: {
   description?: string;
   teacherId?: string;
 }) {
-  await requireStaffPermission("batches.manage");
-  const batch = await db.batch.findUnique({
-    where: { id: data.batchId },
+  const session = await requireStaffPermission("batches.manage");
+  const instituteId = authorizedCampusId(session, await getActiveCampusId());
+  const batch = await db.batch.findFirst({
+    where: { id: data.batchId, instituteId },
     include: { course: true },
   });
   if (!batch) throw new Error("Batch not found");
+  if (data.teacherId) {
+    const teacher = await db.teacher.findFirst({
+      where: { id: data.teacherId, instituteId, status: "ACTIVE" },
+      select: { id: true },
+    });
+    if (!teacher) throw new Error("Teacher does not belong to the active campus");
+  }
 
   // Create or find subject by code
   let subject = await db.subject.findUnique({
