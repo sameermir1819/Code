@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect, useTransition, Suspense } from "react";
+import { useState, useEffect, useTransition, Suspense, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { processAdmission } from "@/server/actions/admissions";
 import { getCourses, getBatches } from "@/server/actions/academics";
+import { getActiveCampus, getAllCampuses, type CampusItem } from "@/server/actions/campus";
 import { updateLead } from "@/server/actions/leads";
 import { formatCurrency } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -27,6 +28,9 @@ function AdmissionForm() {
   // Courses & Batches list
   const [courses, setCourses] = useState<any[]>([]);
   const [batches, setBatches] = useState<any[]>([]);
+  const [campuses, setCampuses] = useState<CampusItem[]>([]);
+  const [selectedCampusId, setSelectedCampusId] = useState("");
+  const [isLoadingCampusData, setIsLoadingCampusData] = useState(true);
   const [selectedCourseId, setSelectedCourseId] = useState("");
   const [selectedBatchId, setSelectedBatchId] = useState("");
 
@@ -64,40 +68,58 @@ function AdmissionForm() {
   const [result, setResult] = useState<any>(null);
   const [errorMsg, setErrorMsg] = useState("");
 
+  const loadCampusAcademicData = useCallback(async (campusId: string) => {
+    const [campusCourses, campusBatches] = await Promise.all([
+      getCourses(campusId),
+      getBatches({ status: "ACTIVE", campusId }),
+    ]);
+    setCourses(campusCourses);
+    setBatches(campusBatches);
+    const firstBatch = campusBatches[0];
+    const defaultCourseId = firstBatch?.courseId || campusCourses[0]?.id || "";
+    setSelectedCourseId(defaultCourseId);
+    setSelectedBatchId(firstBatch?.id || "");
+    const course = campusCourses.find((item: any) => item.id === defaultCourseId);
+    if (course) {
+      setFormData((prev) => ({ ...prev, tuitionFee: course.standardFee - 25000 }));
+    }
+  }, []);
+
   useEffect(() => {
     async function loadData() {
-      const [c, b] = await Promise.all([getCourses(), getBatches({ status: "ACTIVE" })]);
-      setCourses(c);
-      setBatches(b);
-      if (c.length > 0) {
-        setSelectedCourseId(c[0].id);
-        setFormData((prev) => ({
-          ...prev,
-          tuitionFee: c[0].standardFee - 25000,
-        }));
-      }
-      if (b.length > 0) {
-        setSelectedBatchId(b[0].id);
-        if (b[0].courseId) {
-          setSelectedCourseId(b[0].courseId);
-          const matchedCourse = c.find((course: any) => course.id === b[0].courseId);
-          if (matchedCourse) {
-            setFormData((prev) => ({
-              ...prev,
-              tuitionFee: matchedCourse.standardFee - 25000,
-            }));
-          }
-        }
-      } else if (c.length > 0) {
-        setSelectedCourseId(c[0].id);
-        setFormData((prev) => ({
-          ...prev,
-          tuitionFee: c[0].standardFee - 25000,
-        }));
+      try {
+        const [allCampuses, activeCampus] = await Promise.all([
+          getAllCampuses(),
+          getActiveCampus(),
+        ]);
+        setCampuses(allCampuses);
+        const campusId = activeCampus?.id || allCampuses[0]?.id;
+        if (!campusId) throw new Error("Create a campus before processing admissions.");
+        setSelectedCampusId(campusId);
+        await loadCampusAcademicData(campusId);
+      } catch (error: unknown) {
+        setErrorMsg(error instanceof Error ? error.message : "Failed to load campus data.");
+      } finally {
+        setIsLoadingCampusData(false);
       }
     }
     loadData();
-  }, []);
+  }, [loadCampusAcademicData]);
+
+  const handleCampusChange = async (campusId: string) => {
+    setSelectedCampusId(campusId);
+    setSelectedBatchId("");
+    setSelectedCourseId("");
+    setErrorMsg("");
+    setIsLoadingCampusData(true);
+    try {
+      await loadCampusAcademicData(campusId);
+    } catch (error: unknown) {
+      setErrorMsg(error instanceof Error ? error.message : "Failed to load courses and batches for this campus.");
+    } finally {
+      setIsLoadingCampusData(false);
+    }
+  };
 
   const handleBatchChange = (bId: string) => {
     setSelectedBatchId(bId);
@@ -138,6 +160,7 @@ function AdmissionForm() {
           ...formData,
           courseId: selectedCourseId,
           batchId: selectedBatchId,
+          campusId: selectedCampusId,
           admissionFee: Number(formData.admissionFee),
           tuitionFee: Number(formData.tuitionFee),
           materialFee: Number(formData.materialFee),
@@ -381,13 +404,32 @@ function AdmissionForm() {
             </CardTitle>
           </CardHeader>
           <CardContent className="text-xs">
+            <div className="mb-4">
+              <label className="font-semibold block mb-1">Student Campus *</label>
+              <select
+                aria-label="Select student campus"
+                required
+                value={selectedCampusId}
+                onChange={(e) => handleCampusChange(e.target.value)}
+                disabled={isLoadingCampusData || campuses.length === 0}
+                className="w-full h-9 px-3 rounded-md border border-input bg-background text-xs"
+              >
+                {campuses.map((campus) => (
+                  <option key={campus.id} value={campus.id}>
+                    {campus.name} ({campus.code})
+                  </option>
+                ))}
+              </select>
+            </div>
             <div>
               <label className="font-semibold block mb-1">Select Batch *</label>
               <select
                 value={selectedBatchId}
                 onChange={(e) => handleBatchChange(e.target.value)}
+                disabled={isLoadingCampusData || batches.length === 0}
                 className="w-full h-9 px-3 rounded-md border border-input bg-background text-xs"
               >
+                {batches.length === 0 && <option value="">No active batches for this campus</option>}
                 {batches.map((b) => (
                   <option key={b.id} value={b.id}>
                     {b.name} ({b.capacity} seats) {b.course?.name ? `• ${b.course.name}` : ""}
@@ -553,4 +595,3 @@ export default function NewAdmissionPage() {
     </Suspense>
   );
 }
-

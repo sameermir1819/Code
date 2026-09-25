@@ -7,6 +7,7 @@ import { requireAuth, getEffectivePermissions } from "@/lib/auth";
 import { logAudit } from "./audit";
 import { getActiveCampusId } from "./campus";
 import { createStudentUser } from "@/lib/student-user";
+import { authorizedCampusId } from "@/lib/campus-scope";
 
 export async function getStudents({
   search = "",
@@ -300,23 +301,67 @@ export async function updateStudent(
     gradeClass: string;
     status: string;
     notes: string;
+    instituteId: string;
+    batchId: string;
   }>
 ) {
-  await requireStaffPermission("students.update");
+  const actor = await requireStaffPermission("students.update");
 
   const updated = await db.$transaction(async (tx) => {
+    const { instituteId: requestedInstituteId, batchId, ...studentData } = data;
+    const existing = await tx.student.findUnique({
+      where: { id },
+      select: { instituteId: true, userId: true },
+    });
+    if (!existing) throw new Error("Student not found");
+    if (
+      requestedInstituteId &&
+      actor.role !== "SUPER_ADMIN" &&
+      actor.instituteId &&
+      requestedInstituteId !== actor.instituteId
+    ) {
+      throw new Error("You can only assign students to your assigned campus.");
+    }
+
+    const instituteId = authorizedCampusId(
+      actor,
+      requestedInstituteId || existing.instituteId
+    );
+    const campusChanged = instituteId !== existing.instituteId;
+    const currentEnrollment = await tx.enrollment.findFirst({
+      where: { studentId: id, status: "ACTIVE" },
+      select: { batchId: true },
+    });
+    const batchChanged = batchId !== undefined && batchId !== (currentEnrollment?.batchId || "");
+
+    let selectedBatch: { id: string; courseId: string; name: string } | null = null;
+    if (batchChanged && batchId) {
+      selectedBatch = await tx.batch.findFirst({
+        where: { id: batchId, instituteId, status: "ACTIVE" },
+        select: { id: true, courseId: true, name: true },
+      });
+      if (!selectedBatch) {
+        throw new Error("Selected batch must be active and belong to the student's selected campus.");
+      }
+    }
+    if (campusChanged && !selectedBatch) {
+      throw new Error("Select an active batch from the new campus before moving this student.");
+    }
+
     const student = await tx.student.update({
       where: { id },
       data: {
-        ...data,
+        ...studentData,
+        instituteId,
         dob: data.dob ? new Date(data.dob) : undefined,
         admissionDate: data.admissionDate ? new Date(data.admissionDate) : undefined,
       },
     });
-    if (data.name || data.phone !== undefined || data.status) {
+    if (data.name || data.phone !== undefined || data.status || campusChanged) {
       await tx.user.updateMany({
         where: { student: { is: { id } } },
         data: {
+          instituteId,
           name: data.name,
           phone: data.phone !== undefined ? data.phone?.trim() || null : undefined,
           status: data.status
@@ -326,6 +371,22 @@ export async function updateStudent(
                 ? "SUSPENDED"
                 : "INACTIVE"
             : undefined,
+        },
+      });
+    }
+
+    if (selectedBatch) {
+      await tx.enrollment.updateMany({
+        where: { studentId: id, status: "ACTIVE" },
+        data: { status: "TRANSFERRED", endDate: new Date() },
+      });
+      await tx.enrollment.create({
+        data: {
+          studentId: id,
+          batchId: selectedBatch.id,
+          courseId: selectedBatch.courseId,
+          status: "ACTIVE",
+          startDate: new Date(),
         },
       });
     }

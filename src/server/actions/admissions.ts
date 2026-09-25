@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { logAudit } from "./audit";
 import { getActiveCampusId } from "./campus";
 import { createStudentUser } from "@/lib/student-user";
+import { authorizedCampusId } from "@/lib/campus-scope";
 
 export interface AdmissionPayload {
   // Student
@@ -28,6 +29,7 @@ export interface AdmissionPayload {
   parentRelation?: string;
   parentOccupation?: string;
   // Academic
+  campusId?: string;
   courseId: string;
   batchId: string;
   // Fees
@@ -50,15 +52,29 @@ export async function processAdmission(payload: AdmissionPayload) {
   await requireStaffPermission("fees.create");
   await requireStaffPermission("fees.update");
   const session = await requireStaffPermission("students.create");
+  if (
+    payload.campusId &&
+    session.role !== "SUPER_ADMIN" &&
+    session.instituteId &&
+    payload.campusId !== session.instituteId
+  ) {
+    throw new Error("You can only admit students to your assigned campus.");
+  }
 
-  const campusId = await getActiveCampusId();
-  if (!campusId) throw new Error("No active campus found.");
+  const campusId = authorizedCampusId(
+    session,
+    payload.campusId || (await getActiveCampusId())
+  );
 
-  const course = await db.course.findUnique({ where: { id: payload.courseId } });
-  if (!course) throw new Error("Selected course not found");
+  const course = await db.course.findFirst({
+    where: { id: payload.courseId, instituteId: campusId },
+  });
+  if (!course) throw new Error("Selected course does not belong to the selected campus.");
 
-  const batch = await db.batch.findUnique({ where: { id: payload.batchId } });
-  if (!batch) throw new Error("Selected batch not found");
+  const batch = await db.batch.findFirst({
+    where: { id: payload.batchId, instituteId: campusId, courseId: course.id },
+  });
+  if (!batch) throw new Error("Selected batch does not belong to the selected campus and course.");
 
   const year = new Date().getFullYear();
   const studentCount = await db.student.count();

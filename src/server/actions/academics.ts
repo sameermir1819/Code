@@ -12,11 +12,14 @@ import { authorizedCampusId } from "@/lib/campus-scope";
 // ==========================================
 // COURSES
 // ==========================================
-export async function getCourses() {
-  await requireStaffPermission("courses.view");
-  const campusId = await getActiveCampusId();
+export async function getCourses(selectedCampusId?: string) {
+  const actor = await requireStaffPermission("courses.view");
+  const campusId = authorizedCampusId(
+    actor,
+    selectedCampusId || (await getActiveCampusId())
+  );
   return await db.course.findMany({
-    where: campusId ? { instituteId: campusId } : {},
+    where: { instituteId: campusId },
     orderBy: { createdAt: "desc" },
     include: {
       subjects: { include: { subject: true } },
@@ -234,11 +237,14 @@ export async function getTeachers({ campusId: explicitCampusId }: { campusId?: s
 export async function getBatches({
   courseId,
   status,
-}: { courseId?: string; status?: string } = {}) {
+  campusId: selectedCampusId,
+}: { courseId?: string; status?: string; campusId?: string } = {}) {
   const actor = await requireStaffPermission("batches.view");
-  const campusId = await getActiveCampusId();
-  const where: Record<string, unknown> = {};
-  if (campusId) where.instituteId = campusId;
+  const campusId = authorizedCampusId(
+    actor,
+    selectedCampusId || (await getActiveCampusId())
+  );
+  const where: Record<string, unknown> = { instituteId: campusId };
   if (courseId) where.courseId = courseId;
   if (status && status !== "ALL") where.status = status;
 

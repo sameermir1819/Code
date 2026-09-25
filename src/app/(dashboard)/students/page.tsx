@@ -7,7 +7,6 @@ import {
   getStudentStats,
   updateStudent,
   updateStudentParent,
-  enrollStudentInBatch,
 } from "@/server/actions/students";
 import { getBatches } from "@/server/actions/academics";
 import { getActiveCampus, getAllCampuses, switchActiveCampus, type CampusItem } from "@/server/actions/campus";
@@ -152,6 +151,8 @@ export default function StudentsPage() {
   const [campusError, setCampusError] = useState("");
   const [dataError, setDataError] = useState("");
   const [isSwitchingCampus, setIsSwitchingCampus] = useState(false);
+  const [editCampuses, setEditCampuses] = useState<CampusItem[]>([]);
+  const [isLoadingEditBatches, setIsLoadingEditBatches] = useState(false);
 
   // ── Fast KPI Statistics ──
   const [kpiStats, setKpiStats] = useState({
@@ -292,7 +293,11 @@ export default function StudentsPage() {
   // ── Batches list for editing batch allotment ──
   const [batches, setBatches] = useState<any[]>([]);
   useEffect(() => {
-    getBatches({ status: "ACTIVE" }).then((bList) => setBatches(bList)).catch(() => {});
+    getAllCampuses()
+      .then(setEditCampuses)
+      .catch((error: unknown) => {
+        setDataError(error instanceof Error ? error.message : "Failed to load campuses.");
+      });
   }, []);
 
   // ── Edit Student State ──
@@ -316,6 +321,7 @@ export default function StudentsPage() {
     gradeClass: "Class 11",
     status: "ACTIVE",
     emergencyContact: "",
+    instituteId: "",
     batchId: "",
     parentName: "",
     parentPhone: "",
@@ -343,12 +349,34 @@ export default function StudentsPage() {
       gradeClass: stu.gradeClass || "Class 11",
       status: stu.status || "ACTIVE",
       emergencyContact: stu.emergencyContact || "",
+      instituteId: stu.instituteId,
       batchId: activeBatchId,
       parentName: stu.parent?.name || "",
       parentPhone: stu.parent?.phone || "",
       parentRelation: stu.parent?.relation || "Father",
       parentOccupation: stu.parent?.occupation || "",
     });
+    setIsLoadingEditBatches(true);
+    getBatches({ status: "ACTIVE", campusId: stu.instituteId })
+      .then(setBatches)
+      .catch((error: unknown) => {
+        setEditError(error instanceof Error ? error.message : "Failed to load batches for this campus.");
+      })
+      .finally(() => setIsLoadingEditBatches(false));
+  };
+
+  const handleEditCampusChange = async (campusId: string) => {
+    setEditForm((previous) => ({ ...previous, instituteId: campusId, batchId: "" }));
+    setBatches([]);
+    setEditError("");
+    setIsLoadingEditBatches(true);
+    try {
+      setBatches(await getBatches({ status: "ACTIVE", campusId }));
+    } catch (error: unknown) {
+      setEditError(error instanceof Error ? error.message : "Failed to load batches for this campus.");
+    } finally {
+      setIsLoadingEditBatches(false);
+    }
   };
 
   const handleSaveStudent = async (e: React.FormEvent) => {
@@ -378,6 +406,8 @@ export default function StudentsPage() {
         gradeClass: editForm.gradeClass.trim() || undefined,
         status: editForm.status,
         emergencyContact: editForm.emergencyContact.trim() || undefined,
+        instituteId: editForm.instituteId,
+        batchId: editForm.batchId,
       });
 
       if (editForm.parentName.trim() && editForm.parentPhone.trim()) {
@@ -387,14 +417,6 @@ export default function StudentsPage() {
           relation: editForm.parentRelation,
           occupation: editForm.parentOccupation.trim() || undefined,
         });
-      }
-
-      const currentBatchId = editingStudent.enrollments[0]?.batch?.id || "";
-      if (editForm.batchId && editForm.batchId !== currentBatchId) {
-        const selectedBatch = batches.find((b) => b.id === editForm.batchId);
-        if (selectedBatch) {
-          await enrollStudentInBatch(editingStudent.id, selectedBatch.id, selectedBatch.courseId);
-        }
       }
 
       setEditSuccess("Student profile updated successfully!");
@@ -855,6 +877,22 @@ export default function StudentsPage() {
 
                   {/* Batch Allotment Dropdown */}
                   <div className="p-3 rounded-lg border bg-muted/20">
+                    <label className="font-semibold text-foreground block mb-1">
+                      Student Campus:
+                    </label>
+                    <select
+                      aria-label="Select student campus"
+                      value={editForm.instituteId}
+                      onChange={(e) => handleEditCampusChange(e.target.value)}
+                      disabled={isLoadingEditBatches}
+                      className="w-full h-9 px-3 mb-3 rounded-md border border-input bg-background text-xs font-medium"
+                    >
+                      {editCampuses.map((campus) => (
+                        <option key={campus.id} value={campus.id}>
+                          {campus.name} ({campus.code})
+                        </option>
+                      ))}
+                    </select>
                     <label className="font-semibold text-foreground block mb-1 flex items-center gap-1.5">
                       <GraduationCap className="h-4 w-4 text-primary" />
                       <span>Classroom Batch Allotment:</span>
@@ -862,6 +900,8 @@ export default function StudentsPage() {
                     <select
                       value={editForm.batchId}
                       onChange={(e) => setEditForm({ ...editForm, batchId: e.target.value })}
+                      disabled={isLoadingEditBatches}
+                      required={editForm.instituteId !== editingStudent.instituteId}
                       className="w-full h-9 px-3 rounded-md border border-input bg-background text-xs font-medium"
                     >
                       <option value="">-- No Batch (Unassigned) --</option>
@@ -871,6 +911,9 @@ export default function StudentsPage() {
                         </option>
                       ))}
                     </select>
+                    {isLoadingEditBatches && (
+                      <p className="mt-1 text-[11px] text-muted-foreground">Loading campus batches…</p>
+                    )}
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
