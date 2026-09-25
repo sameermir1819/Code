@@ -11,7 +11,6 @@ import {
   provisionStudentUserAccounts,
   deleteStudentUser,
 } from "@/server/actions/users";
-import { switchActiveCampus } from "@/server/actions/campus";
 import { Role } from "@/lib/permissions";
 import { formatDate } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -186,46 +185,6 @@ export function UsersTable({
     });
   };
 
-  const handleCampusChange = (selectedCampusId: string) => {
-    setErrorMsg("");
-    setPage(1);
-    startTransition(async () => {
-      try {
-        if (selectedCampusId !== "ALL" && selectedCampusId !== "GLOBAL") {
-          const result = await switchActiveCampus(selectedCampusId);
-          if (!result.success) throw new Error(result.error || "Failed to switch centre.");
-          setCampusFilter(selectedCampusId);
-          window.dispatchEvent(
-            new CustomEvent("erp-campus-changed", {
-              detail: { campusId: selectedCampusId, campus: result.campus },
-            })
-          );
-          return;
-        }
-
-        const result = await getUsers({
-          search,
-          role: roleFilter,
-          status: statusFilter,
-          branch: branchFilter,
-          campusId: selectedCampusId,
-          page: 1,
-          limit,
-          sortBy,
-          sortOrder,
-        });
-        if (result.success) {
-          setCampusFilter(selectedCampusId);
-          setData(result);
-          setSelectedIds([]);
-        } else {
-          throw new Error("Failed to load users for the selected centre.");
-        }
-      } catch (error: unknown) {
-        setErrorMsg(error instanceof Error ? error.message : "Failed to load users for the selected centre.");
-      }
-    });
-  };
 
   // Trigger search / filter update
   const handleSearchSubmit = (e: React.FormEvent) => {
@@ -407,26 +366,6 @@ export function UsersTable({
               : "Define custom roles, configure granular permissions matrix, and control access across ERP modules."}
           </p>
         </div>
-        {activeTab === "directory" && availableCampuses.length > 0 && (
-          <label className="flex shrink-0 items-center gap-2 text-xs font-semibold text-muted-foreground">
-            <span>Centre</span>
-            <select
-              aria-label="Filter users by centre"
-              value={campusFilter}
-              onChange={(event) => handleCampusChange(event.target.value)}
-              disabled={isPending}
-              className="h-9 min-w-52 rounded-md border border-input bg-background px-3 text-xs font-medium text-foreground"
-            >
-              <option value="ALL">All Centres</option>
-              <option value="GLOBAL">Central / Global (No Centre)</option>
-              {availableCampuses.map((campus) => (
-                <option key={campus.id} value={campus.id}>
-                  {campus.name} ({campus.code})
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
       </div>
 
       {/* View Switcher Tabs & Actions */}
@@ -648,7 +587,7 @@ export function UsersTable({
               Apply
             </Button>
 
-            {(search || roleFilter !== "ALL" || statusFilter !== "ALL" || campusFilter !== "ALL") && (
+            {(search || roleFilter !== "ALL" || statusFilter !== "ALL") && (
               <Button
                 type="button"
                 variant="ghost"
@@ -657,10 +596,15 @@ export function UsersTable({
                   setSearch("");
                   setRoleFilter("ALL");
                   setStatusFilter("ALL");
-                  setCampusFilter("ALL");
                   setPage(1);
                   startTransition(async () => {
-                    const res = await getUsers({ page: 1, limit, sortBy, sortOrder });
+                    const res = await getUsers({
+                      page: 1,
+                      limit,
+                      sortBy,
+                      sortOrder,
+                      campusId: campusFilter,
+                    });
                     if (res.success) setData(res);
                   });
                 }}
