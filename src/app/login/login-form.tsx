@@ -21,6 +21,7 @@ import {
   FileCheck2,
   Shield,
   X,
+  Heart,
 } from "lucide-react";
 
 interface LoginFormProps {
@@ -332,9 +333,11 @@ export function LoginForm({
             <span>&copy; {new Date().getFullYear()} {instituteName}. All rights reserved.</span>
           </div>
           <div className="flex items-center justify-center gap-1.5 text-[11px] text-zinc-400">
-            <span>Made with love by</span>
+            <span>Made with</span>
+            <Heart className="h-3 w-3 fill-rose-500 text-rose-500" aria-hidden="true" />
+            <span>by</span>
             <span className="font-bold text-white bg-white/10 px-2 py-0.5 rounded-md border border-white/10 text-[10px]">
-              Mr. Sameer ❤️
+              Mr. Sameer
             </span>
           </div>
         </div>

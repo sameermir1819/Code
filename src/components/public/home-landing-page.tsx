@@ -37,6 +37,7 @@ import {
   User,
   Smartphone,
   Download,
+  Heart,
 } from "lucide-react";
 
 interface CampusItem {
@@ -769,9 +770,11 @@ export function HomeLandingPage({
         <div className="max-w-7xl mx-auto pt-6 border-t border-white/5 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-zinc-500">
           <p>© {new Date().getFullYear()} {instName}. All Rights Reserved.</p>
           <div className="flex items-center gap-1.5 text-xs text-zinc-400">
-            <span>Made with love by</span>
+            <span>Made with</span>
+            <Heart className="h-3 w-3 fill-rose-500 text-rose-500" aria-hidden="true" />
+            <span>by</span>
             <span className="font-bold text-white bg-white/10 px-2 py-0.5 rounded-md border border-white/10 text-[11px]">
-              Mr. Sameer ❤️
+              Mr. Sameer
             </span>
           </div>
           <p className="text-[11px] text-zinc-600 mt-1 sm:mt-0">

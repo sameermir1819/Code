@@ -2,7 +2,7 @@ import React from "react";
 import Link from "next/link";
 import { getPublicAdmissionData } from "@/server/actions/leads";
 import { AdmissionApplicationForm } from "@/components/public/admission-application-form";
-import { GraduationCap, ArrowLeft, ShieldCheck, Phone, CheckCircle2 } from "lucide-react";
+import { GraduationCap, ArrowLeft, ShieldCheck, Phone, CheckCircle2, Heart } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -67,9 +67,11 @@ export default async function ApplyPage() {
       <footer className="mt-16 text-center text-xs text-zinc-500 space-y-1.5 pb-8">
         <p>© {new Date().getFullYear()} {institute?.name || "Futurex Learning"}. All Rights Reserved.</p>
         <div className="flex items-center justify-center gap-1.5 text-xs text-zinc-400">
-          <span>Made with love by</span>
+          <span>Made with</span>
+          <Heart className="h-3 w-3 fill-rose-500 text-rose-500" aria-hidden="true" />
+          <span>by</span>
           <span className="font-bold text-white bg-white/10 px-2 py-0.5 rounded-md border border-white/10 text-[11px]">
-            Mr. Sameer ❤️
+            Mr. Sameer
           </span>
         </div>
         <p className="text-[11px] text-zinc-600">
@@ -79,4 +81,3 @@ export default async function ApplyPage() {
     </div>
   );
 }
-
