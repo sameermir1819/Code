@@ -87,6 +87,7 @@ export async function globalQuickSearch(query: string): Promise<SearchResultItem
       canReadFaculty ? db.teacher.findMany({
         where: {
           instituteId,
+          status: "ACTIVE",
           OR: [
             { name: { contains: q, mode: "insensitive" } },
             { teacherId: { contains: q, mode: "insensitive" } },

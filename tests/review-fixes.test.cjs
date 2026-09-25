@@ -48,8 +48,75 @@ for (const role of [null, 'STUDENT', 'PARENT', 'UNKNOWN', 'TEACHER', 'ACCOUNTANT
     for (const { model, query } of calls) assert.equal(model === 'payment' ? query.where.student.instituteId : query.where.instituteId, 'own');
     assert.equal(calls.some(c => c.model === 'payment'), ['ADMIN', 'ACCOUNTANT'].includes(role));
     assert.equal(calls.some(c => c.model === 'teacher'), role === 'ADMIN');
+    if (role === 'ADMIN') assert.equal(calls.find(c => c.model === 'teacher').query.where.status, 'ACTIVE');
   });
 }
+
+test('archiving a teacher removes active batch and timetable assignments', async () => {
+  const events = [];
+  const actor = { id: 'admin', name: 'Admin', role: 'SUPER_ADMIN' };
+  const target = {
+    id: 'teacher-user',
+    name: 'Archived Teacher',
+    email: 'teacher@example.invalid',
+    role: 'TEACHER',
+    student: null,
+  };
+  const teacher = { id: 'teacher-profile', userId: target.id };
+  const tx = {
+    user: { update: async (args) => events.push(['archive-user', args]) },
+    teacher: {
+      findFirst: async () => teacher,
+      update: async (args) => events.push(['deactivate-teacher', args]),
+    },
+    teacherBatch: { deleteMany: async (args) => events.push(['remove-batch-assignments', args]) },
+    timetableSlot: { deleteMany: async (args) => events.push(['remove-timetable-slots', args]) },
+  };
+  const api = load('src/server/actions/users.ts', {
+    '@/lib/db': {
+      db: {
+        user: { findUnique: async () => target },
+        $transaction: async (callback) => callback(tx),
+      },
+    },
+    '@/lib/auth': { requirePermission: async () => actor },
+    '@/lib/permissions': { ROLE_PERMISSIONS: {} },
+    '@/lib/permission-catalog': { syncPermissionCatalog: async () => {} },
+    '@/lib/student-user': { createStudentUser: async () => {} },
+    './audit': { logAudit: async () => {} },
+    './campus': { getActiveCampusId: async () => 'campus-a' },
+    'next/cache': { revalidatePath: () => {} },
+  });
+
+  assert.deepEqual(clean(await api.archiveUser(target.id)), { success: true });
+  assert.deepEqual(events.map(([name]) => name), [
+    'archive-user',
+    'remove-batch-assignments',
+    'remove-timetable-slots',
+    'deactivate-teacher',
+  ]);
+});
+
+test('batch results omit archived teachers and their timetable slots', async () => {
+  let query;
+  const actor = { id: 'admin', name: 'Admin', role: 'SUPER_ADMIN' };
+  const api = load('src/server/actions/academics.ts', {
+    '@/lib/auth': {
+      requireStaffPermission: async () => actor,
+      getEffectivePermissions: async () => [],
+    },
+    '@/lib/db': { db: { batch: { findMany: async (args) => { query = args; return []; } } } },
+    '@/lib/redact-related-data': { redactRelatedData: (value) => value },
+    './audit': { logAudit: async () => {} },
+    'next/cache': { revalidatePath: () => {} },
+    './campus': { getActiveCampusId: async () => 'campus-a' },
+    '@/lib/campus-scope': { authorizedCampusId: (_session, selectedCampusId) => selectedCampusId },
+  });
+
+  await api.getBatches({ status: 'ALL' });
+  assert.equal(query.include.teachers.where.teacher.is.status, 'ACTIVE');
+  assert.equal(query.include.timetableSlots.where.teacher.is.status, 'ACTIVE');
+});
 
 function campusFixture(counts, campusCount = 2, role = 'SUPER_ADMIN') {
   const events = [];

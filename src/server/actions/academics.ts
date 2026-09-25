@@ -83,7 +83,10 @@ export async function getSubjects() {
   return await db.subject.findMany({
     orderBy: { name: "asc" },
     include: {
-      teachers: { include: { teacher: true } },
+      teachers: {
+        where: { teacher: { is: { status: "ACTIVE" } } },
+        include: { teacher: true },
+      },
       courses: { include: { course: true } },
     },
   });
@@ -260,6 +263,7 @@ export async function getBatches({
         },
       },
       teachers: {
+        where: { teacher: { is: { status: "ACTIVE" } } },
         include: {
           teacher: {
             include: {
@@ -271,6 +275,7 @@ export async function getBatches({
         },
       },
       timetableSlots: {
+        where: { teacher: { is: { status: "ACTIVE" } } },
         include: { subject: true, teacher: true },
         orderBy: [{ dayOfWeek: "asc" }, { startTime: "asc" }],
       },
@@ -297,13 +302,19 @@ export async function getBatchById(id: string) {
           subjects: {
             include: {
               subject: {
-                include: { teachers: { include: { teacher: true } } },
+                include: {
+                  teachers: {
+                    where: { teacher: { is: { status: "ACTIVE" } } },
+                    include: { teacher: true },
+                  },
+                },
               },
             },
           },
         },
       },
       teachers: {
+        where: { teacher: { is: { status: "ACTIVE" } } },
         include: {
           teacher: {
             include: { subjects: { include: { subject: true } } },
@@ -311,6 +322,7 @@ export async function getBatchById(id: string) {
         },
       },
       timetableSlots: {
+        where: { teacher: { is: { status: "ACTIVE" } } },
         include: { subject: true, teacher: true },
         orderBy: [{ dayOfWeek: "asc" }, { startTime: "asc" }],
       },
@@ -493,7 +505,10 @@ export async function createBatch(data: {
         },
         include: {
           course: true,
-          teachers: { include: { teacher: { include: { subjects: { include: { subject: true } } } } } },
+          teachers: {
+            where: { teacher: { is: { status: "ACTIVE" } } },
+            include: { teacher: { include: { subjects: { include: { subject: true } } } } },
+          },
           _count: { select: { enrollments: { where: { status: "ACTIVE" } } } },
         },
       });
@@ -560,6 +575,7 @@ export async function updateBatch(
     include: {
       course: true,
       teachers: {
+        where: { teacher: { is: { status: "ACTIVE" } } },
         include: {
           teacher: {
             include: {

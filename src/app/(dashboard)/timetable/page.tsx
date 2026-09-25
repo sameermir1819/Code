@@ -11,7 +11,11 @@ export default async function TimetablePage() {
   const session = await requireStaffPermission("timetable.view");
   const instituteId = authorizedCampusId(session, await getActiveCampusId());
   const slots = await db.timetableSlot.findMany({
-    where: { batch: { instituteId, status: "ACTIVE" }, ...(session.role === "TEACHER" ? { teacherId: session.teacherId || "" } : {}) },
+    where: {
+      batch: { instituteId, status: "ACTIVE" },
+      teacher: { status: "ACTIVE" },
+      ...(session.role === "TEACHER" ? { teacherId: session.teacherId || "" } : {}),
+    },
     include: { batch: { select: { id: true, name: true } }, subject: { select: { name: true } }, teacher: { select: { name: true } } },
     orderBy: { startTime: "asc" },
   });

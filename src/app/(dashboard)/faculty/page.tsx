@@ -25,6 +25,7 @@ export default async function FacultyPage() {
   const [teachers, subjects] = await Promise.all([
     db.teacher.findMany({
       where: {
+        status: "ACTIVE",
         ...(campusId ? { instituteId: campusId } : {}),
       },
       orderBy: { name: "asc" },
@@ -49,4 +50,3 @@ export default async function FacultyPage() {
     />
   );
 }
-

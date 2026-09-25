@@ -837,6 +837,8 @@ export async function archiveUser(userId: string) {
 
     const teacher = await tx.teacher.findFirst({ where: { userId } });
     if (teacher) {
+      await tx.teacherBatch.deleteMany({ where: { teacherId: teacher.id } });
+      await tx.timetableSlot.deleteMany({ where: { teacherId: teacher.id } });
       await tx.teacher.update({
         where: { id: teacher.id },
         data: { status: "INACTIVE" },
@@ -856,6 +858,8 @@ export async function archiveUser(userId: string) {
   revalidatePath("/users");
   revalidatePath("/batches");
   revalidatePath("/dashboard/batches");
+  revalidatePath("/faculty");
+  revalidatePath("/dashboard/faculty");
   revalidatePath("/timetable");
   return { success: true };
 }
