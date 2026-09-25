@@ -294,8 +294,9 @@ export async function getBatches({
 
 export async function getBatchById(id: string) {
   const actor = await requireStaffPermission("batches.view");
-  const batch = await db.batch.findUnique({
-    where: { id },
+  const instituteId = authorizedCampusId(actor, await getActiveCampusId());
+  const batch = await db.batch.findFirst({
+    where: { id, instituteId },
     include: {
       course: {
         include: {
@@ -544,9 +545,27 @@ export async function updateBatch(
     teacherIds?: string[];
   }
 ) {
-  await requireStaffPermission("batches.manage");
-  const existing = await db.batch.findUnique({ where: { id } });
+  const actor = await requireStaffPermission("batches.manage");
+  const instituteId = authorizedCampusId(actor, await getActiveCampusId());
+  const existing = await db.batch.findFirst({ where: { id, instituteId } });
   if (!existing) throw new Error("Batch not found");
+  if (data.courseId) {
+    const course = await db.course.findFirst({
+      where: { id: data.courseId, instituteId },
+      select: { id: true },
+    });
+    if (!course) throw new Error("Course does not belong to the active campus");
+  }
+  if (data.teacherIds?.length) {
+    const teacherIds = [...new Set(data.teacherIds)];
+    const teachers = await db.teacher.findMany({
+      where: { id: { in: teacherIds }, instituteId, status: "ACTIVE" },
+      select: { id: true },
+    });
+    if (teachers.length !== teacherIds.length) {
+      throw new Error("All teachers must belong to the active campus and be active");
+    }
+  }
 
   const updateData: any = {};
   if (data.name !== undefined) updateData.name = data.name.trim();
@@ -610,8 +629,9 @@ export async function updateBatch(
 }
 
 export async function deleteBatch(id: string) {
-  await requireStaffPermission("batches.manage");
-  const batch = await db.batch.findUnique({ where: { id } });
+  const actor = await requireStaffPermission("batches.manage");
+  const instituteId = authorizedCampusId(actor, await getActiveCampusId());
+  const batch = await db.batch.findFirst({ where: { id, instituteId } });
   if (!batch) throw new Error("Batch not found");
 
   await db.$transaction(async (tx) => {

@@ -123,6 +123,7 @@ export async function getStudentStats(campusId?: string) {
 
 export async function getStudentById(id: string) {
   const session = await requireStaffPermission("students.view");
+  const instituteId = authorizedCampusId(session, await getActiveCampusId());
 
   // Security check: if student, can only view own profile
   if (session.role === "STUDENT" && session.studentId !== id) {
@@ -130,7 +131,7 @@ export async function getStudentById(id: string) {
   }
 
   const student = await db.student.findUnique({
-    where: { id },
+    where: { id, instituteId },
     include: {
       parent: true,
       session: true,
@@ -306,11 +307,12 @@ export async function updateStudent(
   }>
 ) {
   const actor = await requireStaffPermission("students.update");
+  const currentCampusId = authorizedCampusId(actor, await getActiveCampusId());
 
   const updated = await db.$transaction(async (tx) => {
     const { instituteId: requestedInstituteId, batchId, ...studentData } = data;
-    const existing = await tx.student.findUnique({
-      where: { id },
+    const existing = await tx.student.findFirst({
+      where: { id, instituteId: currentCampusId },
       select: { instituteId: true, userId: true },
     });
     if (!existing) throw new Error("Student not found");
@@ -404,8 +406,14 @@ export async function updateStudent(
 }
 
 export async function deleteStudent(id: string) {
-  await requireStaffPermission("students.delete");
+  const session = await requireStaffPermission("students.delete");
   await requireAuth(["SUPER_ADMIN"]);
+  const instituteId = authorizedCampusId(session, await getActiveCampusId());
+  const existingStudent = await db.student.findFirst({
+    where: { id, instituteId },
+    select: { id: true },
+  });
+  if (!existingStudent) throw new Error("Student not found");
 
   // Check if financial records exist
   const paymentCount = await db.payment.count({ where: { studentId: id } });
@@ -439,7 +447,19 @@ export async function enrollStudentInBatch(
   batchId: string,
   courseId: string
 ) {
-  await requireStaffPermission("students.update");
+  const session = await requireStaffPermission("students.update");
+  const instituteId = authorizedCampusId(session, await getActiveCampusId());
+  const [student, batch, course] = await Promise.all([
+    db.student.findFirst({ where: { id: studentId, instituteId }, select: { id: true } }),
+    db.batch.findFirst({
+      where: { id: batchId, instituteId, courseId },
+      select: { id: true },
+    }),
+    db.course.findFirst({ where: { id: courseId, instituteId }, select: { id: true } }),
+  ]);
+  if (!student || !batch || !course) {
+    throw new Error("Student, batch, or course does not belong to the active campus.");
+  }
 
   // Close any previous active enrollment
   await db.enrollment.updateMany({
@@ -479,12 +499,14 @@ export async function updateStudentParent(
     occupation?: string;
   }
 ) {
-  await requireStaffPermission("students.update");
+  const session = await requireStaffPermission("students.update");
+  const instituteId = authorizedCampusId(session, await getActiveCampusId());
 
-  const student = await db.student.findUnique({
-    where: { id: studentId },
+  const student = await db.student.findFirst({
+    where: { id: studentId, instituteId },
     select: { parentId: true },
   });
+  if (!student) throw new Error("Student not found");
 
   if (student?.parentId) {
     await db.parent.update({

@@ -1,4 +1,5 @@
 import { requireStaffPermission } from "@/lib/auth";
+import { authorizedCampusId } from "@/lib/campus-scope";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { getActiveCampusId } from "@/server/actions/campus";
@@ -20,7 +21,7 @@ export default async function FacultyPage() {
 
   // Auto-sync teachers and fetch campus
   await getTeachers();
-  const campusId = await getActiveCampusId();
+  const campusId = authorizedCampusId(session, await getActiveCampusId());
 
   const [teachers, subjects] = await Promise.all([
     db.teacher.findMany({

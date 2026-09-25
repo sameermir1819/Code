@@ -81,7 +81,25 @@ export async function createFeePlan(data: {
     amount: number;
   }[];
 }) {
-  await requireStaffPermission("fees.update");
+  const session = await requireStaffPermission("fees.update");
+  const instituteId = authorizedCampusId(session, await getActiveCampusId());
+  const student = await db.student.findFirst({
+    where: { id: data.studentId, instituteId },
+    select: { id: true },
+  });
+  if (!student) throw new Error("Student not found in the active campus");
+  if (data.enrollmentId) {
+    const enrollment = await db.enrollment.findFirst({
+      where: {
+        id: data.enrollmentId,
+        studentId: data.studentId,
+        status: "ACTIVE",
+        batch: { instituteId },
+      },
+      select: { id: true },
+    });
+    if (!enrollment) throw new Error("Enrollment does not belong to this student and campus");
+  }
 
   const totalAmount =
     data.admissionFee +
@@ -141,11 +159,18 @@ export async function createFeePlan(data: {
 
 export async function getStudentFeeDetails(studentId: string) {
   const session = await requirePermission("fees.view");
+  const instituteId = ["STUDENT", "PARENT"].includes(session.role)
+    ? null
+    : authorizedCampusId(session, await getActiveCampusId());
 
   const student = await db.student.findUnique({
-    where: { id: studentId }, select: { id: true, parentId: true },
+    where: { id: studentId },
+    select: { id: true, parentId: true, instituteId: true },
   });
   if (!student) throw new Error("Student not found");
+  if (instituteId && student.instituteId !== instituteId) {
+    throw new Error("Student not found");
+  }
   assertFeeAccess(session, student);
 
   return await db.feePlan.findMany({
@@ -178,6 +203,7 @@ export async function recordPayment(data: {
   notes?: string;
 }) {
   const session = await requireStaffPermission("fees.create");
+  const instituteId = authorizedCampusId(session, await getActiveCampusId());
 
   validateAmount(data.amount);
   const paymentDate = data.paymentDate ? new Date(data.paymentDate) : new Date();
@@ -186,10 +212,16 @@ export async function recordPayment(data: {
   const result = await financeTransaction(async (tx) => {
     const feePlan = await tx.feePlan.findUnique({
       where: { id: data.feePlanId },
-      include: { installments: { orderBy: { installmentNumber: "asc" } } },
+      include: {
+        installments: { orderBy: { installmentNumber: "asc" } },
+        student: { select: { instituteId: true } },
+      },
     });
     if (!feePlan) throw new Error("Fee plan not found");
     if (feePlan.studentId !== data.studentId) throw new Error("Fee plan does not belong to this student");
+    if (feePlan.student.instituteId !== instituteId) {
+      throw new Error("Fee plan does not belong to the active campus");
+    }
 
     const selectedInstallment = data.installmentId
       ? feePlan.installments.find((inst) => inst.id === data.installmentId)
@@ -501,6 +533,12 @@ export async function getReceiptDetails(receiptNo: string) {
   });
 
   if (!payment) throw new Error("Receipt not found");
+  if (!["STUDENT", "PARENT"].includes(session.role)) {
+    const instituteId = authorizedCampusId(session, await getActiveCampusId());
+    if (payment.student.instituteId !== instituteId) {
+      throw new Error("Receipt not found");
+    }
+  }
   assertFeeAccess(session, payment.student);
 
   const institute = await db.institute.findUnique({ where: { id: payment.student.instituteId } });

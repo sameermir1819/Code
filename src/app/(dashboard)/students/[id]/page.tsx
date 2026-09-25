@@ -2,6 +2,7 @@ import Link from "next/link";
 import { db } from "@/lib/db";
 import { getStudentById } from "@/server/actions/students";
 import { getBatches } from "@/server/actions/academics";
+import { getActiveCampus } from "@/server/actions/campus";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -35,7 +36,7 @@ export default async function StudentProfilePage({ params }: StudentProfilePageP
   const [student, batches, institute] = await Promise.all([
     getStudentById(id),
     getBatches({ status: "ACTIVE" }),
-    db.institute.findFirst(),
+    getActiveCampus(),
   ]);
   const activeEnrollment = student.enrollments.find((e) => e.status === "ACTIVE") || student.enrollments[0];
 

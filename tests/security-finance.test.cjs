@@ -198,7 +198,11 @@ function financeFixture() {
     student: { findUnique: async () => student },
     institute: { findUnique: async ({ where }) => ({ id: where.id }) },
     feePlan: {
-      findUnique: async () => structuredClone({ ...state.plan, installments: state.installments }),
+      findUnique: async () => structuredClone({
+        ...state.plan,
+        installments: state.installments,
+        student: { instituteId: "campus-a" },
+      }),
       findMany: async () => [structuredClone(state.plan)],
       update: async ({ data }) => Object.assign(state.plan, data),
     },

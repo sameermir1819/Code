@@ -1,4 +1,6 @@
 "use server";
+
+import { authorizedCampusId } from "@/lib/campus-scope";
 import { requireStaffPermission } from "@/lib/auth";
 
 import { db } from "@/lib/db";
@@ -11,7 +13,13 @@ import { logAudit } from "./audit";
 import { startOfDay, endOfDay, startOfMonth, endOfMonth } from "date-fns";
 
 export async function getBatchAttendanceForDate(batchId: string, dateStr: string) {
-  await requireStaffPermission("attendance.view");
+  const session = await requireStaffPermission("attendance.view");
+  const instituteId = authorizedCampusId(session, await getActiveCampusId());
+  const batch = await db.batch.findFirst({
+    where: { id: batchId, instituteId },
+    select: { id: true },
+  });
+  if (!batch) throw new Error("Batch not found");
   const date = new Date(dateStr);
   const dayStart = startOfDay(date);
   const dayEnd = endOfDay(date);
@@ -70,6 +78,25 @@ export async function saveBatchAttendance(
   records: Array<{ studentId: string; status: string; remarks?: string }>
 ) {
   const session = await requireStaffPermission("attendance.manage");
+  const instituteId = authorizedCampusId(session, await getActiveCampusId());
+  const batch = await db.batch.findFirst({
+    where: { id: batchId, instituteId },
+    select: { id: true },
+  });
+  if (!batch) throw new Error("Batch not found");
+  const studentIds = [...new Set(records.map((record) => record.studentId))];
+  const enrolledStudents = await db.enrollment.findMany({
+    where: {
+      batchId,
+      status: "ACTIVE",
+      studentId: { in: studentIds },
+      student: { instituteId },
+    },
+    select: { studentId: true },
+  });
+  if (enrolledStudents.length !== studentIds.length) {
+    throw new Error("Attendance can only be recorded for active students in this batch.");
+  }
   const date = new Date(dateStr);
   const dayStart = startOfDay(date);
   const dayEnd = endOfDay(date);
@@ -136,6 +163,12 @@ export async function saveBatchAttendance(
 
 export async function markBatchUnscannedAsAbsent(batchId: string, dateStr: string) {
   const session = await requireStaffPermission("attendance.manage");
+  const instituteId = authorizedCampusId(session, await getActiveCampusId());
+  const batch = await db.batch.findFirst({
+    where: { id: batchId, instituteId },
+    select: { id: true },
+  });
+  if (!batch) throw new Error("Batch not found");
   const date = new Date(dateStr);
   const dayStart = startOfDay(date);
   const dayEnd = endOfDay(date);

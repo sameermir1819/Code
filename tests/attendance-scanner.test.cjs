@@ -93,6 +93,7 @@ function fixture() {
       if (!actor || (roles && !roles.includes(actor.role))) throw new Error("FORBIDDEN");
       return actor;
     } },
+    "@/lib/campus-scope": { authorizedCampusId: (_session, selectedCampusId) => selectedCampusId },
     "./audit": { logAudit: async () => { logs++; } },
     "./campus": { getActiveCampusId: async () => campus },
     "@/lib/attendance-scanner": scanner, "date-fns": require("date-fns"),

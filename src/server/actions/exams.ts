@@ -1,4 +1,6 @@
 "use server";
+
+import { authorizedCampusId } from "@/lib/campus-scope";
 import { requireStaffPermission } from "@/lib/auth";
 
 import { db } from "@/lib/db";
@@ -38,9 +40,10 @@ export async function getExams({
 export async function getExamById(id: string) {
   await requireStaffPermission("results.view");
   await requireStaffPermission("students.view");
-  await requireStaffPermission("exams.view");
-  const exam = await db.exam.findUnique({
-    where: { id },
+  const session = await requireStaffPermission("exams.view");
+  const instituteId = authorizedCampusId(session, await getActiveCampusId());
+  const exam = await db.exam.findFirst({
+    where: { id, batch: { instituteId } },
     include: {
       batch: {
         include: {
@@ -148,10 +151,28 @@ export async function saveExamMarks(
   entries: Array<{ studentId: string; marksObtained: number; remarks?: string }>
 ) {
   const session = await requireStaffPermission("results.manage");
-  const exam = await db.exam.findUnique({ where: { id: examId } });
+  const instituteId = authorizedCampusId(session, await getActiveCampusId());
+  const exam = await db.exam.findFirst({
+    where: { id: examId, batch: { instituteId } },
+  });
   if (!exam) throw new Error("Exam not found");
 
   await db.$transaction(async (tx) => {
+    const studentIds = [...new Set(entries.map((entry) => entry.studentId))];
+    const eligibleStudents = await tx.student.findMany({
+      where: {
+        id: { in: studentIds },
+        instituteId,
+        enrollments: {
+          some: { batchId: exam.batchId, status: "ACTIVE" },
+        },
+      },
+      select: { id: true },
+    });
+    if (eligibleStudents.length !== studentIds.length) {
+      throw new Error("Marks can only be recorded for active students in this campus batch.");
+    }
+
     for (const entry of entries) {
       if (entry.marksObtained > exam.maxMarks) {
         throw new Error(
@@ -210,7 +231,13 @@ export async function saveExamMarks(
 }
 
 export async function publishExam(examId: string) {
-  await requireStaffPermission("results.manage");
+  const session = await requireStaffPermission("results.manage");
+  const instituteId = authorizedCampusId(session, await getActiveCampusId());
+  const existingExam = await db.exam.findFirst({
+    where: { id: examId, batch: { instituteId } },
+    select: { id: true },
+  });
+  if (!existingExam) throw new Error("Exam not found");
   const exam = await db.exam.update({
     where: { id: examId },
     data: { status: "PUBLISHED" },
