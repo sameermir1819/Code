@@ -6,6 +6,7 @@ import { redactRelatedData } from "@/lib/redact-related-data";
 import { requireAuth, getEffectivePermissions } from "@/lib/auth";
 import { logAudit } from "./audit";
 import { getActiveCampusId } from "./campus";
+import { createStudentUser } from "@/lib/student-user";
 
 export async function getStudents({
   search = "",
@@ -221,48 +222,51 @@ export async function createStudent(data: {
   const studentId = `STU-${year}-${String(count + 1).padStart(4, "0")}`;
   const admissionNo = `ADM-${year}-${String(count + 1).padStart(4, "0")}`;
 
-  let parentId: string | null = null;
-  if (data.parentName && data.parentPhone) {
-    // Check or create parent
-    const existingParent = await db.parent.findFirst({
-      where: { phone: data.parentPhone },
-    });
-    if (existingParent) {
-      parentId = existingParent.id;
-    } else {
-      const parent = await db.parent.create({
-        data: {
-          name: data.parentName,
-          phone: data.parentPhone,
-          email: data.parentEmail || null,
-          relation: data.parentRelation || "Father",
-          address: data.address || null,
-        },
+  const student = await db.$transaction(async (tx) => {
+    let parentId: string | null = null;
+    if (data.parentName && data.parentPhone) {
+      const existingParent = await tx.parent.findFirst({
+        where: { phone: data.parentPhone },
       });
-      parentId = parent.id;
+      if (existingParent) {
+        parentId = existingParent.id;
+      } else {
+        const parent = await tx.parent.create({
+          data: {
+            name: data.parentName,
+            phone: data.parentPhone,
+            email: data.parentEmail || null,
+            relation: data.parentRelation || "Father",
+            address: data.address || null,
+          },
+        });
+        parentId = parent.id;
+      }
     }
-  }
 
-  const student = await db.student.create({
-    data: {
-      instituteId: campusId,
-      studentId,
-      admissionNo,
-      name: data.name,
-      email: data.email || null,
-      phone: data.phone || null,
-      dob: data.dob ? new Date(data.dob) : null,
-      gender: data.gender || "MALE",
-      address: data.address || null,
-      city: data.city || "New Delhi",
-      state: data.state || "Delhi",
-      emergencyContact: data.emergencyContact || null,
-      schoolCollege: data.schoolCollege || null,
-      gradeClass: data.gradeClass || "Class 11",
-      parentId,
-      status: data.status || "ACTIVE",
-      notes: data.notes || null,
-    },
+    const created = await tx.student.create({
+      data: {
+        instituteId: campusId,
+        studentId,
+        admissionNo,
+        name: data.name,
+        email: data.email || null,
+        phone: data.phone || null,
+        dob: data.dob ? new Date(data.dob) : null,
+        gender: data.gender || "MALE",
+        address: data.address || null,
+        city: data.city || "New Delhi",
+        state: data.state || "Delhi",
+        emergencyContact: data.emergencyContact || null,
+        schoolCollege: data.schoolCollege || null,
+        gradeClass: data.gradeClass || "Class 11",
+        parentId,
+        status: data.status || "ACTIVE",
+        notes: data.notes || null,
+      },
+    });
+    await createStudentUser(tx, created);
+    return created;
   });
 
   await logAudit({
@@ -296,13 +300,32 @@ export async function updateStudent(
 ) {
   await requireStaffPermission("students.update");
 
-  const updated = await db.student.update({
-    where: { id },
-    data: {
-      ...data,
-      dob: data.dob ? new Date(data.dob) : undefined,
-      admissionDate: data.admissionDate ? new Date(data.admissionDate) : undefined,
-    },
+  const updated = await db.$transaction(async (tx) => {
+    const student = await tx.student.update({
+      where: { id },
+      data: {
+        ...data,
+        dob: data.dob ? new Date(data.dob) : undefined,
+        admissionDate: data.admissionDate ? new Date(data.admissionDate) : undefined,
+      },
+    });
+    if (data.name || data.phone !== undefined || data.status) {
+      await tx.user.updateMany({
+        where: { student: { is: { id } } },
+        data: {
+          name: data.name,
+          phone: data.phone !== undefined ? data.phone?.trim() || null : undefined,
+          status: data.status
+            ? data.status === "ACTIVE"
+              ? "ACTIVE"
+              : data.status === "SUSPENDED"
+                ? "SUSPENDED"
+                : "INACTIVE"
+            : undefined,
+        },
+      });
+    }
+    return student;
   });
 
   await logAudit({

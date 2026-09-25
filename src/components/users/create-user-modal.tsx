@@ -46,21 +46,19 @@ export function CreateUserModal({
           { value: "ADMIN", label: "Administrator" },
           { value: "ACCOUNTANT", label: "Accountant / Finance" },
           { value: "TEACHER", label: "Faculty Instructor" },
-          { value: "STUDENT", label: "Student" },
           { value: "PARENT", label: "Parent / Guardian" },
         ]
       : [
           { value: "ADMIN", label: "Administrator" },
           { value: "ACCOUNTANT", label: "Accountant / Finance" },
           { value: "TEACHER", label: "Faculty Instructor" },
-          { value: "STUDENT", label: "Student" },
           { value: "PARENT", label: "Parent / Guardian" },
         ];
 
   const roleOptions: { value: string; label: string }[] =
     availableRoles && availableRoles.length > 0
       ? availableRoles
-          .filter((r) => actorRole === "SUPER_ADMIN" || r.name !== "SUPER_ADMIN")
+          .filter((r) => r.name !== "STUDENT" && (actorRole === "SUPER_ADMIN" || r.name !== "SUPER_ADMIN"))
           .map((r) => ({
             value: r.name,
             label: r.displayName || r.name,
@@ -148,7 +146,7 @@ export function CreateUserModal({
             <div>
               <h3 className="text-lg font-bold text-foreground">Create New User Account</h3>
               <p className="text-xs text-muted-foreground">
-                Provision new ERP account credentials and access roles.
+                Provision new ERP account credentials and access roles. Create student accounts through Admissions or Students.
               </p>
             </div>
           </div>
@@ -400,4 +398,3 @@ export function CreateUserModal({
     </div>
   );
 }
-

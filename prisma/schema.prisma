@@ -252,7 +252,7 @@ model Student {
   updatedAt           DateTime         @updatedAt
 
   institute           Institute        @relation(fields: [instituteId], references: [id], onDelete: Cascade)
-  user                User?            @relation(fields: [userId], references: [id], onDelete: SetNull)
+  user                User?            @relation(fields: [userId], references: [id], onDelete: Cascade)
   parent              Parent?          @relation(fields: [parentId], references: [id], onDelete: SetNull)
   session             AcademicSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
   
@@ -853,7 +853,7 @@ model TestSeriesRegistration {
   updatedAt            DateTime           @updatedAt
 
   testSeries           TestSeries         @relation(fields: [testSeriesId], references: [id], onDelete: Cascade)
-  student              Student?           @relation(fields: [studentId], references: [id], onDelete: SetNull)
+  student              Student?           @relation(fields: [studentId], references: [id], onDelete: Cascade)
   results              TestSeriesResult[]
 
   @@index([testSeriesId])
@@ -889,4 +889,3 @@ model TestSeriesResult {
   @@index([registrationId])
   @@index([rank])
 }
-

@@ -127,6 +127,8 @@
   },
   "users": {
     "getUsers": "users.view",
+    "provisionStudentUserAccounts": "users.create",
+    "deleteStudentUser": "users.delete",
     "getUser": "users.view",
     "createUser": "users.create",
     "updateUser": "users.update",

@@ -2,8 +2,9 @@
 
 import { db } from "@/lib/db";
 import { syncPermissionCatalog } from "@/lib/permission-catalog";
-import { hashPassword, requirePermission, getEffectivePermissions } from "@/lib/auth";
+import { hashPassword, requireAuth, requirePermission, getEffectivePermissions } from "@/lib/auth";
 import { Role, PermissionCode, ROLE_PERMISSIONS } from "@/lib/permissions";
+import { createStudentUser } from "@/lib/student-user";
 import { logAudit } from "./audit";
 import { getActiveCampusId } from "./campus";
 import { revalidatePath } from "next/cache";
@@ -52,6 +53,16 @@ export async function getUsers({
       { email: { contains: q } },
       { phone: { contains: q } },
       { id: { contains: q } },
+      {
+        student: {
+          is: {
+            OR: [
+              { studentId: { contains: q } },
+              { admissionNo: { contains: q } },
+            ],
+          },
+        },
+      },
     ];
   }
 
@@ -119,6 +130,13 @@ export async function getUsers({
             city: true,
           },
         },
+        student: {
+          select: {
+            id: true,
+            studentId: true,
+            admissionNo: true,
+          },
+        },
         avatarUrl: true,
         lastLoginAt: true,
         createdAt: true,
@@ -150,6 +168,92 @@ export async function getUsers({
     },
     currentUserRole: actor.role,
   };
+}
+
+export async function provisionStudentUserAccounts() {
+  const actor = await requirePermission("users.create");
+  const students = await db.student.findMany({
+    where: { userId: null },
+    select: {
+      id: true,
+      instituteId: true,
+      name: true,
+      email: true,
+      phone: true,
+      studentId: true,
+      status: true,
+    },
+    orderBy: { createdAt: "asc" },
+  });
+
+  let createdCount = 0;
+  for (const student of students) {
+    const created = await db.$transaction(async (tx) => {
+      const current = await tx.student.findUnique({
+        where: { id: student.id },
+        select: { userId: true },
+      });
+      if (!current || current.userId) return false;
+      await createStudentUser(tx, student);
+      return true;
+    });
+    if (created) createdCount += 1;
+  }
+
+  if (createdCount > 0) {
+    await logAudit({
+      action: "STUDENT_USER_ACCOUNTS_PROVISIONED",
+      entity: "User",
+      entityId: actor.id,
+      details: `${actor.name} created login accounts for ${createdCount} existing students. First-time password is each student's Student ID.`,
+    });
+    revalidatePath("/", "layout");
+    revalidatePath("/dashboard/users");
+    revalidatePath("/users");
+  }
+
+  return { success: true, createdCount, skippedCount: students.length - createdCount };
+}
+
+export async function deleteStudentUser(userId: string) {
+  await requirePermission("users.delete");
+  await requirePermission("students.delete");
+  const actor = await requireAuth(["SUPER_ADMIN"]);
+
+  const targetUser = await db.user.findUnique({
+    where: { id: userId },
+    include: { student: true },
+  });
+  if (!targetUser) throw new Error("Target user not found");
+  if (targetUser.role !== "STUDENT" || !targetUser.student) {
+    throw new Error("This account is not linked to a student record.");
+  }
+  const student = targetUser.student;
+
+  await db.$transaction(async (tx) => {
+    await tx.student.delete({ where: { id: student.id } });
+    await tx.user.delete({ where: { id: userId } });
+  });
+
+  await logAudit({
+    action: "STUDENT_DELETED",
+    entity: "Student",
+    entityId: student.id,
+    details: `${actor.name} deleted student ${student.name} (${student.studentId}) and all linked records through the user directory.`,
+  });
+  await logAudit({
+    action: "USER_DELETED",
+    entity: "User",
+    entityId: userId,
+    details: `${actor.name} deleted student login account ${targetUser.email}.`,
+  });
+
+  revalidatePath("/", "layout");
+  revalidatePath("/dashboard/users");
+  revalidatePath("/users");
+  revalidatePath("/dashboard/students");
+  revalidatePath("/students");
+  return { success: true };
 }
 
 // =========================================================================
@@ -305,6 +409,10 @@ export async function createUser(data: {
 }) {
   const actor = await requirePermission("users.create");
 
+  if (data.role === "STUDENT") {
+    throw new Error("Create student accounts through Admissions or the Students directory so each account is linked to a student record.");
+  }
+
   // Security Rule: Admin cannot create Super Admin
   if (data.role === "SUPER_ADMIN" && actor.role !== "SUPER_ADMIN") {
     throw new Error("FORBIDDEN: Only Super Administrators have permission to create Super Admin accounts.");
@@ -447,6 +555,15 @@ export async function updateUser(
   if (data.role === "SUPER_ADMIN" && actor.role !== "SUPER_ADMIN") {
     throw new Error("FORBIDDEN: Only Super Administrators can grant Super Admin role.");
   }
+  if (targetUser.role === "STUDENT" && data.role && data.role !== "STUDENT") {
+    const student = await db.student.findUnique({ where: { userId: id }, select: { id: true } });
+    if (student) {
+      throw new Error("A linked student account must keep the STUDENT role. Change student details from the Students directory.");
+    }
+  }
+  if (data.role === "STUDENT" && targetUser.role !== "STUDENT") {
+    throw new Error("Create student accounts through Admissions or the Students directory so each account is linked to a student record.");
+  }
 
   // Security Rule: The last active Super Admin cannot be demoted or deactivated
   if (targetUser.role === "SUPER_ADMIN") {
@@ -506,6 +623,19 @@ export async function updateUser(
       where: { id },
       data: updateData,
     });
+    const linkedStudent = await tx.student.findUnique({
+      where: { userId: id },
+      select: { id: true },
+    });
+    if (linkedStudent && (data.name || data.phone !== undefined)) {
+      await tx.student.update({
+        where: { id: linkedStudent.id },
+        data: {
+          name: data.name?.trim(),
+          phone: data.phone?.trim() || null,
+        },
+      });
+    }
 
     // If role changed, sync UserRole
     if (data.role && data.role !== targetUser.role) {
@@ -548,6 +678,15 @@ export async function changeUserRole(userId: string, newRole: Role) {
 
   const targetUser = await db.user.findUnique({ where: { id: userId } });
   if (!targetUser) throw new Error("Target user not found");
+  if (targetUser.role === "STUDENT" && newRole !== "STUDENT") {
+    const student = await db.student.findUnique({ where: { userId }, select: { id: true } });
+    if (student) {
+      throw new Error("A linked student account must keep the STUDENT role. Change student details from the Students directory.");
+    }
+  }
+  if (newRole === "STUDENT" && targetUser.role !== "STUDENT") {
+    throw new Error("Create student accounts through Admissions or the Students directory so each account is linked to a student record.");
+  }
 
   if (targetUser.role === newRole) return { success: true };
 
@@ -673,7 +812,7 @@ export async function changeUserStatus(userId: string, newStatus: "ACTIVE" | "IN
 export async function archiveUser(userId: string) {
   const actor = await requirePermission("users.delete");
 
-  const targetUser = await db.user.findUnique({ where: { id: userId } });
+  const targetUser = await db.user.findUnique({ where: { id: userId }, include: { student: true } });
   if (!targetUser) throw new Error("Target user not found");
 
   // Rule: Super Admin cannot be deleted/archived
@@ -684,6 +823,9 @@ export async function archiveUser(userId: string) {
   // Rule: Admin cannot delete other Admins unless Super Admin
   if (targetUser.role === "ADMIN" && actor.role !== "SUPER_ADMIN") {
     throw new Error("FORBIDDEN: Only Super Administrators can archive Administrator accounts.");
+  }
+  if (targetUser.role === "STUDENT" && targetUser.student) {
+    return deleteStudentUser(userId);
   }
 
   await db.$transaction(async (tx) => {

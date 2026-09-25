@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 
 import { logAudit } from "./audit";
 import { getActiveCampusId } from "./campus";
+import { createStudentUser } from "@/lib/student-user";
 
 export interface AdmissionPayload {
   // Student
@@ -120,6 +121,7 @@ export async function processAdmission(payload: AdmissionPayload) {
         notes: payload.notes || null,
       },
     });
+    await createStudentUser(tx, student);
 
     // 3. Enrollment
     const enrollment = await tx.enrollment.create({

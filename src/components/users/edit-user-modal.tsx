@@ -55,12 +55,16 @@ export function EditUserModal({
   const roleOptions: { value: string; label: string }[] =
     availableRoles && availableRoles.length > 0
       ? availableRoles
-          .filter((r) => actorRole === "SUPER_ADMIN" || r.name !== "SUPER_ADMIN")
+          .filter(
+            (r) =>
+              (r.name !== "STUDENT" || user?.role === "STUDENT") &&
+              (actorRole === "SUPER_ADMIN" || r.name !== "SUPER_ADMIN")
+          )
           .map((r) => ({
             value: r.name,
             label: r.displayName || r.name,
           }))
-      : defaultRoles;
+      : defaultRoles.filter((r) => r.value !== "STUDENT" || user?.role === "STUDENT");
 
   const [formData, setFormData] = useState({
     name: user?.name || "",
@@ -220,7 +224,7 @@ export function EditUserModal({
                   <label className="font-semibold block mb-1">Role Assignment</label>
                   <select
                     value={formData.role}
-                    disabled={isTargetSuperAdmin && !canEditSuperAdmin}
+                    disabled={(isTargetSuperAdmin && !canEditSuperAdmin) || user.role === "STUDENT"}
                     onChange={(e) => setFormData({ ...formData, role: e.target.value as Role })}
                     className="w-full h-9 px-3 rounded-md border border-input bg-background text-foreground"
                   >
@@ -230,6 +234,11 @@ export function EditUserModal({
                       </option>
                     ))}
                   </select>
+                  {user.role === "STUDENT" && (
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      Student accounts remain linked to their student profile and cannot change roles here.
+                    </p>
+                  )}
                 </div>
 
                 <div>
@@ -361,4 +370,3 @@ export function EditUserModal({
     </div>
   );
 }
-

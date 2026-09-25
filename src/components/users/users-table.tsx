@@ -8,6 +8,8 @@ import {
   archiveUser,
   bulkUpdateUsersStatus,
   exportUsersCSV,
+  provisionStudentUserAccounts,
+  deleteStudentUser,
 } from "@/server/actions/users";
 import { Role } from "@/lib/permissions";
 import { formatDate } from "@/lib/utils";
@@ -235,6 +237,23 @@ export function UsersTable({
 
   // Action: Archive User
   const promptArchive = (user: any) => {
+    if (user.role === "STUDENT" && user.student) {
+      setConfirmModalConfig({
+        isOpen: true,
+        title: `Delete ${user.name} and student record?`,
+        description:
+          "This permanently deletes the student's login and student record, including linked academic, attendance, fee, payment, and exam records. This cannot be undone.",
+        confirmLabel: "Delete Student & User",
+        variant: "destructive",
+        action: async () => {
+          await deleteStudentUser(user.id);
+          setSuccessMsg(`Student ${user.name} and linked records deleted.`);
+          refreshUsers();
+        },
+      });
+      return;
+    }
+
     setConfirmModalConfig({
       isOpen: true,
       title: `Archive Account for ${user.name}?`,
@@ -284,6 +303,23 @@ export function UsersTable({
     } catch (err: any) {
       setErrorMsg(err.message || "Failed to export CSV.");
     }
+  };
+
+  const handleProvisionStudentAccounts = () => {
+    setErrorMsg("");
+    startTransition(async () => {
+      try {
+        const result = await provisionStudentUserAccounts();
+        setSuccessMsg(
+          result.createdCount > 0
+            ? `Created ${result.createdCount} student login account${result.createdCount === 1 ? "" : "s"}. Their first-time password is their Student ID.`
+            : "All existing students already have login accounts."
+        );
+        refreshUsers();
+      } catch (err: any) {
+        setErrorMsg(err.message || "Failed to create student login accounts.");
+      }
+    });
   };
 
   const getRoleBadgeVariant = (role: string) => {
@@ -364,6 +400,19 @@ export function UsersTable({
               <Download className="h-3.5 w-3.5" />
               <span>Export CSV</span>
             </Button>
+
+            {canCreateUsers && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleProvisionStudentAccounts}
+                disabled={isPending}
+                className="inline-flex items-center gap-1.5 text-xs font-semibold"
+              >
+                <UserCheck className="h-3.5 w-3.5" />
+                <span>{isPending ? "Adding Students..." : "Add Existing Students"}</span>
+              </Button>
+            )}
 
             {canCreateUsers && (
               <Button
@@ -812,10 +861,16 @@ export function UsersTable({
                             </button>
                           )}
 
-                          {canEditThisUser && !isSuperAdmin && (
+                          {canEditThisUser &&
+                            !isSuperAdmin &&
+                            (u.role !== "STUDENT" || actorRole === "SUPER_ADMIN") && (
                             <button
                               onClick={() => promptArchive(u)}
-                              title="Archive User"
+                              title={
+                                u.role === "STUDENT" && u.student
+                                  ? "Delete Student and User"
+                                  : "Archive User"
+                              }
                               className="p-1.5 rounded hover:bg-red-100 text-red-600 dark:hover:bg-red-950/50 transition-colors"
                             >
                               <Trash2 className="h-3.5 w-3.5" />

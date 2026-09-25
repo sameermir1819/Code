@@ -11,7 +11,7 @@ A complete, production-grade **Coaching Institute Management ERP** built with **
    - **Admin**: Day-to-day operations, student admissions, batch scheduling, faculty assignments.
    - **Accountant**: Fee plans, installment management, payment collections, receipts, and financial ledgers.
    - **Teacher / Faculty**: Assigned batch timetable, classroom attendance register, exam marks entry.
-   - **Student / Parent Portal**: Personal attendance percentage, fee receipts, performance analytics, and report cards.
+   - **Student / Parent Portal**: Personal attendance percentage, fee receipts, performance analytics, and report cards. Student accounts are linked to student records automatically; existing students can be provisioned from the Users directory. The first-time password is the Student ID. Permanently deleting a linked student account as Super Admin also deletes its student record and related history.
 
 2. **Executive & Operational Dashboards**
    - Live KPI cards: Total students, active batches, today's collections (₹), outstanding dues (₹).
