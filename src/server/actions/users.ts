@@ -231,6 +231,7 @@ export async function deleteStudentUser(userId: string) {
   const student = targetUser.student;
 
   await db.$transaction(async (tx) => {
+    await tx.testSeriesRegistration.deleteMany({ where: { studentId: student.id } });
     await tx.student.delete({ where: { id: student.id } });
     await tx.user.delete({ where: { id: userId } });
   });

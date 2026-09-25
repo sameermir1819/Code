@@ -350,7 +350,14 @@ export async function deleteStudent(id: string) {
     );
   }
 
-  const student = await db.student.delete({ where: { id } });
+  const student = await db.$transaction(async (tx) => {
+    await tx.testSeriesRegistration.deleteMany({ where: { studentId: id } });
+    const record = await tx.student.delete({ where: { id } });
+    if (record.userId) {
+      await tx.user.delete({ where: { id: record.userId } });
+    }
+    return record;
+  });
 
   await logAudit({
     action: "STUDENT_DELETED",
