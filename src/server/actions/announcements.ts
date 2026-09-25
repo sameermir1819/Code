@@ -59,9 +59,6 @@ export async function markAllNotificationsRead() {
 // ==========================================
 // ANNOUNCEMENTS
 // ==========================================
-import { authorizedCampusId } from "@/lib/campus-scope";
-import { getActiveCampusId } from "./campus";
-
 export async function getAnnouncements() {
   const session = await requirePermission("announcements.view");
   const instituteId = authorizedCampusId(session, await getActiveCampusId());

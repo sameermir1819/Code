@@ -1,6 +1,7 @@
 "use server";
 
 import { authorizedCampusId } from "@/lib/campus-scope";
+import { getActiveCampusId } from "@/server/actions/campus";
 import { requirePermission, requireStaffPermission } from "@/lib/auth";
 
 import { db } from "@/lib/db";
@@ -730,5 +731,3 @@ export async function updateTestSeriesPayment(
     };
   }
 }
-import { authorizedCampusId } from "@/lib/campus-scope";
-import { getActiveCampusId } from "@/server/actions/campus";
