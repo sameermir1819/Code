@@ -351,6 +351,8 @@ test('student self-enrollment never marks an unverified payment paid', async () 
   const student = { id: 'student-a', instituteId: 'own' };
   const api = load('src/server/actions/test-series.ts', {
     '@/lib/auth': { requireAuth: async () => ({ role: 'STUDENT', studentId: student.id }) },
+    '@/lib/campus-scope': { authorizedCampusId: (_session, selectedCampusId) => selectedCampusId },
+    '@/server/actions/campus': { getActiveCampusId: async () => 'own' },
     '@/lib/db': { db: {
       testSeries: { findUnique: async () => ({ id: 'series-a', instituteId: 'own', status: 'ACTIVE', fee: 500 }) },
       testSeriesRegistration: { findFirst: async () => null, count: async () => 0, create: async ({ data }) => { created = data; return data; } },

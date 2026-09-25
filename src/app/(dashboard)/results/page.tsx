@@ -1,5 +1,7 @@
 import { requireStaffPermission } from "@/lib/auth";
+import { authorizedCampusId } from "@/lib/campus-scope";
 import { db } from "@/lib/db";
+import { getActiveCampusId } from "@/server/actions/campus";
 import { formatDate } from "@/lib/utils";
 import {
   Card,
@@ -58,9 +60,11 @@ function ExamStatusBadge({ status }: { status: string }) {
 }
 
 export default async function ResultsPage() {
-  await requireStaffPermission("results.view");
+  const session = await requireStaffPermission("results.view");
+  const campusId = authorizedCampusId(session, await getActiveCampusId());
   // ── Fetch all marks with full relational data ──────────────────────────────
   const allMarks = await db.marks.findMany({
+    where: { exam: { batch: { instituteId: campusId } } },
     orderBy: { marksObtained: "desc" },
     include: {
       student: true,
@@ -72,6 +76,7 @@ export default async function ResultsPage() {
 
   // ── Fetch all exams for the "by-exam" analytics section ──────────────────
   const allExams = await db.exam.findMany({
+    where: { batch: { instituteId: campusId } },
     orderBy: { examDate: "desc" },
     include: {
       subject: true,

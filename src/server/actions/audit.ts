@@ -19,9 +19,11 @@ export async function logAudit({
   try {
     const session = await getSession();
     const detailsStr = typeof details === "object" ? JSON.stringify(details) : details;
+    const instituteId = session?.instituteId || null;
 
     await db.auditLog.create({
       data: {
+        instituteId,
         userId: session?.id || "SYSTEM",
         userName: session?.name || "System Automated",
         userRole: session?.role || "SYSTEM",

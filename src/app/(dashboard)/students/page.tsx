@@ -275,7 +275,14 @@ export default function StudentsPage() {
 
   // ── Reactive Auto-Refetch (Campus change or data mutation) ──
   useEffect(() => {
-    const handleReactiveRefresh = () => {
+    const handleReactiveRefresh = (event: Event) => {
+      if (event.type === "erp-campus-changed") {
+        const campusId = (event as CustomEvent<{ campusId?: string }>).detail?.campusId;
+        if (campusId) {
+          setCampusFilter(campusId);
+          return;
+        }
+      }
       fetchTable();
       fetchKpis();
     };

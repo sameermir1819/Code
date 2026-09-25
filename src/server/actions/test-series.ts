@@ -1,4 +1,7 @@
 "use server";
+
+import { authorizedCampusId } from "@/lib/campus-scope";
+import { getActiveCampusId } from "@/server/actions/campus";
 import { requirePermission, requireStaffPermission } from "@/lib/auth";
 
 import { db } from "@/lib/db";
@@ -38,8 +41,10 @@ function parseSeriesDate(value: string) {
 export async function getTestSeriesList() {
   const actor = await requireStaffPermission("test-series.view");
   const permissions = await getEffectivePermissions(actor);
+  const campusId = authorizedCampusId(actor, await getActiveCampusId());
 
   const seriesList = await db.testSeries.findMany({
+    where: { instituteId: campusId },
     orderBy: { createdAt: "desc" },
     include: {
       exams: {
@@ -93,9 +98,10 @@ export async function getTestSeriesList() {
 export async function getTestSeriesDetails(id: string) {
   const actor = await requireStaffPermission("test-series.view");
   const permissions = await getEffectivePermissions(actor);
+  const campusId = authorizedCampusId(actor, await getActiveCampusId());
 
-  const series = await db.testSeries.findUnique({
-    where: { id },
+  const series = await db.testSeries.findFirst({
+    where: { id, instituteId: campusId },
     include: {
       exams: {
         orderBy: { examDate: "asc" },

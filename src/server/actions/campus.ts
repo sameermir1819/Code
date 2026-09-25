@@ -106,6 +106,18 @@ export async function getActiveCampus(): Promise<CampusItem | null> {
  */
 export async function switchActiveCampus(campusId: string) {
   try {
+    const session = await getSession();
+    if (!session || ["STUDENT", "PARENT"].includes(session.role)) {
+      return { success: false, error: "Staff access required to switch campuses." };
+    }
+    if (
+      session.role !== "SUPER_ADMIN" &&
+      session.instituteId &&
+      session.instituteId !== campusId
+    ) {
+      return { success: false, error: "You can only switch to your assigned campus." };
+    }
+
     const campus = await db.institute.findUnique({
       where: { id: campusId },
     });
@@ -274,4 +286,3 @@ export async function deleteCampus(campusId: string) {
     return { success: false, error: err.message || "Failed to delete campus." };
   }
 }
-

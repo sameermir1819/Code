@@ -2,7 +2,8 @@
 
 import React, { useState, useRef, useEffect, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { CampusItem, switchActiveCampus, getAllCampuses, getActiveCampus } from "@/server/actions/campus";
+import type { CampusItem } from "@/server/actions/campus";
+import { switchActiveCampus } from "@/server/actions/campus";
 import { Building2, ChevronDown, Check, Plus, MapPin } from "lucide-react";
 import Link from "next/link";
 
@@ -17,6 +18,7 @@ export function CampusSelector({ campuses: propCampuses, activeCampus: propActiv
   const [isPending, startTransition] = useTransition();
   const [campuses, setCampuses] = useState<CampusItem[]>(propCampuses);
   const [activeCampus, setActiveCampus] = useState<CampusItem | null>(propActive);
+  const [error, setError] = useState("");
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -28,14 +30,9 @@ export function CampusSelector({ campuses: propCampuses, activeCampus: propActiv
   }, [propActive]);
 
   useEffect(() => {
-    const handleSync = async () => {
-      try {
-        const [allC, activeC] = await Promise.all([getAllCampuses(), getActiveCampus()]);
-        setCampuses(allC);
-        setActiveCampus(activeC);
-      } catch (err) {
-        console.error("Failed to sync campuses:", err);
-      }
+    const handleSync = (event: Event) => {
+      const campus = (event as CustomEvent<{ campus?: CampusItem }>).detail?.campus;
+      if (campus) setActiveCampus(campus);
     };
     window.addEventListener("erp-campus-changed", handleSync);
     return () => window.removeEventListener("erp-campus-changed", handleSync);
@@ -58,16 +55,20 @@ export function CampusSelector({ campuses: propCampuses, activeCampus: propActiv
     }
 
     startTransition(async () => {
-      const res = await switchActiveCampus(campusId);
-      if (res.success && res.campus) {
+      setError("");
+      try {
+        const res = await switchActiveCampus(campusId);
+        if (!res.success || !res.campus) {
+          throw new Error(res.error || "Failed to switch campus.");
+        }
         setActiveCampus(res.campus);
         setIsOpen(false);
-        // Instant global reactive sync without requiring manual page refresh
         window.dispatchEvent(
           new CustomEvent("erp-campus-changed", { detail: { campusId, campus: res.campus } })
         );
-        window.dispatchEvent(new CustomEvent("erp-data-refresh"));
         router.refresh();
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : "Failed to switch campus.");
       }
     });
   };
@@ -162,6 +163,8 @@ export function CampusSelector({ campuses: propCampuses, activeCampus: propActiv
             })}
           </div>
 
+          {error && <p role="alert" className="px-2 py-1 text-[11px] text-destructive">{error}</p>}
+
           <div className="pt-1.5 mt-1 border-t">
             <Link
               href="/settings"
@@ -177,4 +180,3 @@ export function CampusSelector({ campuses: propCampuses, activeCampus: propActiv
     </div>
   );
 }
-

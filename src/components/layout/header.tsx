@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import { Role } from "@/lib/permissions";
 import { logoutUser } from "@/server/actions/auth";
+import type { CampusItem } from "@/server/actions/campus";
+import { CampusSelector } from "./campus-selector";
 import { GlobalSearchModal } from "./global-search-modal";
 import {
   Bell,
@@ -22,9 +24,17 @@ interface HeaderProps {
   currentRole: Role;
   userName: string;
   unreadCount?: number;
+  campuses: CampusItem[];
+  activeCampus: CampusItem | null;
 }
 
-export function Header({ currentRole, userName, unreadCount = 0 }: HeaderProps) {
+export function Header({
+  currentRole,
+  userName,
+  unreadCount = 0,
+  campuses,
+  activeCampus,
+}: HeaderProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const { resolvedTheme, setTheme } = useTheme();
@@ -50,8 +60,8 @@ export function Header({ currentRole, userName, unreadCount = 0 }: HeaderProps) 
 
   return (
     <header className="h-16 shrink-0 border-b border-border/60 bg-background/80 backdrop-blur-md pl-14 pr-2 sm:pr-4 lg:px-6 flex items-center justify-between gap-2 lg:gap-4 sticky top-0 z-30 font-poppins print:hidden">
-      {/* Quick Search (Ctrl+K) */}
-      <div className="min-w-0 flex-1 max-w-md">
+      <div className="flex min-w-0 flex-1 items-center gap-2 lg:gap-4">
+        <CampusSelector campuses={campuses} activeCampus={activeCampus} />
         <GlobalSearchModal />
       </div>
 

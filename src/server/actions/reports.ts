@@ -8,8 +8,10 @@ import { authorizedCampusId } from "@/lib/campus-scope";
 import { collectionTotals, postedPaymentStatuses } from "@/lib/collection-totals";
 
 export async function getAuditLogs(limit = 100) {
-  await requireStaffPermission("audit.view");
+  const session = await requireStaffPermission("audit.view");
+  const instituteId = authorizedCampusId(session, await getActiveCampusId());
   return await db.auditLog.findMany({
+    where: { instituteId },
     take: limit,
     orderBy: { createdAt: "desc" },
   });
