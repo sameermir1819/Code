@@ -10,6 +10,7 @@ import {
   enrollStudentInBatch,
 } from "@/server/actions/students";
 import { getBatches } from "@/server/actions/academics";
+import { getActiveCampus, getAllCampuses, switchActiveCampus, type CampusItem } from "@/server/actions/campus";
 import { formatDate } from "@/lib/utils";
 import {
   Card,
@@ -145,6 +146,13 @@ function EmptyState({ hasFilters }: { hasFilters: boolean }) {
 
 // ─── Main Page ─────────────────────────────────────────────────────────────
 export default function StudentsPage() {
+  const [campuses, setCampuses] = useState<CampusItem[]>([]);
+  const [campusesLoaded, setCampusesLoaded] = useState(false);
+  const [campusFilter, setCampusFilter] = useState("");
+  const [campusError, setCampusError] = useState("");
+  const [dataError, setDataError] = useState("");
+  const [isSwitchingCampus, setIsSwitchingCampus] = useState(false);
+
   // ── Fast KPI Statistics ──
   const [kpiStats, setKpiStats] = useState({
     totalStudents: 0,
@@ -166,6 +174,48 @@ export default function StudentsPage() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
   const [page, setPage] = useState(1);
 
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([getAllCampuses(), getActiveCampus()])
+      .then(([allCampuses, activeCampus]) => {
+        if (cancelled) return;
+        setCampuses(allCampuses);
+        setCampusFilter(activeCampus?.id || "ALL");
+        setCampusesLoaded(true);
+      })
+      .catch((error: unknown) => {
+        if (cancelled) return;
+        setCampusError(error instanceof Error ? error.message : "Failed to load centres.");
+        setCampusesLoaded(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const handleCampusChange = async (selectedCampusId: string) => {
+    setCampusError("");
+    setIsSwitchingCampus(true);
+    try {
+      if (selectedCampusId !== "ALL") {
+        const result = await switchActiveCampus(selectedCampusId);
+        if (!result.success) throw new Error(result.error || "Failed to switch centre.");
+        window.dispatchEvent(
+          new CustomEvent("erp-campus-changed", {
+            detail: { campusId: selectedCampusId, campus: result.campus },
+          })
+        );
+        window.dispatchEvent(new CustomEvent("erp-data-refresh"));
+      }
+      setCampusFilter(selectedCampusId);
+      setPage(1);
+    } catch (error: unknown) {
+      setCampusError(error instanceof Error ? error.message : "Failed to switch centre.");
+    } finally {
+      setIsSwitchingCampus(false);
+    }
+  };
+
   // ── Debounce search ──
   useEffect(() => {
     const t = setTimeout(() => {
@@ -184,14 +234,14 @@ export default function StudentsPage() {
   const fetchKpis = useCallback(async () => {
     setKpiLoading(true);
     try {
-      const stats = await getStudentStats();
+      const stats = await getStudentStats(campusFilter || undefined);
       setKpiStats(stats);
-    } catch {
-      // Keep existing stats on transient error
+    } catch (error: unknown) {
+      setDataError(error instanceof Error ? error.message : "Failed to load student statistics.");
     } finally {
       setKpiLoading(false);
     }
-  }, []);
+  }, [campusFilter]);
 
   useEffect(() => {
     fetchKpis();
@@ -204,18 +254,19 @@ export default function StudentsPage() {
       const res = await getStudents({
         search: debouncedSearch,
         status: statusFilter,
+        campusId: campusFilter || undefined,
         page,
         limit: PAGE_SIZE,
       });
       setTableStudents(res.students);
       setTotal(res.total);
       setTotalPages(res.totalPages);
-    } catch {
-      // error handled silently; table shows empty state
+    } catch (error: unknown) {
+      setDataError(error instanceof Error ? error.message : "Failed to load students.");
     } finally {
       setTableLoading(false);
     }
-  }, [debouncedSearch, statusFilter, page]);
+  }, [debouncedSearch, statusFilter, campusFilter, page]);
 
   useEffect(() => {
     fetchTable();
@@ -373,14 +424,35 @@ export default function StudentsPage() {
             performance records.
           </p>
         </div>
-        <Link
-          href="/admissions/new"
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-semibold shadow hover:bg-primary/90 transition-colors shrink-0"
-        >
-          <UserPlus className="h-4 w-4" />
-          New Admission
-        </Link>
+        <div className="flex flex-col sm:items-end gap-2">
+          <label className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
+            <span>Centre</span>
+            <select
+              aria-label="Filter students by centre"
+              value={campusFilter}
+              onChange={(event) => handleCampusChange(event.target.value)}
+              disabled={!campusesLoaded || isSwitchingCampus}
+              className="h-9 min-w-52 rounded-md border border-input bg-background px-3 text-xs font-medium text-foreground"
+            >
+              <option value="ALL">All Centres</option>
+              {campuses.map((campus) => (
+                <option key={campus.id} value={campus.id}>
+                  {campus.name} ({campus.code})
+                </option>
+              ))}
+            </select>
+          </label>
+          <Link
+            href="/admissions/new"
+            className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-semibold shadow hover:bg-primary/90 transition-colors shrink-0"
+          >
+            <UserPlus className="h-4 w-4" />
+            New Admission
+          </Link>
+          {campusError && <p role="alert" className="text-xs text-destructive">{campusError}</p>}
+        </div>
       </div>
+      {dataError && <p role="alert" className="text-sm text-destructive">{dataError}</p>}
 
       {/* ── KPI Cards ─────────────────────────────────── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

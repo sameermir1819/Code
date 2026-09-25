@@ -4,7 +4,7 @@ import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 import { RouteProgressBar } from "@/components/layout/route-progress-bar";
 import { RealtimeListener } from "@/components/layout/realtime-listener";
-import { getAllCampuses, getActiveCampus } from "@/server/actions/campus";
+import { getActiveCampus } from "@/server/actions/campus";
 import { db } from "@/lib/db";
 import { Role } from "@/lib/permissions";
 import { PermissionProvider } from "@/components/layout/permission-provider";
@@ -29,12 +29,11 @@ export default async function DashboardLayout({
   const userName = session.name || "Administrator";
   const permissions = await getEffectivePermissions(session);
 
-  // Fetch unread count + campuses + active campus in parallel
-  const [unreadCount, campuses, activeCampus] = await Promise.all([
+  // Fetch unread count and active campus in parallel
+  const [unreadCount, activeCampus] = await Promise.all([
     db.notification.count({
       where: { userId: session.id, isRead: false },
     }),
-    getAllCampuses(),
     getActiveCampus(),
   ]);
 
@@ -57,8 +56,6 @@ export default async function DashboardLayout({
           currentRole={userRole}
           userName={userName}
           unreadCount={unreadCount}
-          campuses={campuses}
-          activeCampus={activeCampus}
         />
         <main className="flex-1 overflow-auto p-4 md:p-8 bg-muted/20 print:p-0 print:overflow-visible print:bg-white print:block">
           <PermissionProvider permissions={permissions}><div key={activeCampus?.id || "campus-root"} className="max-w-7xl mx-auto space-y-6 print:max-w-full print:m-0 print:p-0 print:space-y-0">{children}</div></PermissionProvider>

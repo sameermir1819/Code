@@ -12,22 +12,24 @@ export async function getStudents({
   search = "",
   status = "",
   gradeClass = "",
+  campusId,
   page = 1,
   limit = 10,
 }: {
   search?: string;
   status?: string;
   gradeClass?: string;
+  campusId?: string;
   page?: number;
   limit?: number;
 } = {}) {
   await requireStaffPermission("students.view");
 
-  const campusId = await getActiveCampusId();
+  const selectedCampusId = campusId === undefined ? await getActiveCampusId() : campusId;
   const where: Record<string, unknown> = {};
 
-  if (campusId) {
-    where.instituteId = campusId;
+  if (selectedCampusId && selectedCampusId !== "ALL") {
+    where.instituteId = selectedCampusId;
   }
 
   if (search) {
@@ -88,10 +90,12 @@ export async function getStudents({
 /**
  * Fast aggregate KPI statistics for Students Directory (runs in <15ms)
  */
-export async function getStudentStats() {
+export async function getStudentStats(campusId?: string) {
   await requireStaffPermission("students.view");
-  const campusId = await getActiveCampusId();
-  const campusFilter = campusId ? { instituteId: campusId } : {};
+  const selectedCampusId = campusId === undefined ? await getActiveCampusId() : campusId;
+  const campusFilter = selectedCampusId && selectedCampusId !== "ALL"
+    ? { instituteId: selectedCampusId }
+    : {};
 
   const now = new Date();
   const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);

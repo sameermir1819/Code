@@ -11,6 +11,7 @@ import {
   provisionStudentUserAccounts,
   deleteStudentUser,
 } from "@/server/actions/users";
+import { switchActiveCampus } from "@/server/actions/campus";
 import { Role } from "@/lib/permissions";
 import { formatDate } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -56,6 +57,7 @@ interface UsersTableProps {
   initialRoles?: any[];
   allPermissions?: any[];
   availableCampuses?: any[];
+  initialCampusId?: string;
 }
 
 export function UsersTable({
@@ -65,6 +67,7 @@ export function UsersTable({
   initialRoles = [],
   allPermissions = [],
   availableCampuses = [],
+  initialCampusId = "ALL",
 }: UsersTableProps) {
   const [data, setData] = useState(initialData);
   const [isPending, startTransition] = useTransition();
@@ -74,15 +77,24 @@ export function UsersTable({
     setData(initialData);
   }, [initialData]);
 
-  const refreshUsersRef = useRef<() => void>(() => {});
   useEffect(() => {
-    refreshUsersRef.current = () => refreshUsers();
+    setCampusFilter(initialCampusId);
+  }, [initialCampusId]);
+
+  const refreshUsersRef = useRef<(newPage?: number, selectedCampusId?: string) => void>(() => {});
+  useEffect(() => {
+    refreshUsersRef.current = (newPage, selectedCampusId) => refreshUsers(newPage, selectedCampusId);
   });
 
   // Reactive auto-refresh when campus or data changes globally
   useEffect(() => {
-    const handleReactiveRefresh = () => {
-      refreshUsersRef.current();
+    const handleReactiveRefresh = (event: Event) => {
+      const campusId = (event as CustomEvent<{ campusId?: string }>).detail?.campusId;
+      if (event.type === "erp-campus-changed" && campusId) {
+        refreshUsersRef.current(1, campusId);
+      } else {
+        refreshUsersRef.current();
+      }
     };
     window.addEventListener("erp-campus-changed", handleReactiveRefresh);
     window.addEventListener("erp-data-refresh", handleReactiveRefresh);
@@ -112,7 +124,7 @@ export function UsersTable({
   const [roleFilter, setRoleFilter] = useState("ALL");
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [branchFilter, setBranchFilter] = useState("ALL");
-  const [campusFilter, setCampusFilter] = useState("ALL");
+  const [campusFilter, setCampusFilter] = useState(initialCampusId);
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(20);
   const [sortBy, setSortBy] = useState<"name" | "createdAt" | "lastLoginAt" | "status">("createdAt");
@@ -150,7 +162,7 @@ export function UsersTable({
   const canCreateUsers = ["SUPER_ADMIN", "ADMIN"].includes(actorRole);
 
   // Fetch updated users list
-  const refreshUsers = (newPage = page) => {
+  const refreshUsers = (newPage = page, selectedCampusId = campusFilter) => {
     startTransition(async () => {
       try {
         const res = await getUsers({
@@ -158,7 +170,7 @@ export function UsersTable({
           role: roleFilter,
           status: statusFilter,
           branch: branchFilter,
-          campusId: campusFilter,
+          campusId: selectedCampusId,
           page: newPage,
           limit,
           sortBy,
@@ -170,6 +182,47 @@ export function UsersTable({
         }
       } catch (err: any) {
         setErrorMsg(err.message || "Failed to load users.");
+      }
+    });
+  };
+
+  const handleCampusChange = (selectedCampusId: string) => {
+    setErrorMsg("");
+    setPage(1);
+    startTransition(async () => {
+      try {
+        if (selectedCampusId !== "ALL" && selectedCampusId !== "GLOBAL") {
+          const result = await switchActiveCampus(selectedCampusId);
+          if (!result.success) throw new Error(result.error || "Failed to switch centre.");
+          setCampusFilter(selectedCampusId);
+          window.dispatchEvent(
+            new CustomEvent("erp-campus-changed", {
+              detail: { campusId: selectedCampusId, campus: result.campus },
+            })
+          );
+          return;
+        }
+
+        const result = await getUsers({
+          search,
+          role: roleFilter,
+          status: statusFilter,
+          branch: branchFilter,
+          campusId: selectedCampusId,
+          page: 1,
+          limit,
+          sortBy,
+          sortOrder,
+        });
+        if (result.success) {
+          setCampusFilter(selectedCampusId);
+          setData(result);
+          setSelectedIds([]);
+        } else {
+          throw new Error("Failed to load users for the selected centre.");
+        }
+      } catch (error: unknown) {
+        setErrorMsg(error instanceof Error ? error.message : "Failed to load users for the selected centre.");
       }
     });
   };
@@ -340,18 +393,40 @@ export function UsersTable({
   return (
     <div className="space-y-6">
       {/* Top Banner */}
-      <div>
-        <div className="flex items-center gap-2">
-          <h1 className="text-2xl font-bold tracking-tight">Users & Role Management</h1>
-          <Badge variant="outline" className="font-mono text-xs">
-            {activeTab === "directory" ? `${data.total} Accounts` : `${rolesList.length} Roles`}
-          </Badge>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold tracking-tight">Users & Role Management</h1>
+            <Badge variant="outline" className="font-mono text-xs">
+              {activeTab === "directory" ? `${data.total} Accounts` : `${rolesList.length} Roles`}
+            </Badge>
+          </div>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            {activeTab === "directory"
+              ? "Enterprise RBAC directory, role provisioning, status controls, and granular permission overrides."
+              : "Define custom roles, configure granular permissions matrix, and control access across ERP modules."}
+          </p>
         </div>
-        <p className="text-sm text-muted-foreground mt-0.5">
-          {activeTab === "directory"
-            ? "Enterprise RBAC directory, role provisioning, status controls, and granular permission overrides."
-            : "Define custom roles, configure granular permissions matrix, and control access across ERP modules."}
-        </p>
+        {activeTab === "directory" && availableCampuses.length > 0 && (
+          <label className="flex shrink-0 items-center gap-2 text-xs font-semibold text-muted-foreground">
+            <span>Centre</span>
+            <select
+              aria-label="Filter users by centre"
+              value={campusFilter}
+              onChange={(event) => handleCampusChange(event.target.value)}
+              disabled={isPending}
+              className="h-9 min-w-52 rounded-md border border-input bg-background px-3 text-xs font-medium text-foreground"
+            >
+              <option value="ALL">All Centres</option>
+              <option value="GLOBAL">Central / Global (No Centre)</option>
+              {availableCampuses.map((campus) => (
+                <option key={campus.id} value={campus.id}>
+                  {campus.name} ({campus.code})
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
       </div>
 
       {/* View Switcher Tabs & Actions */}
@@ -524,27 +599,6 @@ export function UsersTable({
           </div>
 
           <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
-            {/* Campus Filter */}
-            {availableCampuses.length > 0 && (
-              <select
-                value={campusFilter}
-                onChange={(e) => {
-                  setCampusFilter(e.target.value);
-                  setPage(1);
-                  setTimeout(() => refreshUsers(1), 50);
-                }}
-                className="h-9 px-2.5 rounded-md border border-input bg-background text-xs text-foreground font-medium"
-              >
-                <option value="ALL">🏢 All Campuses</option>
-                <option value="GLOBAL">🌐 Central / Global (No Campus)</option>
-                {availableCampuses.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name} ({c.code})
-                  </option>
-                ))}
-              </select>
-            )}
-
             {/* Role Filter */}
             <select
               value={roleFilter}
