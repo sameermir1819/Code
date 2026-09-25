@@ -110,7 +110,7 @@ export function StudentLoginForm({ logoUrl, instituteName }: StudentLoginFormPro
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-zinc-300 flex items-center justify-between">
                 <span>Student Code</span>
-                <span className="text-[10px] text-zinc-500 font-mono">Roll No or ID</span>
+                <span className="text-[10px] text-zinc-500 font-mono">ID, Roll No, or Phone</span>
               </label>
               <div className="relative">
                 <GraduationCap className="absolute left-3.5 top-3.5 h-4 w-4 text-zinc-500" />
@@ -137,7 +137,7 @@ export function StudentLoginForm({ logoUrl, instituteName }: StudentLoginFormPro
                   onClick={() => {
                     setErrorMsg("");
                     setInfoMsg(
-                      "First-time login uses the default password assigned by your campus desk. If you need a reset, please contact administration."
+                      "For first-time login, use your Student ID as the password. If it has been changed or you need a reset, contact administration."
                     );
                   }}
                   className="text-[11px] text-zinc-400 hover:text-white font-medium transition-colors cursor-pointer"
@@ -166,7 +166,7 @@ export function StudentLoginForm({ logoUrl, instituteName }: StudentLoginFormPro
                 </button>
               </div>
               <p className="text-[11px] text-zinc-500 pt-0.5">
-                First time logging in? Use your assigned default password, then change it in your profile.
+                First time logging in? Use your Student ID as the password, then change it in your profile.
               </p>
             </div>
 

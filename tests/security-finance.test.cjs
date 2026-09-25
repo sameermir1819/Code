@@ -54,6 +54,84 @@ function loginFixture(overrides = {}) {
   return { actions, portal, user, cookieSet: () => cookieSet, updates: () => updates };
 }
 
+function studentIdentifierLoginFixture(identifier, studentRecord) {
+  const user = {
+    id: "student-user",
+    name: studentRecord.name,
+    email: studentRecord.email,
+    role: "STUDENT",
+    status: "ACTIVE",
+    isArchived: false,
+    passwordHash: bcrypt.hashSync(studentRecord.studentId, 4),
+    student: studentRecord,
+  };
+  let cookieSet = false;
+  const db = {
+    user: {
+      findUnique: async () => null,
+      findFirst: async () => null,
+      create: async () => user,
+      update: async () => user,
+    },
+    student: {
+      findFirst: async ({ where }) => {
+        assert.equal(JSON.stringify(where).includes('"mode"'), false);
+        const matches = where.OR.some((condition) =>
+          condition.studentId?.equals === studentRecord.studentId ||
+          condition.admissionNo?.equals === studentRecord.admissionNo ||
+          condition.phone?.equals === identifier
+        );
+        return matches ? { ...studentRecord, user, institute: {} } : null;
+      },
+    },
+  };
+  const actions = load("src/server/actions/auth.ts", {
+    "@/lib/db": { db },
+    "@/lib/auth": {
+      verifyPassword: bcrypt.compare,
+      hashPassword: async (password) => bcrypt.hash(password, 4),
+      createSessionToken: async () => "test-token",
+      setSessionCookie: async () => { cookieSet = true; },
+    },
+    "./audit": { logAudit: async () => {} },
+  });
+  return { actions, cookieSet: () => cookieSet };
+}
+
+test("student login accepts a case-insensitive Student ID without SQLite-unsupported Prisma mode", async () => {
+  const studentRecord = {
+    id: "student-a",
+    studentId: "STU-2026-0001",
+    admissionNo: "ADM-2026-0001",
+    phone: "+91 98112 23344",
+    name: "Aarav Sharma",
+    email: "student@example.invalid",
+    instituteId: "campus-a",
+    status: "ACTIVE",
+  };
+  const f = studentIdentifierLoginFixture("stu-2026-0001", studentRecord);
+  const result = await f.actions.loginUser({ identifier: "stu-2026-0001", password: studentRecord.studentId });
+  assert.equal(result.success, true);
+  assert.equal(f.cookieSet(), true);
+});
+
+test("student login accepts the registered phone number", async () => {
+  const studentRecord = {
+    id: "student-a",
+    studentId: "STU-2026-0001",
+    admissionNo: "ADM-2026-0001",
+    phone: "+91 98112 23344",
+    name: "Aarav Sharma",
+    email: "student@example.invalid",
+    instituteId: "campus-a",
+    status: "ACTIVE",
+  };
+  const f = studentIdentifierLoginFixture(studentRecord.phone, studentRecord);
+  const result = await f.actions.loginUser({ identifier: studentRecord.phone, password: studentRecord.studentId });
+  assert.equal(result.success, true);
+  assert.equal(f.cookieSet(), true);
+});
+
 for (const password of ["student123", "Student@123", "password123", "STU-A", "ADM-A"]) {
   test(`changed student password rejects fallback ${password} at login and password change`, async () => {
     const f = loginFixture();

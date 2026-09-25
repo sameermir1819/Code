@@ -34,14 +34,24 @@ export async function loginUser(formData: {
     if (!user) {
       // Normalize Name_name: e.g. "aarav_sharma" -> "Aarav Sharma"
       const nameWithSpaces = rawIdentifier.replace(/_/g, " ");
+      const identifierVariants = [...new Set([
+        rawIdentifier,
+        rawIdentifier.toUpperCase(),
+        rawIdentifier.toLowerCase(),
+        nameWithSpaces,
+        nameWithSpaces.toUpperCase(),
+        nameWithSpaces.toLowerCase(),
+      ])];
 
       matchedStudent = await db.student.findFirst({
         where: {
           OR: [
-            { studentId: { equals: rawIdentifier, mode: "insensitive" } },
-            { admissionNo: { equals: rawIdentifier, mode: "insensitive" } },
-            { name: { equals: rawIdentifier, mode: "insensitive" } },
-            { name: { equals: nameWithSpaces, mode: "insensitive" } },
+            ...identifierVariants.flatMap((value) => [
+              { studentId: { equals: value } },
+              { admissionNo: { equals: value } },
+              { name: { equals: value } },
+            ]),
+            { phone: { equals: rawIdentifier } },
             { email: { equals: rawIdentifier.toLowerCase() } },
           ],
         },
@@ -90,12 +100,17 @@ export async function loginUser(formData: {
     // 3. Fallback: match User name directly
     if (!user) {
       const nameWithSpaces = rawIdentifier.replace(/_/g, " ");
+      const nameVariants = [...new Set([
+        rawIdentifier,
+        rawIdentifier.toUpperCase(),
+        rawIdentifier.toLowerCase(),
+        nameWithSpaces,
+        nameWithSpaces.toUpperCase(),
+        nameWithSpaces.toLowerCase(),
+      ])];
       user = await db.user.findFirst({
         where: {
-          OR: [
-            { name: { equals: rawIdentifier, mode: "insensitive" } },
-            { name: { equals: nameWithSpaces, mode: "insensitive" } },
-          ],
+          OR: nameVariants.map((value) => ({ name: { equals: value } })),
         },
         include: { teacher: true, student: true, parent: true },
       });
