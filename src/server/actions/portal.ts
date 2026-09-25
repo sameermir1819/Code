@@ -5,6 +5,7 @@ import { redactRelatedData } from "@/lib/redact-related-data";
 import { db } from "@/lib/db";
 import { getEffectivePermissions, requireAuth, verifyPassword, hashPassword } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
+import { getActiveCampusId } from "./campus";
 
 import { cache } from "react";
 
@@ -17,6 +18,22 @@ const fetchCachedCurrentStudent = cache(async () => {
   const session = await requireAuth();
 
   let student = null;
+
+  if (session.role === "SUPER_ADMIN" || session.role === "ADMIN") {
+    await requireStaffPermission("students.view");
+    const instituteId = await getActiveCampusId();
+    student = await db.student.findFirst({
+      where: { status: "ACTIVE", instituteId },
+      include: {
+        institute: true,
+        parent: true,
+        session: true,
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    return { student, session };
+  }
 
   // 1. Direct match by session studentId
   if (session.studentId) {
@@ -61,20 +78,6 @@ const fetchCachedCurrentStudent = cache(async () => {
     }
   }
 
-  // 4. Admin preview fallback (if Admin views /portal for testing)
-  if (!student && (session.role === "SUPER_ADMIN" || session.role === "ADMIN")) {
-    await requireStaffPermission("students.view");
-    student = await db.student.findFirst({
-      where: { status: "ACTIVE" },
-      include: {
-        institute: true,
-        parent: true,
-        session: true,
-      },
-      orderBy: { createdAt: "desc" },
-    });
-  }
-
   return { student, session };
 });
 
@@ -106,7 +109,12 @@ export async function getStudentPortalOverview() {
 
   // Pre-fetch active enrollments to reuse for materials count without extra subqueries
   const enrollments = await db.enrollment.findMany({
-    where: { studentId: student.id, status: "ACTIVE" },
+    where: {
+      studentId: student.id,
+      status: "ACTIVE",
+      batch: { instituteId: student.instituteId },
+      course: { instituteId: student.instituteId },
+    },
     include: {
       batch: {
         include: {
@@ -143,7 +151,10 @@ export async function getStudentPortalOverview() {
   ] = await Promise.all([
     // Attendance records
     db.attendance.findMany({
-      where: { studentId: student.id },
+      where: {
+        studentId: student.id,
+        batch: { instituteId: student.instituteId },
+      },
       orderBy: { date: "desc" },
       take: 60,
       include: {
@@ -170,7 +181,10 @@ export async function getStudentPortalOverview() {
 
     // Exam marks & reports
     db.marks.findMany({
-      where: { studentId: student.id },
+      where: {
+        studentId: student.id,
+        exam: { batch: { instituteId: student.instituteId } },
+      },
       include: {
         exam: {
           include: {
@@ -186,9 +200,19 @@ export async function getStudentPortalOverview() {
     // Announcements
     db.announcement.findMany({
       where: {
-        OR: [
-          { targetRole: "STUDENT" },
-          { targetRole: "ALL" },
+        AND: [
+          { targetRole: { in: ["STUDENT", "ALL"] } },
+          {
+            OR: [
+              { batchId: null, courseId: null },
+              ...(enrolledBatchIds.length > 0
+                ? [{ batchId: { in: enrolledBatchIds } }]
+                : []),
+              ...(enrolledCourseIds.length > 0
+                ? [{ courseId: { in: enrolledCourseIds } }]
+                : []),
+            ],
+          },
         ],
       },
       orderBy: { createdAt: "desc" },
@@ -201,6 +225,7 @@ export async function getStudentPortalOverview() {
         OR: [
           ...(enrolledBatchIds.length > 0 ? [{ batchId: { in: enrolledBatchIds } }] : []),
           ...(enrolledCourseIds.length > 0 ? [{ batchId: null, courseId: { in: enrolledCourseIds } }] : []),
+          { assignedTo: { some: { studentId: student.id } } },
           { batchId: null, courseId: null },
         ],
       },
@@ -256,7 +281,10 @@ export async function getStudentAttendanceRecords() {
   if (!student) return { success: false, data: [] };
 
   const records = await db.attendance.findMany({
-    where: { studentId: student.id },
+    where: {
+      studentId: student.id,
+      batch: { instituteId: student.instituteId },
+    },
     orderBy: { date: "desc" },
     include: {
       batch: true,
@@ -275,7 +303,10 @@ export async function getStudentExamsAndResults() {
   if (!student) return { success: false, data: [] };
 
   const marks = await db.marks.findMany({
-    where: { studentId: student.id },
+    where: {
+      studentId: student.id,
+      exam: { batch: { instituteId: student.instituteId } },
+    },
     include: {
       exam: {
         include: {
@@ -340,7 +371,12 @@ export async function getStudentStudyMaterials() {
   if (!student) return { success: false, data: [] };
 
   const enrollments = await db.enrollment.findMany({
-    where: { studentId: student.id, status: "ACTIVE" },
+    where: {
+      studentId: student.id,
+      status: "ACTIVE",
+      batch: { instituteId: student.instituteId },
+      course: { instituteId: student.instituteId },
+    },
   });
 
   const batchIds = enrollments.map((e) => e.batchId).filter(Boolean) as string[];
@@ -431,7 +467,12 @@ export async function getStudentBatches() {
   const isPreview = session.role === "SUPER_ADMIN" || session.role === "ADMIN";
 
   const enrollments = await db.enrollment.findMany({
-    where: { studentId: student.id, status: "ACTIVE" },
+    where: {
+      studentId: student.id,
+      status: "ACTIVE",
+      batch: { instituteId: student.instituteId },
+      course: { instituteId: student.instituteId },
+    },
     include: {
       course: {
         include: {
@@ -510,6 +551,7 @@ export async function getStudentBatchDetails(batchId: string) {
       where: {
         studentId: student.id,
         batchId: batchId,
+        batch: { instituteId: student.instituteId },
       },
     });
 
@@ -523,8 +565,8 @@ export async function getStudentBatchDetails(batchId: string) {
     }
   }
 
-  const batch = await db.batch.findUnique({
-    where: { id: batchId },
+  const batch = await db.batch.findFirst({
+    where: { id: batchId, instituteId: student.instituteId },
     include: {
       course: {
         include: {

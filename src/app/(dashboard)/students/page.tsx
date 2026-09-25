@@ -9,7 +9,7 @@ import {
   updateStudentParent,
 } from "@/server/actions/students";
 import { getBatches } from "@/server/actions/academics";
-import { getActiveCampus, getAllCampuses, type CampusItem } from "@/server/actions/campus";
+import { getActiveCampus, getAllCampuses, switchActiveCampus, type CampusItem } from "@/server/actions/campus";
 import { formatDate } from "@/lib/utils";
 import {
   Card,
@@ -145,9 +145,12 @@ function EmptyState({ hasFilters }: { hasFilters: boolean }) {
 
 // ─── Main Page ─────────────────────────────────────────────────────────────
 export default function StudentsPage() {
+  const [campuses, setCampuses] = useState<CampusItem[]>([]);
+  const [campusesLoaded, setCampusesLoaded] = useState(false);
   const [campusFilter, setCampusFilter] = useState("");
   const [campusError, setCampusError] = useState("");
   const [dataError, setDataError] = useState("");
+  const [isSwitchingCampus, setIsSwitchingCampus] = useState(false);
   const [editCampuses, setEditCampuses] = useState<CampusItem[]>([]);
   const [isLoadingEditBatches, setIsLoadingEditBatches] = useState(false);
 
@@ -174,19 +177,45 @@ export default function StudentsPage() {
 
   useEffect(() => {
     let cancelled = false;
-    getActiveCampus()
-      .then((activeCampus) => {
+    Promise.all([getAllCampuses(), getActiveCampus()])
+      .then(([allCampuses, activeCampus]) => {
         if (cancelled) return;
+        setCampuses(allCampuses);
         setCampusFilter(activeCampus?.id || "ALL");
+        setCampusesLoaded(true);
       })
       .catch((error: unknown) => {
         if (cancelled) return;
-        setCampusError(error instanceof Error ? error.message : "Failed to load active campus.");
+        setCampusError(error instanceof Error ? error.message : "Failed to load centres.");
+        setCampusesLoaded(true);
       });
     return () => {
       cancelled = true;
     };
   }, []);
+
+  const handleCampusChange = async (selectedCampusId: string) => {
+    setCampusError("");
+    setIsSwitchingCampus(true);
+    try {
+      if (selectedCampusId !== "ALL") {
+        const result = await switchActiveCampus(selectedCampusId);
+        if (!result.success) throw new Error(result.error || "Failed to switch centre.");
+        window.dispatchEvent(
+          new CustomEvent("erp-campus-changed", {
+            detail: { campusId: selectedCampusId, campus: result.campus },
+          })
+        );
+        window.dispatchEvent(new CustomEvent("erp-data-refresh"));
+      }
+      setCampusFilter(selectedCampusId);
+      setPage(1);
+    } catch (error: unknown) {
+      setCampusError(error instanceof Error ? error.message : "Failed to switch centre.");
+    } finally {
+      setIsSwitchingCampus(false);
+    }
+  };
 
   // ── Debounce search ──
   useEffect(() => {
@@ -425,6 +454,23 @@ export default function StudentsPage() {
           </p>
         </div>
         <div className="flex flex-col sm:items-end gap-2">
+          <label className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
+            <span>Centre</span>
+            <select
+              aria-label="Filter students by centre"
+              value={campusFilter}
+              onChange={(event) => handleCampusChange(event.target.value)}
+              disabled={!campusesLoaded || isSwitchingCampus}
+              className="h-9 min-w-52 rounded-md border border-input bg-background px-3 text-xs font-medium text-foreground"
+            >
+              <option value="ALL">All Centres</option>
+              {campuses.map((campus) => (
+                <option key={campus.id} value={campus.id}>
+                  {campus.name} ({campus.code})
+                </option>
+              ))}
+            </select>
+          </label>
           <Link
             href="/admissions/new"
             className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-semibold shadow hover:bg-primary/90 transition-colors shrink-0"

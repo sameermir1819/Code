@@ -311,7 +311,7 @@ export async function updateStudent(
 
   const updated = await db.$transaction(async (tx) => {
     const { instituteId: requestedInstituteId, batchId, ...studentData } = data;
-    const existing = await tx.student.findFirst({
+    const existing = await tx.student.findUnique({
       where: { id, instituteId: currentCampusId },
       select: { instituteId: true, userId: true },
     });

@@ -50,6 +50,7 @@ function loginFixture(overrides = {}) {
   const portal = load("src/server/actions/portal.ts", {
     "@/lib/db": { db }, "@/lib/auth": auth,
     "next/cache": { revalidatePath: () => {} }, "react": { cache: (fn) => fn },
+    "./campus": { getActiveCampusId: async () => "campus-a" },
   });
   return { actions, portal, user, cookieSet: () => cookieSet, updates: () => updates };
 }

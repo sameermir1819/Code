@@ -31,16 +31,22 @@ export default async function StudentIDCardPage() {
 
   // Fetch student's primary enrollment
   const enrollment = await db.enrollment.findFirst({
-    where: { studentId: student.id, status: "ACTIVE" },
+    where: {
+      studentId: student.id,
+      status: "ACTIVE",
+      batch: { instituteId: student.instituteId },
+      course: { instituteId: student.instituteId },
+    },
     include: {
       course: true,
       batch: true,
     },
   });
 
-  const instituteName = activeCampus?.name || student.institute?.name || "Futurex Learning";
-  const instituteCode = activeCampus?.code || student.institute?.code || "FL-CAMPUS";
-  const instituteLogoUrl = activeCampus?.logoUrl || student.institute?.logoUrl || "/logo.png";
+  const institute = student.institute || activeCampus;
+  const instituteName = institute?.name || "Futurex Learning";
+  const instituteCode = institute?.code || "FL-CAMPUS";
+  const instituteLogoUrl = institute?.logoUrl || "/logo.png";
 
   return (
     <StudentIDCardView
@@ -60,8 +66,8 @@ export default async function StudentIDCardPage() {
         name: instituteName,
         code: instituteCode,
         logoUrl: instituteLogoUrl,
-        address: activeCampus?.address || student.institute?.address,
-        phone: activeCampus?.phone || student.institute?.phone,
+        address: institute?.address,
+        phone: institute?.phone,
       }}
     />
   );

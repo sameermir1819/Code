@@ -572,7 +572,10 @@ export async function getStudentPortalTestSeries() {
 
   // Find all registrations for this student
   const registered = await db.testSeriesRegistration.findMany({
-    where: { studentId: student.id },
+    where: {
+      studentId: student.id,
+      testSeries: { is: { instituteId: student.instituteId } },
+    },
     include: {
       testSeries: {
         include: {
@@ -596,6 +599,7 @@ export async function getStudentPortalTestSeries() {
   const available = await db.testSeries.findMany({
     where: {
       id: { notIn: registeredSeriesIds },
+      instituteId: student.instituteId,
       status: "ACTIVE",
     },
     include: {
@@ -727,3 +731,5 @@ export async function updateTestSeriesPayment(
     };
   }
 }
+import { authorizedCampusId } from "@/lib/campus-scope";
+import { getActiveCampusId } from "@/server/actions/campus";

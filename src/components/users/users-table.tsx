@@ -11,6 +11,7 @@ import {
   provisionStudentUserAccounts,
   deleteStudentUser,
 } from "@/server/actions/users";
+import { switchActiveCampus } from "@/server/actions/campus";
 import { Role } from "@/lib/permissions";
 import { formatDate } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -184,7 +185,6 @@ export function UsersTable({
       }
     });
   };
-
 
   // Trigger search / filter update
   const handleSearchSubmit = (e: React.FormEvent) => {

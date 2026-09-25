@@ -27,9 +27,10 @@ export default async function PortalLayout({
     getActiveCampus(),
   ]);
 
-  const instituteName = activeCampus?.name || student?.institute?.name || "Futurex Learning";
-  const instituteLogoUrl = activeCampus?.logoUrl || student?.institute?.logoUrl || "/logo.png";
   const isPreview = session.role === "SUPER_ADMIN" || session.role === "ADMIN";
+  const institute = student?.institute || (isPreview ? activeCampus : null);
+  const instituteName = institute?.name || "Futurex Learning";
+  const instituteLogoUrl = institute?.logoUrl || "/logo.png";
   const permissions = await getEffectivePermissions(session);
 
   return (
