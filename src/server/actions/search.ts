@@ -1,7 +1,9 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { getSession } from "@/lib/auth";
+import { getSession, getEffectivePermissions } from "@/lib/auth";
+import { getActiveCampusId } from "./campus";
+import { authorizedCampusId } from "@/lib/campus-scope";
 
 export interface SearchResultItem {
   id: string;
@@ -14,15 +16,22 @@ export interface SearchResultItem {
 
 export async function globalQuickSearch(query: string): Promise<SearchResultItem[]> {
   const session = await getSession();
-  if (!session || session.role === "STUDENT") return [];
+  if (!session || ["STUDENT", "PARENT"].includes(session.role)) return [];
 
   const q = query.trim();
   if (!q || q.length < 2) return [];
 
   try {
+    const instituteId = authorizedCampusId(session, await getActiveCampusId());
+    const permissions = await getEffectivePermissions(session);
+    const canReadStudents = permissions.includes("students.view");
+    const canReadFinance = permissions.includes("fees.view");
+    const canReadAcademics = permissions.includes("batches.view");
+    const canReadFaculty = permissions.includes("teachers.view");
     const [students, batches, payments, teachers] = await Promise.all([
-      db.student.findMany({
+      canReadStudents ? db.student.findMany({
         where: {
+          instituteId,
           OR: [
             { name: { contains: q, mode: "insensitive" } },
             { studentId: { contains: q, mode: "insensitive" } },
@@ -39,9 +48,10 @@ export async function globalQuickSearch(query: string): Promise<SearchResultItem
           gradeClass: true,
         },
         take: 5,
-      }),
-      db.batch.findMany({
+      }) : Promise.resolve([]),
+      canReadAcademics ? db.batch.findMany({
         where: {
+          instituteId,
           OR: [
             { name: { contains: q, mode: "insensitive" } },
             { code: { contains: q, mode: "insensitive" } },
@@ -54,9 +64,10 @@ export async function globalQuickSearch(query: string): Promise<SearchResultItem
           status: true,
         },
         take: 4,
-      }),
-      db.payment.findMany({
+      }) : Promise.resolve([]),
+      canReadFinance ? db.payment.findMany({
         where: {
+          student: { instituteId },
           OR: [
             { receiptNo: { contains: q, mode: "insensitive" } },
             { referenceNo: { contains: q, mode: "insensitive" } },
@@ -72,9 +83,10 @@ export async function globalQuickSearch(query: string): Promise<SearchResultItem
           },
         },
         take: 4,
-      }),
-      db.teacher.findMany({
+      }) : Promise.resolve([]),
+      canReadFaculty ? db.teacher.findMany({
         where: {
+          instituteId,
           OR: [
             { name: { contains: q, mode: "insensitive" } },
             { teacherId: { contains: q, mode: "insensitive" } },
@@ -89,7 +101,7 @@ export async function globalQuickSearch(query: string): Promise<SearchResultItem
           status: true,
         },
         take: 3,
-      }),
+      }) : Promise.resolve([]),
     ]);
 
     const results: SearchResultItem[] = [];
@@ -147,4 +159,3 @@ export async function globalQuickSearch(query: string): Promise<SearchResultItem
     return [];
   }
 }
-

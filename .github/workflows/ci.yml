@@ -32,6 +32,9 @@ jobs:
         run: npm run lint
         continue-on-error: true
 
+      - name: Security and Finance Regression Tests
+        run: npm test
+
       - name: Production Build
         run: npm run build
         env:
@@ -43,4 +46,3 @@ jobs:
           JWT_SECRET: ${{ secrets.JWT_SECRET || 'dummy-jwt-secret-for-build-checks-only-123456789' }}
           NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET || 'dummy-nextauth-secret-for-build-checks' }}
           NEXTAUTH_URL: "http://localhost:3000"
-

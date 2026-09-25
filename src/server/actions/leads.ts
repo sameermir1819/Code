@@ -1,7 +1,8 @@
 "use server";
+import { requireStaffPermission } from "@/lib/auth";
 
 import { db } from "@/lib/db";
-import { requireAuth } from "@/lib/auth";
+
 import { logAudit } from "./audit";
 import { getActiveCampusId } from "./campus";
 import { revalidatePath } from "next/cache";
@@ -45,7 +46,7 @@ export async function getLeads({
   limit?: number;
   campusId?: string;
 } = {}) {
-  const actor = await requireAuth(["SUPER_ADMIN", "ADMIN", "ACCOUNTANT", "TEACHER"]);
+  const actor = await requireStaffPermission("leads.view");
   const activeCampusId = campusId || (await getActiveCampusId());
 
   const where: Record<string, any> = {};
@@ -142,7 +143,7 @@ export async function getLeads({
 // =========================================================================
 export async function getLead(id: string) {
   try {
-    await requireAuth(["SUPER_ADMIN", "ADMIN", "ACCOUNTANT", "TEACHER"]);
+    await requireStaffPermission("leads.view");
 
     const lead = await db.lead.findUnique({
       where: { id },
@@ -188,7 +189,7 @@ export async function createLead(data: {
   nextFollowUpDate?: string | Date | null;
   notes?: string;
 }) {
-  const actor = await requireAuth(["SUPER_ADMIN", "ADMIN", "ACCOUNTANT", "TEACHER"]);
+  const actor = await requireStaffPermission("leads.manage");
   const activeCampusId = await getActiveCampusId();
 
   if (!data.name || !data.name.trim()) {
@@ -273,7 +274,7 @@ export async function updateLead(
     convertedStudentId?: string | null;
   }
 ) {
-  const actor = await requireAuth(["SUPER_ADMIN", "ADMIN", "ACCOUNTANT", "TEACHER"]);
+  const actor = await requireStaffPermission("leads.manage");
 
   const existing = await db.lead.findUnique({ where: { id } });
   if (!existing) throw new Error("Lead not found.");
@@ -325,7 +326,7 @@ export async function addLeadFollowUp(
     nextFollowUpDate?: string | null;
   }
 ) {
-  const actor = await requireAuth(["SUPER_ADMIN", "ADMIN", "ACCOUNTANT", "TEACHER"]);
+  const actor = await requireStaffPermission("leads.manage");
 
   if (!data.notes || !data.notes.trim()) {
     throw new Error("Follow-up discussion notes are required.");
@@ -371,7 +372,7 @@ export async function addLeadFollowUp(
 // =========================================================================
 export async function getRecentLeadFollowUps(limit = 100) {
   try {
-    const actor = await requireAuth(["SUPER_ADMIN", "ADMIN", "ACCOUNTANT", "TEACHER"]);
+    const actor = await requireStaffPermission("leads.view");
     const campusId = await getActiveCampusId();
 
     const where: any = {};
@@ -416,7 +417,7 @@ export async function getRecentLeadFollowUps(limit = 100) {
 // 6. DELETE LEAD
 // =========================================================================
 export async function deleteLead(id: string) {
-  const actor = await requireAuth(["SUPER_ADMIN", "ADMIN"]);
+  const actor = await requireStaffPermission("leads.delete");
 
   const lead = await db.lead.findUnique({ where: { id } });
   if (!lead) throw new Error("Lead record not found.");
@@ -438,7 +439,7 @@ export async function deleteLead(id: string) {
 // 7. GET LEADS CRM METRICS
 // =========================================================================
 export async function getLeadsMetrics() {
-  const actor = await requireAuth(["SUPER_ADMIN", "ADMIN", "ACCOUNTANT", "TEACHER"]);
+  const actor = await requireStaffPermission("leads.view");
   const activeCampusId = await getActiveCampusId();
 
   const where: Record<string, any> = {};

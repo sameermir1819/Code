@@ -1,4 +1,5 @@
 "use server";
+import { requirePermission, requireStaffPermission } from "@/lib/auth";
 
 import { db } from "@/lib/db";
 import { requireAuth, getSession } from "@/lib/auth";
@@ -56,6 +57,7 @@ export async function markAllNotificationsRead() {
 // ANNOUNCEMENTS
 // ==========================================
 export async function getAnnouncements() {
+  await requirePermission("announcements.view");
   const session = await getSession();
   const now = new Date();
 
@@ -73,7 +75,7 @@ export async function getAnnouncements() {
     include: {
       course: true,
       batch: true,
-      createdBy: true,
+      createdBy: { select: { id: true, name: true } },
     },
   });
 }
@@ -87,7 +89,7 @@ export async function createAnnouncement(data: {
   batchId?: string;
   expiryDate?: string;
 }) {
-  const session = await requireAuth(["SUPER_ADMIN", "ADMIN"]);
+  const session = await requireStaffPermission("announcements.manage");
 
   const announcement = await db.announcement.create({
     data: {
@@ -113,7 +115,7 @@ export async function createAnnouncement(data: {
 }
 
 export async function deleteAnnouncement(id: string) {
-  await requireAuth(["SUPER_ADMIN", "ADMIN"]);
+  await requireStaffPermission("announcements.manage");
   await db.announcement.delete({ where: { id } });
   return { success: true };
 }

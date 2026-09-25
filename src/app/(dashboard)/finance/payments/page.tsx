@@ -407,7 +407,7 @@ function CollectFeeModal({
                         onChange={(e) => handleInstallmentChange(e.target.value)}
                         className="w-full px-3 py-2 text-xs rounded-lg border bg-background text-foreground"
                       >
-                        <option value="">General Payment toward Fee Plan Balance</option>
+                        <option value="">Auto-distribute across installments</option>
                         {selectedPlan.installments.map((inst) => (
                           <option key={inst.id} value={inst.id}>
                             {inst.title} — Due {formatDate(inst.dueDate)} — Remaining:{" "}
@@ -428,8 +428,9 @@ function CollectFeeModal({
                         <span className="absolute left-3 top-2.5 text-xs text-muted-foreground font-semibold">₹</span>
                         <input
                           type="number"
-                          min="1"
-                          step="1"
+                          min="0.01"
+                          step="0.01"
+                          max={selectedInstallment?.remainingAmount ?? selectedPlan?.balanceAmount}
                           value={amount}
                           onChange={(e) => setAmount(e.target.value)}
                           placeholder="0"

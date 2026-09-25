@@ -1,7 +1,8 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { hashPassword, requirePermission } from "@/lib/auth";
+import { syncPermissionCatalog } from "@/lib/permission-catalog";
+import { hashPassword, requirePermission, getEffectivePermissions } from "@/lib/auth";
 import { Role, PermissionCode, ROLE_PERMISSIONS } from "@/lib/permissions";
 import { logAudit } from "./audit";
 import { getActiveCampusId } from "./campus";
@@ -198,28 +199,7 @@ export async function getUser(id: string) {
     throw new Error("User not found");
   }
 
-  // Calculate effective permissions: Role default + user overrides
-  const roleCode = user.role as Role;
-  let basePermissions = (ROLE_PERMISSIONS[roleCode] || []) as string[];
-  if (basePermissions.length === 0) {
-    const dbRole = await db.role.findUnique({
-      where: { name: user.role },
-      include: { permissions: { include: { permission: true } } },
-    });
-    if (dbRole) {
-      basePermissions = dbRole.permissions.map((rp) => rp.permission.code);
-    }
-  }
-  const effectivePermissionsSet = new Set<string>(basePermissions);
-
-  // Apply user-level custom overrides
-  user.userPermissions.forEach((up) => {
-    if (up.granted) {
-      effectivePermissionsSet.add(up.permission.code);
-    } else {
-      effectivePermissionsSet.delete(up.permission.code);
-    }
-  });
+  const effectivePermissions = await getEffectivePermissions(user);
 
   return {
     success: true,
@@ -227,7 +207,7 @@ export async function getUser(id: string) {
       ...user,
       passwordHash: undefined, // Never expose password hash
     },
-    effectivePermissions: Array.from(effectivePermissionsSet),
+    effectivePermissions,
     actorRole: actor.role,
   };
 }
@@ -424,6 +404,7 @@ export async function createUser(data: {
     details: `${actor.name} (${actor.role}) created user ${createdUser.name} with role ${createdUser.role} (Campus: ${createdUser.branch || "Central"})`,
   });
 
+  revalidatePath("/", "layout");
   revalidatePath("/dashboard/users");
   revalidatePath("/users");
   revalidatePath("/batches");
@@ -550,6 +531,7 @@ export async function updateUser(
     details: `${actor.name} (${actor.role}) modified user ${targetUser.email}. Changes: ${Object.keys(updateData).join(", ")}`,
   });
 
+  revalidatePath("/", "layout");
   revalidatePath("/dashboard/users");
   revalidatePath("/users");
   revalidatePath("/batches");
@@ -621,6 +603,7 @@ export async function changeUserRole(userId: string, newRole: Role) {
     details: `${actor.name} changed role for ${targetUser.name} from ${targetUser.role} to ${newRole}`,
   });
 
+  revalidatePath("/", "layout");
   revalidatePath("/dashboard/users");
   revalidatePath("/users");
   revalidatePath("/batches");
@@ -675,6 +658,7 @@ export async function changeUserStatus(userId: string, newStatus: "ACTIVE" | "IN
     details: `${actor.name} changed status for ${targetUser.email} from ${targetUser.status} to ${newStatus}`,
   });
 
+  revalidatePath("/", "layout");
   revalidatePath("/dashboard/users");
   revalidatePath("/users");
   revalidatePath("/batches");
@@ -724,6 +708,7 @@ export async function archiveUser(userId: string) {
     details: `${actor.name} archived user account ${targetUser.email}`,
   });
 
+  revalidatePath("/", "layout");
   revalidatePath("/dashboard/users");
   revalidatePath("/users");
   revalidatePath("/batches");
@@ -776,6 +761,7 @@ export async function bulkUpdateUsersStatus(
     details: `${actor.name} set status ${newStatus} for ${safeIds.length} users.`,
   });
 
+  revalidatePath("/", "layout");
   revalidatePath("/dashboard/users");
   revalidatePath("/users");
   return { success: true, count: safeIds.length };
@@ -786,6 +772,7 @@ export async function bulkUpdateUsersStatus(
 // =========================================================================
 export async function getUserPermissions(userId: string) {
   const actor = await requirePermission("users.permissions");
+  await syncPermissionCatalog();
 
   const [allPermissions, user, userOverrides] = await Promise.all([
     db.permission.findMany({ orderBy: [{ module: "asc" }, { code: "asc" }] }),
@@ -797,7 +784,7 @@ export async function getUserPermissions(userId: string) {
 
   const roleCode = user.role as Role;
   let roleBasePermissions = (ROLE_PERMISSIONS[roleCode] || []) as string[];
-  if (roleBasePermissions.length === 0) {
+  {
     const dbRole = await db.role.findUnique({
       where: { name: user.role },
       include: { permissions: { include: { permission: true } } },
@@ -878,6 +865,7 @@ export async function updateUserPermissions(
     details: `${actor.name} updated custom permissions for user ${targetUser.email}`,
   });
 
+  revalidatePath("/", "layout");
   revalidatePath("/dashboard/users");
   revalidatePath("/users");
   return { success: true };
@@ -887,6 +875,7 @@ export async function updateUserPermissions(
 // 10. EXPORT USERS CSV
 // =========================================================================
 export async function exportUsersCSV() {
+  await requirePermission("exports.view");
   await requirePermission("users.view");
 
   const users = await db.user.findMany({

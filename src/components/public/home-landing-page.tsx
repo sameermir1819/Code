@@ -514,7 +514,7 @@ export function HomeLandingPage({
                 </div>
                 <div>
                   <h4 className="font-bold text-white text-xs sm:text-sm">QR Code Attendance &amp; SMS Logs</h4>
-                  <p className="text-[11px] text-zinc-400 mt-0.5">Automated biometric and QR attendance scanning with instant parental updates.</p>
+                  <p className="text-[11px] text-zinc-400 mt-0.5">QR student ID cards with USB or Bluetooth scanner attendance and a live entry register.</p>
                 </div>
               </div>
             </div>

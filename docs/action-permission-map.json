@@ -1,0 +1,149 @@
+{
+  "academics": {
+    "getCourses": "courses.view",
+    "createCourse": "courses.manage",
+    "getSubjects": "courses.view",
+    "createSubject": "courses.manage",
+    "deleteSubject": "courses.manage",
+    "assignTeacherSubjects": "teachers.update",
+    "getTeachers": "teachers.view",
+    "getBatches": "batches.view",
+    "getBatchById": "batches.view",
+    "createBatchSubject": "batches.manage",
+    "createBatch": "batches.manage",
+    "updateBatch": "batches.manage",
+    "deleteBatch": "batches.manage",
+    "deleteAllBatches": "batches.manage",
+    "transferStudentBatch": "batches.manage",
+    "getTimetable": "timetable.view",
+    "createTimetableSlot": "timetable.manage",
+    "deleteTimetableSlot": "timetable.manage",
+    "deleteAllTimetableSlots": "timetable.manage"
+  },
+  "students": {
+    "getStudents": "students.view",
+    "getStudentStats": "students.view",
+    "getStudentById": "students.view",
+    "createStudent": "students.create",
+    "updateStudent": "students.update",
+    "deleteStudent": "students.delete",
+    "enrollStudentInBatch": "students.update",
+    "updateStudentParent": "students.update"
+  },
+  "attendance": {
+    "getBatchAttendanceForDate": "attendance.view",
+    "saveBatchAttendance": "attendance.manage",
+    "markBatchUnscannedAsAbsent": "attendance.manage",
+    "getAttendanceDefaulters": "attendance.view",
+    "getMonthlyAttendanceReport": "attendance.view",
+    "recordQrAttendance": "attendance.manage",
+    "getTodayAttendanceLiveFeed": "attendance.view"
+  },
+  "finance": {
+    "getFeePlans": "fees.view",
+    "createFeePlan": "fees.update",
+    "getStudentFeeDetails": "fees.view",
+    "recordPayment": "fees.create",
+    "getPayments": "fees.view",
+    "processRefund": "fees.update",
+    "getReceiptDetails": "fees.view",
+    "getOutstandingFeesReport": "fees.view",
+    "getStudentFeeAccounts": "fees.view",
+    "getFinanceOverview": "fees.view"
+  },
+  "exams": {
+    "getExams": "exams.view",
+    "getExamById": "exams.view",
+    "createExam": "exams.create",
+    "saveExamMarks": "results.manage",
+    "publishExam": "results.manage"
+  },
+  "test-series": {
+    "getTestSeriesList": "test-series.view",
+    "getTestSeriesDetails": "test-series.view",
+    "createTestSeries": "test-series.manage",
+    "updateTestSeries": "test-series.manage",
+    "deleteTestSeries": "test-series.manage",
+    "createTestSeriesExam": "test-series.manage",
+    "registerStudentForTestSeries": "test-series.manage",
+    "submitTestResults": "results.manage",
+    "getStudentPortalTestSeries": "test-series.view",
+    "enrollStudentSelf": "test-series.enroll",
+    "updateTestSeriesPayment": "fees.update"
+  },
+  "materials": {
+    "getStudyMaterials": "materials.view",
+    "createStudyMaterial": "materials.manage",
+    "trackMaterialDownload": "materials.view",
+    "deleteStudyMaterial": "materials.manage"
+  },
+  "leads": {
+    "getLeads": "leads.view",
+    "getLead": "leads.view",
+    "createLead": "leads.manage",
+    "updateLead": "leads.manage",
+    "addLeadFollowUp": "leads.manage",
+    "getRecentLeadFollowUps": "leads.view",
+    "deleteLead": "leads.delete",
+    "getLeadsMetrics": "leads.view"
+  },
+  "admissions": {
+    "processAdmission": "students.create"
+  },
+  "reports": {
+    "getAuditLogs": "audit.view",
+    "getFinancialSummaryReport": "reports.view"
+  },
+  "export": {
+    "exportStudentsCSV": "exports.view",
+    "exportPaymentsCSV": "exports.view",
+    "exportDefaultersCSV": "exports.view",
+    "exportBatchesCSV": "exports.view",
+    "exportLeadsCSV": "exports.view",
+    "exportFullBackupJSON": "exports.view"
+  },
+  "announcements": {
+    "getAnnouncements": "announcements.view",
+    "createAnnouncement": "announcements.manage",
+    "deleteAnnouncement": "announcements.manage"
+  },
+  "auth": {
+    "updateInstituteProfile": "settings.manage"
+  },
+  "campus": {
+    "createNewCampus": "settings.manage",
+    "deleteCampus": "settings.manage"
+  },
+  "dashboard": {
+    "getDashboardStats": "dashboard.view"
+  },
+  "portal": {
+    "getStudentAttendanceRecords": "attendance.view",
+    "getStudentExamsAndResults": "results.view",
+    "getStudentFeeLedger": "fees.view",
+    "getStudentStudyMaterials": "materials.view",
+    "getStudentBatches": "batches.view",
+    "getStudentBatchDetails": "batches.view"
+  },
+  "users": {
+    "getUsers": "users.view",
+    "getUser": "users.view",
+    "createUser": "users.create",
+    "updateUser": "users.update",
+    "changeUserRole": "users.role",
+    "changeUserStatus": "users.status",
+    "archiveUser": "users.delete",
+    "bulkUpdateUsersStatus": "users.status",
+    "getUserPermissions": "users.permissions",
+    "updateUserPermissions": "users.permissions",
+    "exportUsersCSV": "users.view"
+  },
+  "roles": {
+    "ensureStandardPermissionsAndRoles": "users.role",
+    "getRoles": "users.view",
+    "getAllPermissions": "users.view",
+    "createRole": "users.role",
+    "updateRole": "users.role",
+    "deleteRole": "users.role"
+  }
+}

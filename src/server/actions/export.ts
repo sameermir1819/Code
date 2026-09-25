@@ -1,7 +1,9 @@
 "use server";
+import { requireStaffPermission } from "@/lib/auth";
 
 import { db } from "@/lib/db";
-import { requireAuth } from "@/lib/auth";
+
+import { authorizedCampusId } from "@/lib/campus-scope";
 import { getActiveCampusId } from "./campus";
 
 // Helper function to escape CSV cell content
@@ -24,8 +26,10 @@ function buildCSV(headers: string[], rows: any[][]): string {
 // 1. EXPORT STUDENTS CSV
 // =========================================================================
 export async function exportStudentsCSV(campusId?: string) {
-  await requireAuth(["SUPER_ADMIN", "ADMIN", "ACCOUNTANT", "TEACHER"]);
-  const activeCampusId = campusId || (await getActiveCampusId());
+  await requireStaffPermission("students.view");
+  await requireStaffPermission("fees.view");
+  const actor = await requireStaffPermission("exports.view");
+  const activeCampusId = authorizedCampusId(actor, campusId || (await getActiveCampusId()));
 
   const where: any = {};
   if (activeCampusId && activeCampusId !== "ALL") {
@@ -129,8 +133,9 @@ export async function exportStudentsCSV(campusId?: string) {
 // 2. EXPORT PAYMENTS & FEE TRANSACTIONS CSV
 // =========================================================================
 export async function exportPaymentsCSV(campusId?: string) {
-  await requireAuth(["SUPER_ADMIN", "ADMIN", "ACCOUNTANT"]);
-  const activeCampusId = campusId || (await getActiveCampusId());
+  await requireStaffPermission("fees.view");
+  const actor = await requireStaffPermission("exports.view");
+  const activeCampusId = authorizedCampusId(actor, campusId || (await getActiveCampusId()));
 
   const where: any = {};
   if (activeCampusId && activeCampusId !== "ALL") {
@@ -201,8 +206,9 @@ export async function exportPaymentsCSV(campusId?: string) {
 // 3. EXPORT FEE DEFAULTERS & PENDING DUES CSV
 // =========================================================================
 export async function exportDefaultersCSV(campusId?: string) {
-  await requireAuth(["SUPER_ADMIN", "ADMIN", "ACCOUNTANT"]);
-  const activeCampusId = campusId || (await getActiveCampusId());
+  await requireStaffPermission("fees.view");
+  const actor = await requireStaffPermission("exports.view");
+  const activeCampusId = authorizedCampusId(actor, campusId || (await getActiveCampusId()));
 
   const where: any = {
     balanceAmount: { gt: 0 },
@@ -280,8 +286,9 @@ export async function exportDefaultersCSV(campusId?: string) {
 // 4. EXPORT BATCHES CSV
 // =========================================================================
 export async function exportBatchesCSV(campusId?: string) {
-  await requireAuth(["SUPER_ADMIN", "ADMIN", "ACCOUNTANT", "TEACHER"]);
-  const activeCampusId = campusId || (await getActiveCampusId());
+  await requireStaffPermission("batches.view");
+  const actor = await requireStaffPermission("exports.view");
+  const activeCampusId = authorizedCampusId(actor, campusId || (await getActiveCampusId()));
 
   const where: any = {};
   if (activeCampusId && activeCampusId !== "ALL") {
@@ -340,8 +347,9 @@ export async function exportBatchesCSV(campusId?: string) {
 // 5. EXPORT LEADS & INQUIRIES CSV
 // =========================================================================
 export async function exportLeadsCSV(campusId?: string) {
-  await requireAuth(["SUPER_ADMIN", "ADMIN", "ACCOUNTANT", "TEACHER"]);
-  const activeCampusId = campusId || (await getActiveCampusId());
+  await requireStaffPermission("leads.view");
+  const actor = await requireStaffPermission("exports.view");
+  const activeCampusId = authorizedCampusId(actor, campusId || (await getActiveCampusId()));
 
   const where: any = {};
   if (activeCampusId && activeCampusId !== "ALL") {
@@ -417,8 +425,15 @@ export async function exportLeadsCSV(campusId?: string) {
 // 6. COMPLETE INSTITUTION DATA BACKUP (JSON)
 // =========================================================================
 export async function exportFullBackupJSON(campusId?: string) {
-  await requireAuth(["SUPER_ADMIN", "ADMIN"]);
-  const activeCampusId = campusId || (await getActiveCampusId());
+  await requireStaffPermission("students.view");
+  await requireStaffPermission("courses.view");
+  await requireStaffPermission("batches.view");
+  await requireStaffPermission("fees.view");
+  await requireStaffPermission("leads.view");
+  await requireStaffPermission("attendance.view");
+  await requireStaffPermission("users.view");
+  const actor = await requireStaffPermission("exports.view");
+  const activeCampusId = authorizedCampusId(actor, campusId || (await getActiveCampusId()));
 
   const instituteWhere: any = {};
   if (activeCampusId && activeCampusId !== "ALL") {

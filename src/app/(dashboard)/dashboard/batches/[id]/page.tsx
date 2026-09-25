@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { getBatchById, getTeachers, getSubjects } from "@/server/actions/academics";
-import { getSession } from "@/lib/auth";
+import { getSession, getEffectivePermissions, requireStaffPermission } from "@/lib/auth";
 import { BatchDetailView } from "@/components/academics/batch-detail-view";
 
 export const dynamic = "force-dynamic";
@@ -11,10 +11,12 @@ interface BatchPageProps {
 }
 
 export default async function DashboardBatchDetailPage({ params }: BatchPageProps) {
+  const actor = await requireStaffPermission("batches.view");
+  const permissions = await getEffectivePermissions(actor);
   const [batch, teachers, subjects, session] = await Promise.all([
     getBatchById(params.id),
-    getTeachers(),
-    getSubjects(),
+    permissions.includes("teachers.view") ? getTeachers() : Promise.resolve([]),
+    permissions.includes("courses.view") ? getSubjects() : Promise.resolve([]),
     getSession(),
   ]);
 

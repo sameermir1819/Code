@@ -1,3 +1,4 @@
+import { requireStaffPermission } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { formatDate } from "@/lib/utils";
 import {
@@ -57,6 +58,7 @@ function ExamStatusBadge({ status }: { status: string }) {
 }
 
 export default async function ResultsPage() {
+  await requireStaffPermission("results.view");
   // ── Fetch all marks with full relational data ──────────────────────────────
   const allMarks = await db.marks.findMany({
     orderBy: { marksObtained: "desc" },

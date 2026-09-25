@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { usePermissions } from "@/components/layout/permission-provider";
 import {
   getUserProfile,
   updateUserProfile,
@@ -44,6 +45,7 @@ import {
 } from "lucide-react";
 
 export default function SettingsAndProfilePage() {
+  const permissions = usePermissions();
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
@@ -338,12 +340,12 @@ export default function SettingsAndProfilePage() {
         </div>
       )}
 
-      <Tabs defaultValue="institute-profile">
+      <Tabs defaultValue={permissions.includes("settings.view") ? "institute-profile" : "my-profile"}>
         <TabsList className="w-full justify-start border-b">
-          <TabsTrigger value="institute-profile" className="flex items-center gap-2">
+          {permissions.includes("settings.view") && <TabsTrigger value="institute-profile" className="flex items-center gap-2">
             <Building2 className="h-3.5 w-3.5" />
             <span>Campuses &amp; Branches ({campuses.length})</span>
-          </TabsTrigger>
+          </TabsTrigger>}
           <TabsTrigger value="my-profile" className="flex items-center gap-2">
             <User className="h-3.5 w-3.5" />
             <span>My Profile</span>
@@ -477,7 +479,7 @@ export default function SettingsAndProfilePage() {
         </TabsContent>
 
         {/* 2. CAMPUSES & ACADEMY PROFILE TAB */}
-        <TabsContent value="institute-profile" className="space-y-6">
+        {permissions.includes("settings.view") && <TabsContent value="institute-profile" className="space-y-6">
           {/* Campuses & Branches Directory Card */}
           <Card className="rounded-2xl border bg-card/60 shadow-2xs">
             <CardHeader className="pb-3 flex flex-row items-center justify-between">
@@ -953,7 +955,7 @@ export default function SettingsAndProfilePage() {
               </Button>
             </div>
           </form>
-        </TabsContent>
+        </TabsContent>}
       </Tabs>
 
       {/* Delete Campus Confirmation Modal */}
@@ -987,8 +989,8 @@ export default function SettingsAndProfilePage() {
                   <AlertTriangle className="h-3.5 w-3.5 shrink-0" /> Important Notice:
                 </p>
                 <ul className="list-disc list-inside space-y-1 text-[11px] opacity-90">
-                  <li>Classrooms, batches, and records registered under this campus will be removed.</li>
-                  <li>Assigned staff and teachers will be reverted to Central HQ access.</li>
+                  <li>Only an empty campus can be deleted.</li>
+                  <li>Campuses with students, staff, courses, or other linked records are protected.</li>
                   <li>If this campus is currently active, your session will automatically switch to the main campus.</li>
                 </ul>
               </div>
@@ -1023,4 +1025,3 @@ export default function SettingsAndProfilePage() {
     </div>
   );
 }
-

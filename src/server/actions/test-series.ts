@@ -1,7 +1,9 @@
 "use server";
+import { requirePermission, requireStaffPermission } from "@/lib/auth";
 
 import { db } from "@/lib/db";
-import { requireAuth } from "@/lib/auth";
+import { redactRelatedData } from "@/lib/redact-related-data";
+import { requireAuth, getEffectivePermissions } from "@/lib/auth";
 import { resolveCurrentStudent } from "@/server/actions/portal";
 import { revalidatePath } from "next/cache";
 
@@ -34,7 +36,8 @@ function parseSeriesDate(value: string) {
  * Fetch all Offline Test Series programs with high-level KPI metrics
  */
 export async function getTestSeriesList() {
-  await requireAuth();
+  const actor = await requireStaffPermission("test-series.view");
+  const permissions = await getEffectivePermissions(actor);
 
   const seriesList = await db.testSeries.findMany({
     orderBy: { createdAt: "desc" },
@@ -74,11 +77,11 @@ export async function getTestSeriesList() {
 
   return {
     success: true,
-    seriesList,
+    seriesList: redactRelatedData(seriesList, permissions),
     stats: {
       totalPrograms: seriesList.length,
       totalRegistrations,
-      totalRevenueCollected,
+      totalRevenueCollected: permissions.includes("fees.view") ? totalRevenueCollected : 0,
       totalExamsScheduled,
     },
   };
@@ -88,7 +91,8 @@ export async function getTestSeriesList() {
  * Fetch detailed view for a single Test Series
  */
 export async function getTestSeriesDetails(id: string) {
-  await requireAuth();
+  const actor = await requireStaffPermission("test-series.view");
+  const permissions = await getEffectivePermissions(actor);
 
   const series = await db.testSeries.findUnique({
     where: { id },
@@ -119,14 +123,14 @@ export async function getTestSeriesDetails(id: string) {
     return { success: false, error: "Test Series not found" };
   }
 
-  return { success: true, series };
+  return { success: true, series: redactRelatedData(series, permissions) };
 }
 
 /**
  * Create a new Offline Test Series
  */
 export async function createTestSeries(formData: TestSeriesFormInput) {
-  await requireAuth();
+  await requireStaffPermission("test-series.manage");
 
   if (!formData.title || !formData.code) {
     return { success: false, error: "Title and Code are required." };
@@ -180,7 +184,7 @@ export async function createTestSeries(formData: TestSeriesFormInput) {
  * Update an existing Offline Test Series
  */
 export async function updateTestSeries(id: string, formData: TestSeriesFormInput) {
-  await requireAuth();
+  await requireStaffPermission("test-series.manage");
 
   if (!id) {
     return { success: false, error: "Test Series ID is required." };
@@ -232,7 +236,7 @@ export async function updateTestSeries(id: string, formData: TestSeriesFormInput
  * Delete an Offline Test Series and its linked registrations, exams, and results
  */
 export async function deleteTestSeries(id: string) {
-  await requireAuth();
+  await requireStaffPermission("test-series.manage");
 
   if (!id) {
     return { success: false, error: "Test Series ID is required." };
@@ -278,7 +282,7 @@ export async function createTestSeriesExam(formData: {
   questionPaperUrl?: string;
   answerKeyUrl?: string;
 }) {
-  await requireAuth();
+  await requireStaffPermission("test-series.manage");
 
   if (!formData.title || !formData.code || !formData.testSeriesId) {
     return { success: false, error: "Title, Code, and Test Series ID are required." };
@@ -328,7 +332,8 @@ export async function registerStudentForTestSeries(formData: {
   paymentStatus?: string;
   remarks?: string;
 }) {
-  await requireAuth();
+  await requireStaffPermission("fees.create");
+  await requireStaffPermission("test-series.manage");
 
   if (!formData.testSeriesId) {
     return { success: false, error: "Please select a test series." };
@@ -401,7 +406,7 @@ export async function submitTestResults(
     remarks?: string;
   }>
 ) {
-  await requireAuth();
+  await requireStaffPermission("results.manage");
 
   if (!testSeriesExamId || !results || results.length === 0) {
     return { success: false, error: "Invalid test results data submitted." };
@@ -496,7 +501,9 @@ export async function submitTestResults(
  * Fetch Student Portal Offline Test Series Data
  */
 export async function getStudentPortalTestSeries() {
-  await requireAuth();
+  await requirePermission("test-series.view");
+  await requirePermission("results.view");
+  await requirePermission("fees.view");
   const { student } = await resolveCurrentStudent();
 
   if (!student) {
@@ -556,7 +563,8 @@ export async function getStudentPortalTestSeries() {
  * Allow a logged in student to register for a series from student portal
  */
 export async function enrollStudentSelf(testSeriesId: string, paymentMethod: string = "UPI") {
-  await requireAuth();
+  await requirePermission("test-series.enroll");
+  await requireAuth(["STUDENT"]);
   const { student } = await resolveCurrentStudent();
 
   if (!student) {
@@ -567,8 +575,8 @@ export async function enrollStudentSelf(testSeriesId: string, paymentMethod: str
     where: { id: testSeriesId },
   });
 
-  if (!series) {
-    return { success: false, error: "Test Series not found." };
+  if (!series || series.status !== "ACTIVE" || series.instituteId !== student.instituteId) {
+    return { success: false, error: "Test Series not available." };
   }
 
   // Check if already registered
@@ -595,10 +603,10 @@ export async function enrollStudentSelf(testSeriesId: string, paymentMethod: str
         studentId: student.id,
         rollNumber,
         feeAmount: series.fee,
-        paymentStatus: "PAID",
+        paymentStatus: "PENDING",
         paymentMethod,
         receiptNo,
-        paidAt: new Date(),
+        paidAt: null,
         status: "CONFIRMED",
         remarks: "Self-registered via Student Portal",
       },
@@ -625,7 +633,7 @@ export async function updateTestSeriesPayment(
     remarks?: string;
   }
 ) {
-  await requireAuth();
+  await requireStaffPermission("fees.update");
 
   if (!registrationId) {
     return { success: false, error: "Registration ID is required." };

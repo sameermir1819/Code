@@ -1,7 +1,9 @@
 "use server";
+import { requireStaffPermission } from "@/lib/auth";
 
 import { db } from "@/lib/db";
-import { requireAuth } from "@/lib/auth";
+import { redactRelatedData } from "@/lib/redact-related-data";
+import { getEffectivePermissions } from "@/lib/auth";
 import { logAudit } from "./audit";
 import { revalidatePath } from "next/cache";
 import { getActiveCampusId } from "./campus";
@@ -10,7 +12,7 @@ import { getActiveCampusId } from "./campus";
 // COURSES
 // ==========================================
 export async function getCourses() {
-  await requireAuth(["SUPER_ADMIN", "ADMIN", "ACCOUNTANT", "TEACHER", "STUDENT", "PARENT"]);
+  await requireStaffPermission("courses.view");
   const campusId = await getActiveCampusId();
   return await db.course.findMany({
     where: campusId ? { instituteId: campusId } : {},
@@ -33,7 +35,7 @@ export async function createCourse(data: {
   registrationFee?: number;
   subjectIds?: string[];
 }) {
-  await requireAuth(["SUPER_ADMIN", "ADMIN"]);
+  await requireStaffPermission("courses.manage");
   const campusId = await getActiveCampusId();
   if (!campusId) throw new Error("No active campus found");
 
@@ -73,7 +75,7 @@ export async function createCourse(data: {
 // SUBJECTS
 // ==========================================
 export async function getSubjects() {
-  await requireAuth();
+  await requireStaffPermission("courses.view");
   return await db.subject.findMany({
     orderBy: { name: "asc" },
     include: {
@@ -88,7 +90,7 @@ export async function createSubject(data: {
   code: string;
   description?: string;
 }) {
-  await requireAuth(["SUPER_ADMIN", "ADMIN"]);
+  await requireStaffPermission("courses.manage");
   const subject = await db.subject.create({
     data: {
       name: data.name,
@@ -108,7 +110,7 @@ export async function createSubject(data: {
 }
 
 export async function deleteSubject(id: string) {
-  await requireAuth(["SUPER_ADMIN", "ADMIN"]);
+  await requireStaffPermission("courses.manage");
 
   const examCount = await db.exam.count({ where: { subjectId: id } });
   if (examCount > 0) {
@@ -141,7 +143,7 @@ export async function assignTeacherSubjects(data: {
   userId?: string;
   subjectIds: string[];
 }) {
-  await requireAuth(["SUPER_ADMIN", "ADMIN"]);
+  await requireStaffPermission("teachers.update");
 
   let teacher = null;
   if (data.teacherId) {
@@ -207,40 +209,7 @@ export async function assignTeacherSubjects(data: {
 }
 
 export async function getTeachers({ campusId: explicitCampusId }: { campusId?: string } = {}) {
-  await requireAuth();
-
-  // Auto-heal/sync: ensure any User with role 'TEACHER' has a corresponding Teacher record
-  try {
-    const unlinkedTeacherUsers = await db.user.findMany({
-      where: {
-        role: "TEACHER",
-        isArchived: false,
-        status: "ACTIVE",
-        teacher: null,
-      },
-    });
-
-    if (unlinkedTeacherUsers.length > 0) {
-      const defaultInstitute = await db.institute.findFirst();
-      for (const tu of unlinkedTeacherUsers) {
-        const teacherCount = await db.teacher.count();
-        const teacherId = `TCH-${String(teacherCount + 1).padStart(3, "0")}`;
-        await db.teacher.create({
-          data: {
-            instituteId: tu.instituteId || defaultInstitute?.id || "",
-            userId: tu.id,
-            teacherId,
-            name: tu.name,
-            email: tu.email,
-            phone: tu.phone || "0000000000",
-            status: "ACTIVE",
-          },
-        });
-      }
-    }
-  } catch (syncErr) {
-    console.error("Auto-syncing teachers warning:", syncErr);
-  }
+  await requireStaffPermission("teachers.view");
 
   const campusId = explicitCampusId || (await getActiveCampusId());
   let teachers = await db.teacher.findMany({
@@ -255,20 +224,6 @@ export async function getTeachers({ campusId: explicitCampusId }: { campusId?: s
     },
   });
 
-  // Fallback: If no teachers found under the specific branch, return all active institute faculty so batch assignment is never empty!
-  if (teachers.length === 0) {
-    teachers = await db.teacher.findMany({
-      where: {
-        status: "ACTIVE",
-      },
-      orderBy: { name: "asc" },
-      include: {
-        subjects: { include: { subject: true } },
-        batches: { include: { batch: true } },
-      },
-    });
-  }
-
   return teachers;
 }
 
@@ -279,14 +234,14 @@ export async function getBatches({
   courseId,
   status,
 }: { courseId?: string; status?: string } = {}) {
-  await requireAuth();
+  const actor = await requireStaffPermission("batches.view");
   const campusId = await getActiveCampusId();
   const where: Record<string, unknown> = {};
   if (campusId) where.instituteId = campusId;
   if (courseId) where.courseId = courseId;
   if (status && status !== "ALL") where.status = status;
 
-  return await db.batch.findMany({
+  const batches = await db.batch.findMany({
     where,
     orderBy: { createdAt: "desc" },
     include: {
@@ -322,11 +277,12 @@ export async function getBatches({
       },
     },
   });
+  return redactRelatedData(batches, await getEffectivePermissions(actor));
 }
 
 export async function getBatchById(id: string) {
-  await requireAuth();
-  return await db.batch.findUnique({
+  const actor = await requireStaffPermission("batches.view");
+  const batch = await db.batch.findUnique({
     where: { id },
     include: {
       course: {
@@ -370,6 +326,9 @@ export async function getBatchById(id: string) {
       },
     },
   });
+  const permissions = await getEffectivePermissions(actor);
+  if (batch && !permissions.includes("students.view")) batch.enrollments = [];
+  return redactRelatedData(batch, permissions);
 }
 
 export async function createBatchSubject(data: {
@@ -379,7 +338,7 @@ export async function createBatchSubject(data: {
   description?: string;
   teacherId?: string;
 }) {
-  await requireAuth(["SUPER_ADMIN", "ADMIN", "TEACHER"]);
+  await requireStaffPermission("batches.manage");
   const batch = await db.batch.findUnique({
     where: { id: data.batchId },
     include: { course: true },
@@ -482,7 +441,7 @@ export async function createBatch(data: {
   room?: string;
   teacherIds?: string[];
 }) {
-  await requireAuth(["SUPER_ADMIN", "ADMIN"]);
+  await requireStaffPermission("batches.manage");
   const campusId = await getActiveCampusId();
   if (!campusId) throw new Error("No active campus found");
 
@@ -581,7 +540,7 @@ export async function updateBatch(
     teacherIds?: string[];
   }
 ) {
-  await requireAuth(["SUPER_ADMIN", "ADMIN"]);
+  await requireStaffPermission("batches.manage");
   const existing = await db.batch.findUnique({ where: { id } });
   if (!existing) throw new Error("Batch not found");
 
@@ -646,7 +605,7 @@ export async function updateBatch(
 }
 
 export async function deleteBatch(id: string) {
-  await requireAuth(["SUPER_ADMIN", "ADMIN"]);
+  await requireStaffPermission("batches.manage");
   const batch = await db.batch.findUnique({ where: { id } });
   if (!batch) throw new Error("Batch not found");
 
@@ -681,7 +640,7 @@ export async function deleteBatch(id: string) {
 }
 
 export async function deleteAllBatches() {
-  await requireAuth(["SUPER_ADMIN", "ADMIN"]);
+  await requireStaffPermission("batches.manage");
   const count = await db.batch.count();
 
   await db.$transaction(async (tx) => {
@@ -714,7 +673,7 @@ export async function transferStudentBatch(
   newBatchId: string,
   reason?: string
 ) {
-  await requireAuth(["SUPER_ADMIN", "ADMIN"]);
+  await requireStaffPermission("batches.manage");
 
   const currentEnrollment = await db.enrollment.findUnique({
     where: { id: enrollmentId },
@@ -781,7 +740,7 @@ export async function getTimetable({
   batchId,
   teacherId,
 }: { batchId?: string; teacherId?: string } = {}) {
-  await requireAuth();
+  await requireStaffPermission("timetable.view");
   const where: Record<string, unknown> = {};
   if (batchId) where.batchId = batchId;
   if (teacherId) where.teacherId = teacherId;
@@ -806,7 +765,7 @@ export async function createTimetableSlot(data: {
   teacherId: string;
   room: string;
 }) {
-  await requireAuth(["SUPER_ADMIN", "ADMIN"]);
+  await requireStaffPermission("timetable.manage");
 
   // 1. Check Teacher conflict
   const teacherConflict = await db.timetableSlot.findFirst({
@@ -908,7 +867,7 @@ export async function createTimetableSlot(data: {
 }
 
 export async function deleteTimetableSlot(id: string) {
-  await requireAuth(["SUPER_ADMIN", "ADMIN"]);
+  await requireStaffPermission("timetable.manage");
   await db.timetableSlot.delete({ where: { id } });
   await logAudit({
     action: "TIMETABLE_SLOT_DELETED",
@@ -923,7 +882,7 @@ export async function deleteTimetableSlot(id: string) {
 }
 
 export async function deleteAllTimetableSlots() {
-  await requireAuth(["SUPER_ADMIN", "ADMIN"]);
+  await requireStaffPermission("timetable.manage");
   const count = await db.timetableSlot.count();
   await db.timetableSlot.deleteMany({});
 

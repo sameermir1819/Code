@@ -1,56 +1,42 @@
 import { NextRequest, NextResponse } from "next/server";
 import { readFile } from "fs/promises";
-import { join, resolve } from "path";
-import { existsSync } from "fs";
+import { getSession, getEffectivePermissions } from "@/lib/auth";
+import { db } from "@/lib/db";
+import { materialAccessWhere } from "@/lib/material-access";
+import { existingUploadPath, uploadOwner, uploadRoot, legacyUploadRoot, validateUpload, uploadPath } from "@/lib/private-uploads";
 
-export async function GET(
-  _req: NextRequest,
-  { params }: { params: { path: string[] } }
-) {
+export const dynamic = "force-dynamic";
+export async function GET(_req: NextRequest, { params }: { params: { path: string[] } }) {
+  const session = await getSession();
+  if (!session) return new NextResponse("Login required", { status: 401 });
+  const permissions = await getEffectivePermissions(session);
+  if (!permissions.includes("materials.view") && !permissions.includes("materials.manage")) return new NextResponse("Forbidden", { status: 403 });
+  const parts = params.path || [];
   try {
-    const rootUploadsDir = resolve(process.cwd(), "public", "uploads");
-    const filePath = resolve(rootUploadsDir, ...(params.path || []));
-
-    // Security: block path traversal outside public/uploads
-    if (!filePath.startsWith(rootUploadsDir)) {
-      return new NextResponse("Forbidden", { status: 403 });
-    }
-
-    if (!existsSync(filePath)) {
-      return new NextResponse("File Not Found", { status: 404 });
-    }
-
-    const fileBuffer = await readFile(filePath);
-    const ext = filePath.split(".").pop()?.toLowerCase() || "";
-
-    const contentTypes: Record<string, string> = {
-      pdf: "application/pdf",
-      png: "image/png",
-      jpg: "image/jpeg",
-      jpeg: "image/jpeg",
-      webp: "image/webp",
-      svg: "image/svg+xml",
-      txt: "text/plain",
-      doc: "application/msword",
-      docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-      ppt: "application/vnd.ms-powerpoint",
-      pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-    };
-
-    const contentType = contentTypes[ext] || "application/octet-stream";
-    const fileName = params.path[params.path.length - 1] || "document";
-
-    return new NextResponse(fileBuffer, {
-      status: 200,
-      headers: {
-        "Content-Type": contentType,
-        "Content-Disposition": `inline; filename="${fileName}"`,
-        "Cache-Control": "public, max-age=31536000, immutable",
-      },
-    });
+    uploadPath(uploadRoot, parts);
+    if (parts.length !== 2 || parts[0] !== "materials" || parts[1].endsWith(".json")) return new NextResponse("Not found", { status: 404 });
+    const url = parts.join("/");
+    const material = permissions.includes("materials.view") ? await db.studyMaterial.findFirst({
+      where: { AND: [await materialAccessWhere(session), { fileUrl: { in: ["/api/uploads/" + url, "/uploads/" + url] } }] }, select: { id: true },
+    }) : null;
+    const privateFile = await existingUploadPath(uploadRoot, parts);
+    const ownsUnpublishedFile = privateFile && permissions.includes("materials.manage") && !["STUDENT", "PARENT"].includes(session.role) && await uploadOwner(privateFile) === session.id;
+    if (!material && !ownsUnpublishedFile) return new NextResponse("Not found", { status: 404 });
+    const file = privateFile || await existingUploadPath(legacyUploadRoot, parts);
+    if (!file) return new NextResponse("Not found", { status: 404 });
+    const bytes = await readFile(file);
+    let format;
+    try { format = validateUpload(parts[1], bytes); }
+    catch { return new NextResponse("Unsupported file format", { status: 415 }); }
+    return new NextResponse(bytes, { headers: {
+      "Content-Type": format.mime,
+      "Content-Disposition": 'attachment; filename="' + parts[1] + '"',
+      "Cache-Control": "private, no-store",
+      "X-Content-Type-Options": "nosniff",
+      "Content-Security-Policy": "sandbox; default-src 'none'",
+    } });
   } catch (error) {
-    console.error("File serve error:", error);
-    return new NextResponse("Internal Server Error", { status: 500 });
+    console.error("Download failed", error);
+    return new NextResponse("File unavailable", { status: 400 });
   }
 }
-

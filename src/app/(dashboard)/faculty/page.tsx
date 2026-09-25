@@ -1,3 +1,4 @@
+import { requireStaffPermission } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { getActiveCampusId } from "@/server/actions/campus";
@@ -13,6 +14,7 @@ export const metadata = {
 };
 
 export default async function FacultyPage() {
+  await requireStaffPermission("teachers.view");
   const session = await getSession();
   if (!session) redirect("/login");
 

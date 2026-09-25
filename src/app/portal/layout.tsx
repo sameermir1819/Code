@@ -1,9 +1,10 @@
 import React from "react";
 import { redirect } from "next/navigation";
-import { getSession } from "@/lib/auth";
+import { getSession, getEffectivePermissions } from "@/lib/auth";
 import { resolveCurrentStudent } from "@/server/actions/portal";
 import { getActiveCampus } from "@/server/actions/campus";
 import { PortalShell } from "@/components/portal/portal-shell";
+import { PermissionProvider } from "@/components/layout/permission-provider";
 
 export const metadata = {
   title: "Student Portal - Futurex Learning",
@@ -29,9 +30,11 @@ export default async function PortalLayout({
   const instituteName = activeCampus?.name || student?.institute?.name || "Futurex Learning";
   const instituteLogoUrl = activeCampus?.logoUrl || student?.institute?.logoUrl || "/logo.png";
   const isPreview = session.role === "SUPER_ADMIN" || session.role === "ADMIN";
+  const permissions = await getEffectivePermissions(session);
 
   return (
     <PortalShell
+      permissions={permissions}
       student={
         student
           ? {
@@ -49,8 +52,7 @@ export default async function PortalLayout({
       instituteLogoUrl={instituteLogoUrl}
       isPreview={isPreview}
     >
-      {children}
+      <PermissionProvider permissions={permissions}>{children}</PermissionProvider>
     </PortalShell>
   );
 }
-

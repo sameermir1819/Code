@@ -2,7 +2,7 @@ import { cookies } from "next/headers";
 import { SignJWT, jwtVerify } from "jose";
 import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
-import { SessionUser, Role, PermissionCode, hasRolePermission } from "@/lib/permissions";
+import { SessionUser, Role, PermissionCode, hasRolePermission, ROLE_PERMISSIONS, ALL_PERMISSION_CODES, NEW_PERMISSION_CODES } from "@/lib/permissions";
 
 const DEV_JWT_SECRET = "coaching-erp-dev-secret-key-min-32-chars-2026";
 
@@ -68,7 +68,29 @@ export const getSession = cache(async (): Promise<SessionUser | null> => {
   if (!token) {
     return null;
   }
-  return await verifySessionToken(token);
+  const claims = await verifySessionToken(token);
+  if (!claims || typeof claims.id !== "string") return null;
+
+  // JWT claims identify the account; current database state controls access.
+  const user = await db.user.findUnique({
+    where: { id: claims.id },
+    select: {
+      id: true, name: true, email: true, role: true, instituteId: true,
+      status: true, isArchived: true,
+      teacher: { select: { id: true } },
+      student: { select: { id: true } },
+      parent: { select: { id: true } },
+    },
+  });
+  if (!user || user.status !== "ACTIVE" || user.isArchived) return null;
+
+  return {
+    id: user.id, name: user.name, email: user.email, role: user.role,
+    instituteId: user.instituteId,
+    teacherId: user.teacher?.id ?? null,
+    studentId: user.student?.id ?? null,
+    parentId: user.parent?.id ?? null,
+  };
 });
 
 import { redirect } from "next/navigation";
@@ -86,47 +108,34 @@ export async function requireAuth(allowedRoles?: Role[]): Promise<SessionUser> {
   return session;
 }
 
+export const getEffectivePermissions = cache(async (session: SessionUser): Promise<PermissionCode[]> => {
+  if (session.role === "SUPER_ADMIN") return [...ALL_PERMISSION_CODES];
+  const [role, overrides, catalog] = await Promise.all([
+    db.role.findUnique({ where: { name: session.role }, include: { permissions: { include: { permission: true } } } }),
+    db.userPermission.findMany({ where: { userId: session.id }, include: { permission: true } }),
+    db.permission.findMany({ select: { code: true } }),
+  ]);
+  const effective = new Set<string>(role ? role.permissions.map((entry) => entry.permission.code) : ROLE_PERMISSIONS[session.role] ?? []);
+  // New module defaults apply only before that code exists in the catalog.
+  // Once configured, even an empty database role permission list is authoritative.
+  const registered = new Set(catalog.map((entry) => entry.code));
+  for (const code of NEW_PERMISSION_CODES) if (!registered.has(code) && hasRolePermission(session.role, code)) effective.add(code);
+  for (const override of overrides) {
+    if (override.granted) effective.add(override.permission.code);
+    else effective.delete(override.permission.code);
+  }
+  return [...effective] as PermissionCode[];
+});
+
 export async function requirePermission(code: PermissionCode): Promise<SessionUser> {
   const session = await requireAuth();
+  if (!(await getEffectivePermissions(session)).includes(code)) throw new Error("FORBIDDEN: Permission " + code + " is not granted for your account.");
+  return session;
+}
 
-  // Super Admin bypasses all permission checks
-  if (session.role === "SUPER_ADMIN") return session;
-
-  // Check custom user permission overrides in database if present
-  try {
-    const userOverride = await db.userPermission.findFirst({
-      where: {
-        userId: session.id,
-        permission: { code },
-      },
-    });
-
-    if (userOverride !== null) {
-      if (userOverride.granted) return session;
-      throw new Error(`FORBIDDEN: Permission "${code}" has been revoked for your account.`);
-    }
-  } catch (err: any) {
-    if (err.message?.startsWith("FORBIDDEN")) throw err;
-  }
-
-  if (hasRolePermission(session.role, code)) {
-    return session;
-  }
-
-  // Check database relational role permissions (for custom roles and customized system roles)
-  try {
-    const rolePerm = await db.rolePermission.findFirst({
-      where: {
-        role: { name: session.role },
-        permission: { code },
-      },
-    });
-    if (rolePerm) {
-      return session;
-    }
-  } catch (err: any) {
-    // Ignore db query error and fall through
-  }
-
-  throw new Error(`FORBIDDEN: Role ${session.role} does not possess permission "${code}".`);
+export async function requireStaffPermission(code: PermissionCode): Promise<SessionUser> {
+  const session = await requirePermission(code);
+  // Student/parent permissions apply only to their own portal and owned records.
+  if (["STUDENT", "PARENT"].includes(session.role)) throw new Error("FORBIDDEN: Staff access required");
+  return session;
 }

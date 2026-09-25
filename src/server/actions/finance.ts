@@ -1,9 +1,21 @@
 "use server";
+import { requirePermission, requireStaffPermission } from "@/lib/auth";
 
 import { db } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
 import { logAudit } from "./audit";
 import { getActiveCampusId } from "./campus";
+import { authorizedCampusId } from "@/lib/campus-scope";
+import { financeMetrics } from "@/lib/collection-totals";
+import type { SessionUser } from "@/lib/permissions";
+import { financeTransaction, roundMoney, validateAmount } from "@/lib/finance-transaction";
+
+function assertFeeAccess(session: SessionUser, student: { id: string; parentId: string | null }) {
+  if (!["STUDENT", "PARENT"].includes(session.role)) return;
+  if (session.role === "STUDENT" && session.studentId === student.id) return;
+  if (session.role === "PARENT" && session.parentId && session.parentId === student.parentId) return;
+  throw new Error("FORBIDDEN: You do not have access to these fee records");
+}
 
 // ---------------------------------------------------------------------------
 // Fee Plans
@@ -13,7 +25,7 @@ export async function getFeePlans({
   status,
   search,
 }: { status?: string; search?: string } = {}) {
-  await requireAuth(["SUPER_ADMIN", "ADMIN", "ACCOUNTANT"]);
+  await requireStaffPermission("fees.view");
 
   const campusId = await getActiveCampusId();
   const where: Record<string, unknown> = {};
@@ -69,7 +81,7 @@ export async function createFeePlan(data: {
     amount: number;
   }[];
 }) {
-  await requireAuth(["SUPER_ADMIN", "ADMIN", "ACCOUNTANT"]);
+  await requireStaffPermission("fees.update");
 
   const totalAmount =
     data.admissionFee +
@@ -128,12 +140,13 @@ export async function createFeePlan(data: {
 // ---------------------------------------------------------------------------
 
 export async function getStudentFeeDetails(studentId: string) {
-  const session = await requireAuth();
+  const session = await requirePermission("fees.view");
 
-  // Security: students can only see their own fees
-  if (session.role === "STUDENT" && session.studentId !== studentId) {
-    throw new Error("FORBIDDEN: You can only view your own fee records");
-  }
+  const student = await db.student.findUnique({
+    where: { id: studentId }, select: { id: true, parentId: true },
+  });
+  if (!student) throw new Error("Student not found");
+  assertFeeAccess(session, student);
 
   return await db.feePlan.findMany({
     where: { studentId },
@@ -164,30 +177,41 @@ export async function recordPayment(data: {
   referenceNo?: string;
   notes?: string;
 }) {
-  const session = await requireAuth(["SUPER_ADMIN", "ADMIN", "ACCOUNTANT"]);
+  const session = await requireStaffPermission("fees.create");
 
-  if (!data.amount || data.amount <= 0) {
-    throw new Error("Payment amount must be greater than 0");
-  }
+  validateAmount(data.amount);
+  const paymentDate = data.paymentDate ? new Date(data.paymentDate) : new Date();
+  if (Number.isNaN(paymentDate.getTime())) throw new Error("Invalid payment date");
 
-  const feePlan = await db.feePlan.findUnique({
-    where: { id: data.feePlanId },
-    include: { installments: { orderBy: { installmentNumber: "asc" } } },
-  });
-  if (!feePlan) throw new Error("Fee plan not found");
+  const result = await financeTransaction(async (tx) => {
+    const feePlan = await tx.feePlan.findUnique({
+      where: { id: data.feePlanId },
+      include: { installments: { orderBy: { installmentNumber: "asc" } } },
+    });
+    if (!feePlan) throw new Error("Fee plan not found");
+    if (feePlan.studentId !== data.studentId) throw new Error("Fee plan does not belong to this student");
 
-  if (data.amount > feePlan.balanceAmount) {
-    throw new Error(
-      `Payment amount (₹${data.amount}) cannot exceed remaining balance (₹${feePlan.balanceAmount})`
-    );
-  }
+    const selectedInstallment = data.installmentId
+      ? feePlan.installments.find((inst) => inst.id === data.installmentId)
+      : null;
+    if (data.installmentId && !selectedInstallment) throw new Error("Installment does not belong to this fee plan");
+    if (selectedInstallment && data.amount > roundMoney(selectedInstallment.remainingAmount)) {
+      throw new Error("Payment exceeds the selected installment balance. Choose auto-distribute to pay across installments.");
+    }
+    if (feePlan.installments.length && data.amount > roundMoney(
+      feePlan.installments.reduce((sum, inst) => sum + inst.remainingAmount, 0)
+    )) throw new Error("Payment exceeds the remaining installment balances");
 
-  const year = new Date().getFullYear();
-  const paymentCount = await db.payment.count();
-  const receiptNo = `REC-${year}-${String(paymentCount + 1).padStart(4, "0")}`;
+    if (data.amount > roundMoney(feePlan.balanceAmount)) {
+      throw new Error(
+        `Payment amount (₹${data.amount}) cannot exceed remaining balance (₹${feePlan.balanceAmount})`
+      );
+    }
 
-  // Execute in database transaction to guarantee financial integrity
-  const result = await db.$transaction(async (tx) => {
+    const year = new Date().getFullYear();
+    const paymentCount = await tx.payment.count();
+    const receiptNo = `REC-${year}-${String(paymentCount + 1).padStart(4, "0")}`;
+
     // 1. Create Payment record
     const payment = await tx.payment.create({
       data: {
@@ -197,7 +221,7 @@ export async function recordPayment(data: {
         installmentId: data.installmentId || null,
         amount: data.amount,
         paymentMethod: data.paymentMethod || "UPI",
-        paymentDate: data.paymentDate ? new Date(data.paymentDate) : new Date(),
+        paymentDate,
         collectedBy: data.collectedBy || session.name || "Accounts Desk",
         referenceNo: data.referenceNo || null,
         notes: data.notes || null,
@@ -206,8 +230,8 @@ export async function recordPayment(data: {
     });
 
     // 2. Update Fee Plan balances
-    const newPaidAmount = feePlan.paidAmount + data.amount;
-    const newBalanceAmount = Math.max(0, feePlan.finalAmount - newPaidAmount);
+    const newPaidAmount = roundMoney(feePlan.paidAmount + data.amount);
+    const newBalanceAmount = Math.max(0, roundMoney(feePlan.finalAmount - newPaidAmount));
     const newStatus =
       newBalanceAmount === 0 ? "PAID" : newPaidAmount > 0 ? "PARTIAL" : "PENDING";
 
@@ -229,12 +253,12 @@ export async function recordPayment(data: {
         continue;
       }
 
-      const needed = inst.remainingAmount;
+      const needed = roundMoney(inst.remainingAmount);
       if (needed <= 0) continue;
 
       const toApply = Math.min(remainingToDistribute, needed);
-      const newInstPaid = inst.paidAmount + toApply;
-      const newInstRem = Math.max(0, inst.amount - newInstPaid);
+      const newInstPaid = roundMoney(inst.paidAmount + toApply);
+      const newInstRem = Math.max(0, roundMoney(inst.amount - newInstPaid));
 
       await tx.feeInstallment.update({
         where: { id: inst.id },
@@ -245,7 +269,7 @@ export async function recordPayment(data: {
         },
       });
 
-      remainingToDistribute -= toApply;
+      remainingToDistribute = roundMoney(remainingToDistribute - toApply);
     }
 
     return payment;
@@ -280,9 +304,9 @@ export async function getPayments({
   page?: number;
   limit?: number;
 } = {}) {
-  await requireAuth(["SUPER_ADMIN", "ADMIN", "ACCOUNTANT"]);
+  const session = await requireStaffPermission("fees.view");
 
-  const campusId = await getActiveCampusId();
+  const campusId = authorizedCampusId(session, await getActiveCampusId());
   const where: Record<string, unknown> = {};
 
   if (campusId) {
@@ -329,39 +353,7 @@ export async function getPayments({
     db.payment.count({ where }),
   ]);
 
-  // KPI aggregates (always computed on full SUCCESS set for dashboard widgets)
-  const [totalCollectedAgg, thisMonthAgg, pendingAgg, paymentsCountAgg, feePlansAgg] =
-    await Promise.all([
-      db.payment.aggregate({
-        _sum: { amount: true },
-        where: { status: "SUCCESS" },
-      }),
-      db.payment.aggregate({
-        _sum: { amount: true },
-        where: {
-          status: "SUCCESS",
-          paymentDate: {
-            gte: new Date(
-              new Date().getFullYear(),
-              new Date().getMonth(),
-              1
-            ),
-          },
-        },
-      }),
-      db.feeInstallment.aggregate({
-        _sum: { remainingAmount: true },
-        where: { remainingAmount: { gt: 0 } },
-      }),
-      db.payment.count({ where: { status: "SUCCESS" } }),
-      db.feePlan.aggregate({
-        _sum: { finalAmount: true },
-      }),
-    ]);
-
-  const collected = totalCollectedAgg._sum.amount ?? 0;
-  const pending = pendingAgg._sum.remainingAmount ?? 0;
-  const totalFees = feePlansAgg._sum.finalAmount ?? (collected + pending);
+  const kpi = await financeMetrics(campusId);
 
   return {
     payments,
@@ -369,13 +361,7 @@ export async function getPayments({
     page,
     limit,
     totalPages: Math.ceil(total / limit),
-    kpi: {
-      totalCollected: collected,
-      thisMonthCollected: thisMonthAgg._sum.amount ?? 0,
-      totalPending: pending,
-      totalFees,
-      paymentsCount: paymentsCountAgg,
-    },
+    kpi,
   };
 }
 
@@ -388,31 +374,51 @@ export async function processRefund(data: {
   amount: number;
   reason: string;
 }) {
+  await requireStaffPermission("fees.update");
   const session = await requireAuth(["SUPER_ADMIN"]);
 
-  const payment = await db.payment.findUnique({
-    where: { id: data.paymentId },
-    include: { feePlan: true },
-  });
-  if (!payment) throw new Error("Payment record not found");
+  validateAmount(data.amount);
+  if (!data.reason?.trim()) throw new Error("Refund reason is required");
 
-  if (payment.status === "REFUNDED") {
-    throw new Error("This payment has already been refunded");
-  }
+  const result = await financeTransaction(async (tx) => {
+    const payment = await tx.payment.findUnique({
+      where: { id: data.paymentId },
+      include: {
+        refunds: true,
+        feePlan: { include: { installments: { orderBy: { installmentNumber: "desc" } } } },
+      },
+    });
+    if (!payment) throw new Error("Payment record not found");
 
-  if (data.amount > payment.amount) {
-    throw new Error(`Refund amount cannot exceed original payment amount (₹${payment.amount})`);
-  }
+    if (payment.status === "REFUNDED") {
+      throw new Error("This payment has already been refunded");
+    }
 
-  // Atomic reversal
-  const result = await db.$transaction(async (tx) => {
+    const alreadyRefunded = roundMoney(payment.refunds.reduce((sum, refund) => sum + refund.amount, 0));
+    const refundableAmount = roundMoney(payment.amount - alreadyRefunded);
+    if (data.amount > refundableAmount) {
+      throw new Error(`Refund amount cannot exceed remaining refundable amount (₹${refundableAmount})`);
+    }
+    if (data.amount > roundMoney(payment.feePlan.paidAmount)) {
+      throw new Error("Refund exceeds the fee plan's paid balance");
+    }
+
+    // Legacy payments have no per-installment allocations. Reopen the selected
+    // installment first, then the latest paid installments, preserving totals.
+    const installments = [...payment.feePlan.installments].sort((a, b) =>
+      Number(b.id === payment.installmentId) - Number(a.id === payment.installmentId)
+    );
+    if (installments.length && data.amount > roundMoney(
+      installments.reduce((sum, inst) => sum + inst.paidAmount, 0)
+    )) throw new Error("Installment balances need reconciliation before this refund");
+
     // 1. Create refund audit record
     const refund = await tx.refundAdjustment.create({
       data: {
         paymentId: payment.id,
         type: "REFUND",
         amount: data.amount,
-        reason: data.reason,
+        reason: data.reason.trim(),
         approvedBy: session.name,
       },
     });
@@ -421,13 +427,13 @@ export async function processRefund(data: {
     await tx.payment.update({
       where: { id: payment.id },
       data: {
-        status: data.amount === payment.amount ? "REFUNDED" : "ADJUSTED",
+        status: roundMoney(alreadyRefunded + data.amount) === roundMoney(payment.amount) ? "REFUNDED" : "ADJUSTED",
       },
     });
 
     // 3. Re-adjust Fee Plan
-    const newPaidAmount = Math.max(0, payment.feePlan.paidAmount - data.amount);
-    const newBalance = Math.max(0, payment.feePlan.finalAmount - newPaidAmount);
+    const newPaidAmount = roundMoney(payment.feePlan.paidAmount - data.amount);
+    const newBalance = Math.max(0, roundMoney(payment.feePlan.finalAmount - newPaidAmount));
 
     await tx.feePlan.update({
       where: { id: payment.feePlanId },
@@ -438,17 +444,35 @@ export async function processRefund(data: {
       },
     });
 
-    return refund;
+    let remainingToReverse = data.amount;
+    for (const inst of installments) {
+      if (remainingToReverse <= 0) break;
+      const reversal = Math.min(remainingToReverse, roundMoney(inst.paidAmount));
+      if (reversal <= 0) continue;
+      const paidAmount = roundMoney(inst.paidAmount - reversal);
+      const remainingAmount = roundMoney(inst.amount - paidAmount);
+      await tx.feeInstallment.update({
+        where: { id: inst.id },
+        data: {
+          paidAmount, remainingAmount,
+          status: remainingAmount === 0 ? "PAID" : paidAmount > 0 ? "PARTIAL" :
+            inst.dueDate < new Date() ? "OVERDUE" : "UPCOMING",
+        },
+      });
+      remainingToReverse = roundMoney(remainingToReverse - reversal);
+    }
+
+    return { refund, receiptNo: payment.receiptNo };
   });
 
   await logAudit({
     action: "PAYMENT_REFUNDED",
     entity: "RefundAdjustment",
-    entityId: result.id,
-    details: `Payment ${payment.receiptNo} refunded amount ₹${data.amount}. Reason: ${data.reason}`,
+    entityId: result.refund.id,
+    details: `Payment ${result.receiptNo} refunded amount ₹${data.amount}. Reason: ${data.reason}`,
   });
 
-  return { success: true, refund: result };
+  return { success: true, refund: result.refund };
 }
 
 // ---------------------------------------------------------------------------
@@ -456,7 +480,7 @@ export async function processRefund(data: {
 // ---------------------------------------------------------------------------
 
 export async function getReceiptDetails(receiptNo: string) {
-  await requireAuth();
+  const session = await requirePermission("fees.view");
 
   const payment = await db.payment.findUnique({
     where: { receiptNo },
@@ -477,8 +501,9 @@ export async function getReceiptDetails(receiptNo: string) {
   });
 
   if (!payment) throw new Error("Receipt not found");
+  assertFeeAccess(session, payment.student);
 
-  const institute = await db.institute.findFirst();
+  const institute = await db.institute.findUnique({ where: { id: payment.student.instituteId } });
 
   return {
     payment,
@@ -494,7 +519,7 @@ export async function getOutstandingFeesReport({
   batchId,
   statusFilter,
 }: { batchId?: string; statusFilter?: string } = {}) {
-  await requireAuth(["SUPER_ADMIN", "ADMIN", "ACCOUNTANT"]);
+  await requireStaffPermission("fees.view");
 
   const campusId = await getActiveCampusId();
   const today = new Date();
@@ -595,7 +620,7 @@ export async function getStudentFeeAccounts({
   status?: string;
   batchId?: string;
 } = {}) {
-  await requireAuth(["SUPER_ADMIN", "ADMIN", "ACCOUNTANT"]);
+  await requireStaffPermission("fees.view");
 
   const campusId = await getActiveCampusId();
   const studentWhere: Record<string, unknown> = {};
@@ -701,40 +726,7 @@ export async function getStudentFeeAccounts({
 // ---------------------------------------------------------------------------
 
 export async function getFinanceOverview() {
-  await requireAuth(["SUPER_ADMIN", "ADMIN", "ACCOUNTANT"]);
-
-  const [collectedAgg, pendingAgg, feePlansAgg, thisMonthAgg] = await Promise.all([
-    db.payment.aggregate({
-      _sum: { amount: true },
-      where: { status: "SUCCESS" },
-    }),
-    db.feeInstallment.aggregate({
-      _sum: { remainingAmount: true },
-      where: { remainingAmount: { gt: 0 } },
-    }),
-    db.feePlan.aggregate({
-      _sum: { finalAmount: true },
-    }),
-    db.payment.aggregate({
-      _sum: { amount: true },
-      where: {
-        status: "SUCCESS",
-        paymentDate: {
-          gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
-        },
-      },
-    }),
-  ]);
-
-  const totalCollected = collectedAgg._sum.amount ?? 0;
-  const totalPending = pendingAgg._sum.remainingAmount ?? 0;
-  const totalFees = feePlansAgg._sum.finalAmount ?? (totalCollected + totalPending);
-  const thisMonthCollected = thisMonthAgg._sum.amount ?? 0;
-
-  return {
-    totalFees,
-    totalCollected,
-    totalPending,
-    thisMonthCollected,
-  };
+  const session = await requireStaffPermission("fees.view");
+  const campusId = authorizedCampusId(session, await getActiveCampusId());
+  return financeMetrics(campusId);
 }

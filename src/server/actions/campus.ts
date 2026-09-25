@@ -1,4 +1,5 @@
 "use server";
+import { requireStaffPermission } from "@/lib/auth";
 
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
@@ -138,10 +139,7 @@ export async function createNewCampus(data: {
   email?: string;
   tagline?: string;
 }) {
-  const session = await getSession();
-  if (session?.role !== "SUPER_ADMIN" && session?.role !== "ADMIN") {
-    return { success: false, error: "Unauthorized: Administrator privileges required to add campuses." };
-  }
+  const session = await requireStaffPermission("settings.manage");
 
   const cleanCode = data.code.trim().toUpperCase();
   if (!cleanCode) {
@@ -196,47 +194,55 @@ export async function getActiveCampusId(): Promise<string> {
  * Delete a campus / branch with safety checks and automatic session recovery
  */
 export async function deleteCampus(campusId: string) {
+  await requireStaffPermission("settings.manage");
   const session = await getSession();
   if (session?.role !== "SUPER_ADMIN" && session?.role !== "ADMIN") {
     return { success: false, error: "Unauthorized: Administrator privileges required to delete a campus." };
   }
 
   try {
-    const campusCount = await db.institute.count();
-    if (campusCount <= 1) {
-      return {
-        success: false,
-        error: "Cannot delete the only remaining campus. The ERP system must have at least one active campus.",
-      };
-    }
+    const campus = await db.$transaction(async (tx) => {
+      // Row locks serialize deletions and block new foreign-key references until
+      // the dependent-record check and deletion have both finished.
+      await tx.$queryRaw`SELECT "id" FROM "Institute" ORDER BY "id" FOR UPDATE`;
+      const campusCount = await tx.institute.count();
+      if (campusCount <= 1) {
+        throw new Error("Cannot delete the only remaining campus.");
+      }
 
-    const campus = await db.institute.findUnique({
-      where: { id: campusId },
-      include: {
-        _count: {
-          select: {
-            students: true,
-            batches: true,
-            users: true,
+      const campus = await tx.institute.findUnique({
+        where: { id: campusId },
+        include: {
+          _count: {
+            select: {
+              students: true,
+              batches: true,
+              users: true,
+              academicSessions: true,
+              courses: true,
+              teachers: true,
+              auditLogs: true,
+              leads: true,
+              testSeries: true,
+            },
           },
         },
-      },
-    });
+      });
 
-    if (!campus) {
-      return { success: false, error: "Campus not found or already deleted." };
-    }
-
-    // Unlink users attached to this campus so they revert to central access
-    await db.user.updateMany({
-      where: { instituteId: campusId },
-      data: { instituteId: null, branch: "All Campuses (Central)" },
-    });
-
-    // Delete the campus (relational cascade handles sessions, courses, batches, students, teachers)
-    await db.institute.delete({
-      where: { id: campusId },
-    });
+      if (!campus) {
+        throw new Error("Campus not found or already deleted.");
+      }
+      if (session.role !== "SUPER_ADMIN" && session.instituteId && session.instituteId !== campusId) {
+        throw new Error("You cannot delete another campus.");
+      }
+      if (Object.values(campus._count).some((count) => count > 0)) {
+        throw new Error("Only empty campuses can be deleted. This campus has linked records; its history must be preserved.");
+      }
+      await tx.institute.delete({
+        where: { id: campusId },
+      });
+      return campus;
+    }, { isolationLevel: "ReadCommitted" });
 
     // If the active campus in session cookie is the deleted one, switch to first remaining campus
     const cookieStore = await cookies();
@@ -268,5 +274,4 @@ export async function deleteCampus(campusId: string) {
     return { success: false, error: err.message || "Failed to delete campus." };
   }
 }
-
 

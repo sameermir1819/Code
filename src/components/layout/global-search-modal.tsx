@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useTransition } from "react";
+import React, { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { globalQuickSearch, SearchResultItem } from "@/server/actions/search";
 import {
@@ -19,7 +20,8 @@ export function GlobalSearchModal() {
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResultItem[]>([]);
-  const [isPending, startTransition] = useTransition();
+  const [isPending, setIsPending] = useState(false);
+  const [searchError, setSearchError] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -51,21 +53,36 @@ export function GlobalSearchModal() {
 
   // Debounced search
   useEffect(() => {
-    if (!query.trim() || query.trim().length < 2) {
+    setSearchError(false);
+    if (!isOpen || query.trim().length < 2) {
       setResults([]);
+      setIsPending(false);
       return;
     }
 
+    let cancelled = false;
+    setIsPending(true);
+    setResults([]);
     const timer = setTimeout(() => {
-      startTransition(async () => {
-        const res = await globalQuickSearch(query);
-        setResults(res);
-        setSelectedIndex(0);
-      });
+      globalQuickSearch(query)
+        .then((res) => {
+          if (cancelled) return;
+          setResults(res);
+          setSelectedIndex(0);
+        })
+        .catch(() => {
+          if (!cancelled) setSearchError(true);
+        })
+        .finally(() => {
+          if (!cancelled) setIsPending(false);
+        });
     }, 180);
 
-    return () => clearTimeout(timer);
-  }, [query]);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [query, isOpen]);
 
   const handleSelect = (item: SearchResultItem) => {
     setIsOpen(false);
@@ -111,9 +128,9 @@ export function GlobalSearchModal() {
         className="w-full h-9 pl-3 pr-2.5 rounded-xl border border-input bg-muted/40 hover:bg-muted/70 text-xs text-muted-foreground flex items-center justify-between gap-2 transition-all cursor-pointer shadow-2xs select-none"
         title="Search ERP (Ctrl + K)"
       >
-        <div className="flex items-center gap-2">
-          <Search className="h-3.5 w-3.5 text-muted-foreground" />
-          <span className="truncate">Search students, batches, receipts...</span>
+        <div className="flex min-w-0 items-center gap-2">
+          <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+          <span className="hidden md:block truncate">Search students, batches, receipts...</span>
         </div>
         <kbd className="hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-mono font-medium rounded-md bg-background border text-muted-foreground shadow-2xs">
           <span>⌘</span>K
@@ -121,8 +138,8 @@ export function GlobalSearchModal() {
       </button>
 
       {/* ── Modal Dialog Overlay ── */}
-      {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center pt-16 sm:pt-24 p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
+      {isOpen && createPortal(
+        <div onClick={() => setIsOpen(false)} className="fixed inset-0 z-50 flex items-start justify-center pt-16 sm:pt-24 p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
           <div
             className="w-full max-w-xl bg-card border rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150"
             onClick={(e) => e.stopPropagation()}
@@ -142,17 +159,22 @@ export function GlobalSearchModal() {
               {isPending && <Loader2 className="h-4 w-4 text-muted-foreground animate-spin shrink-0" />}
               {query && !isPending && (
                 <button
+                  aria-label="Clear search"
                   onClick={() => setQuery("")}
                   className="p-1 rounded-md text-muted-foreground hover:text-foreground"
                 >
                   <X className="h-3.5 w-3.5" />
                 </button>
               )}
+              <button type="button" aria-label="Close search" onClick={() => setIsOpen(false)} className="ml-2 rounded-md p-2 text-muted-foreground hover:text-foreground">
+                <X className="h-4 w-4" />
+              </button>
             </div>
 
             {/* Results List */}
             <div className="max-h-80 overflow-y-auto p-2">
-              {query.length >= 2 && results.length === 0 && !isPending && (
+              {searchError && <p role="alert" className="p-4 text-sm text-destructive">Search failed. Please try again.</p>}
+              {query.length >= 2 && results.length === 0 && !isPending && !searchError && (
                 <div className="py-8 text-center text-xs text-muted-foreground space-y-1">
                   <p className="font-semibold text-foreground">No records matched &quot;{query}&quot;</p>
                   <p>Try searching by student name, roll number, or voucher ID.</p>
@@ -222,9 +244,9 @@ export function GlobalSearchModal() {
               <span className="font-mono text-[10px]">Instant Live Search</span>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );
 }
-

@@ -1,7 +1,9 @@
 "use server";
+import { requirePermission, requireStaffPermission } from "@/lib/auth";
 
+import { redactRelatedData } from "@/lib/redact-related-data";
 import { db } from "@/lib/db";
-import { requireAuth, verifyPassword, hashPassword } from "@/lib/auth";
+import { getEffectivePermissions, requireAuth, verifyPassword, hashPassword } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 
 import { cache } from "react";
@@ -61,6 +63,7 @@ const fetchCachedCurrentStudent = cache(async () => {
 
   // 4. Admin preview fallback (if Admin views /portal for testing)
   if (!student && (session.role === "SUPER_ADMIN" || session.role === "ADMIN")) {
+    await requireStaffPermission("students.view");
     student = await db.student.findFirst({
       where: { status: "ACTIVE" },
       include: {
@@ -95,6 +98,11 @@ export async function getStudentPortalOverview() {
   }
 
   const isPreview = session.role === "SUPER_ADMIN" || session.role === "ADMIN";
+
+  const permissions = await getEffectivePermissions(session);
+  if (["batches.view", "timetable.view", "attendance.view", "fees.view", "results.view", "materials.view", "announcements.view"].some((code) => !permissions.includes(code as any))) {
+    return { success: false, data: null, isPreview, error: "Overview includes restricted sections. Open an available module from navigation." };
+  }
 
   // Pre-fetch active enrollments to reuse for materials count without extra subqueries
   const enrollments = await db.enrollment.findMany({
@@ -155,7 +163,7 @@ export async function getStudentPortalOverview() {
 
     // Recent payments
     db.payment.findMany({
-      where: { studentId: student.id, status: "SUCCESS" },
+      where: { studentId: student.id, status: { in: ["SUCCESS", "ADJUSTED", "REFUNDED"] } },
       orderBy: { paymentDate: "desc" },
       take: 5,
     }),
@@ -192,7 +200,7 @@ export async function getStudentPortalOverview() {
       where: {
         OR: [
           ...(enrolledBatchIds.length > 0 ? [{ batchId: { in: enrolledBatchIds } }] : []),
-          ...(enrolledCourseIds.length > 0 ? [{ courseId: { in: enrolledCourseIds } }] : []),
+          ...(enrolledCourseIds.length > 0 ? [{ batchId: null, courseId: { in: enrolledCourseIds } }] : []),
           { batchId: null, courseId: null },
         ],
       },
@@ -243,6 +251,7 @@ export async function getStudentPortalOverview() {
  * Returns full attendance records for student
  */
 export async function getStudentAttendanceRecords() {
+  await requirePermission("attendance.view");
   const { student } = await resolveCurrentStudent();
   if (!student) return { success: false, data: [] };
 
@@ -261,6 +270,7 @@ export async function getStudentAttendanceRecords() {
  * Returns all exams, marks and results for the student
  */
 export async function getStudentExamsAndResults() {
+  await requirePermission("results.view");
   const { student } = await resolveCurrentStudent();
   if (!student) return { success: false, data: [] };
 
@@ -284,6 +294,7 @@ export async function getStudentExamsAndResults() {
  * Returns student fee ledger with installments and payment receipts
  */
 export async function getStudentFeeLedger() {
+  await requirePermission("fees.view");
   const { student } = await resolveCurrentStudent();
   if (!student) return { success: false, data: null };
 
@@ -300,9 +311,10 @@ export async function getStudentFeeLedger() {
       },
     }),
     db.payment.findMany({
-      where: { studentId: student.id, status: "SUCCESS" },
+      where: { studentId: student.id, status: { in: ["SUCCESS", "ADJUSTED", "REFUNDED"] } },
       orderBy: { paymentDate: "desc" },
       include: {
+        refunds: true,
         feePlan: true,
         installment: true,
       },
@@ -323,11 +335,12 @@ export async function getStudentFeeLedger() {
  * Returns study materials assigned to the student's batches and courses
  */
 export async function getStudentStudyMaterials() {
+  await requirePermission("materials.view");
   const { student } = await resolveCurrentStudent();
   if (!student) return { success: false, data: [] };
 
   const enrollments = await db.enrollment.findMany({
-    where: { studentId: student.id },
+    where: { studentId: student.id, status: "ACTIVE" },
   });
 
   const batchIds = enrollments.map((e) => e.batchId).filter(Boolean) as string[];
@@ -337,7 +350,7 @@ export async function getStudentStudyMaterials() {
     where: {
       OR: [
         { batchId: { in: batchIds } },
-        { courseId: { in: courseIds } },
+        { batchId: null, courseId: { in: courseIds } },
         { assignedTo: { some: { studentId: student.id } } },
         { batchId: null, courseId: null },
       ],
@@ -385,26 +398,6 @@ export async function updateStudentPassword(formData: {
     isValid = await verifyPassword(formData.currentPassword, user.passwordHash);
   }
 
-  // If not valid yet and user is a student, check default passwords or student code
-  if (!isValid && user.role === "STUDENT") {
-    const defaultPasswords = ["student123", "Student@123", "password123"];
-    if (defaultPasswords.includes(formData.currentPassword)) {
-      isValid = true;
-    } else {
-      const student = await db.student.findFirst({
-        where: { OR: [{ userId: user.id }, { email: user.email }] },
-      });
-      if (student) {
-        const studentCode = student.studentId?.trim().toLowerCase();
-        const admissionCode = student.admissionNo?.trim().toLowerCase();
-        const entered = formData.currentPassword.toLowerCase().trim();
-        if (entered === studentCode || entered === admissionCode) {
-          isValid = true;
-        }
-      }
-    }
-  }
-
   if (!isValid) {
     return { success: false, error: "Incorrect current password." };
   }
@@ -423,6 +416,7 @@ export async function updateStudentPassword(formData: {
  * Returns all active batches and unified weekly timetable for the enrolled student
  */
 export async function getStudentBatches() {
+  await requirePermission("batches.view");
   const { student, session } = await resolveCurrentStudent();
 
   if (!student) {
@@ -486,7 +480,7 @@ export async function getStudentBatches() {
     isPreview,
     student,
     data: {
-      enrollments,
+      enrollments: redactRelatedData(enrollments, await getEffectivePermissions(session)),
     },
   };
 }
@@ -496,6 +490,7 @@ export async function getStudentBatches() {
  * including weekly timetable schedule, assigned faculty, and study materials.
  */
 export async function getStudentBatchDetails(batchId: string) {
+  await requirePermission("batches.view");
   const { student, session } = await resolveCurrentStudent();
 
   if (!student) {
@@ -611,10 +606,9 @@ export async function getStudentBatchDetails(batchId: string) {
     student,
     data: {
       batch: {
-        ...batch,
-        allMaterials,
+        ...redactRelatedData(batch, await getEffectivePermissions(session)),
+        allMaterials: (await getEffectivePermissions(session)).includes("materials.view") ? allMaterials : [],
       },
     },
   };
 }
-

@@ -52,6 +52,12 @@ async function verifyToken(token: string) {
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  // Legacy upload URLs must pass the same authorization as new files.
+  if (pathname === "/uploads" || pathname.startsWith("/uploads/")) {
+    const target = request.nextUrl.clone();
+    target.pathname = `/api${pathname}`;
+    return NextResponse.rewrite(target);
+  }
   const token = request.cookies.get(COOKIE_NAME)?.value;
   const session = token ? await verifyToken(token) : null;
   const isStudent = session?.role === "STUDENT";
@@ -62,10 +68,6 @@ export async function middleware(request: NextRequest) {
   }
 
   if (pathname === "/student-login") {
-    if (session) {
-      const destination = isStudent ? "/portal" : "/dashboard";
-      return NextResponse.redirect(new URL(destination, request.url));
-    }
     const response = NextResponse.next();
     applySecurityHeaders(response);
     return response;
@@ -73,10 +75,7 @@ export async function middleware(request: NextRequest) {
 
   // 2. Staff Login (/login)
   if (pathname === "/login") {
-    if (session) {
-      const destination = isStudent ? "/portal" : "/dashboard";
-      return NextResponse.redirect(new URL(destination, request.url));
-    }
+    // The server page checks current account state before redirecting.
     const response = NextResponse.next();
     applySecurityHeaders(response);
     return response;
@@ -133,6 +132,7 @@ function applySecurityHeaders(res: NextResponse) {
 
 export const config = {
   matcher: [
+    "/uploads/:path*",
     /*
      * Match all request paths except for the ones starting with:
      * - api/uploads (public served uploaded images/documents)

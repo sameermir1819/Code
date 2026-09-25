@@ -62,7 +62,20 @@ export type PermissionCode =
   // Reports & Settings
   | "reports.view"
   | "settings.view"
-  | "settings.manage";
+  | "settings.manage"
+  | "dashboard.view"
+  | "materials.view"
+  | "materials.manage"
+  | "leads.view"
+  | "leads.manage"
+  | "leads.delete"
+  | "announcements.view"
+  | "announcements.manage"
+  | "test-series.view"
+  | "test-series.manage"
+  | "test-series.enroll"
+  | "exports.view"
+  | "audit.view";
 
 export const ROLE_PERMISSIONS: Partial<Record<Role, PermissionCode[]>> = {
   SUPER_ADMIN: [
@@ -178,6 +191,82 @@ export const ROLE_PERMISSIONS: Partial<Record<Role, PermissionCode[]>> = {
     "batches.view",
   ],
 };
+
+// Newly introduced modules retain established access until the permission catalog is synchronized.
+export const NEW_PERMISSION_DEFAULTS: Partial<Record<PermissionCode, Role[]>> = {
+  "dashboard.view": [
+    "ADMIN",
+    "ACCOUNTANT",
+    "TEACHER",
+    "COUNSELOR",
+    "STAFF"
+  ],
+  "materials.view": [
+    "ADMIN",
+    "ACCOUNTANT",
+    "TEACHER",
+    "COUNSELOR",
+    "STAFF",
+    "STUDENT"
+  ],
+  "materials.manage": [
+    "ADMIN",
+    "TEACHER"
+  ],
+  "leads.view": [
+    "ADMIN",
+    "ACCOUNTANT",
+    "TEACHER",
+    "COUNSELOR",
+    "STAFF"
+  ],
+  "leads.manage": [
+    "ADMIN",
+    "ACCOUNTANT",
+    "TEACHER",
+    "COUNSELOR"
+  ],
+  "leads.delete": [
+    "ADMIN"
+  ],
+  "announcements.view": [
+    "ADMIN",
+    "ACCOUNTANT",
+    "TEACHER",
+    "COUNSELOR",
+    "STAFF",
+    "STUDENT",
+    "PARENT"
+  ],
+  "announcements.manage": [
+    "ADMIN"
+  ],
+  "test-series.view": [
+    "ADMIN",
+    "TEACHER",
+    "STUDENT"
+  ],
+  "test-series.manage": [
+    "ADMIN",
+    "TEACHER"
+  ],
+  "test-series.enroll": [
+    "STUDENT"
+  ],
+  "exports.view": [
+    "ADMIN",
+    "ACCOUNTANT"
+  ],
+  "audit.view": [
+    "ADMIN"
+  ]
+};
+export const NEW_PERMISSION_CODES = Object.keys(NEW_PERMISSION_DEFAULTS) as PermissionCode[];
+for (const [code, roles] of Object.entries(NEW_PERMISSION_DEFAULTS)) {
+  for (const role of roles ?? []) ROLE_PERMISSIONS[role] = [...(ROLE_PERMISSIONS[role] ?? []), code as PermissionCode];
+  ROLE_PERMISSIONS.SUPER_ADMIN!.push(code as PermissionCode);
+}
+export const ALL_PERMISSION_CODES = ROLE_PERMISSIONS.SUPER_ADMIN!;
 
 export function hasRolePermission(role: Role, code: PermissionCode): boolean {
   if (role === "SUPER_ADMIN") return true;

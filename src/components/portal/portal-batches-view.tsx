@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo } from "react";
 import Link from "next/link";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   GraduationCap,
   Calendar,
@@ -109,7 +110,15 @@ const DAY_ORDER: Record<string, number> = {
 };
 
 export function PortalBatchesView({ enrollments }: PortalBatchesViewProps) {
-  const [activeTab, setActiveTab] = useState<"batches" | "timetable">("batches");
+  const searchParams = useSearchParams();
+  const pathname = usePathname();
+  const router = useRouter();
+  const activeTab = searchParams.get("tab") === "timetable" ? "timetable" : "batches";
+  const setActiveTab = (tab: "batches" | "timetable") => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("tab", tab);
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+  };
 
   // Today's day name
   const todayDayName = useMemo(() => {
@@ -536,4 +545,3 @@ function TimetableCard({ slot }: { slot: any }) {
     </div>
   );
 }
-

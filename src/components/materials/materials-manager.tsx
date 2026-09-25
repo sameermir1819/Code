@@ -1,5 +1,6 @@
 "use me";
 "use client";
+import { usePermissions } from "@/components/layout/permission-provider";
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
@@ -82,7 +83,7 @@ export function MaterialsManager({ initialMaterials, subjects, userRole }: Mater
   });
   const [isUploading, setIsUploading] = useState(false);
 
-  const isStaff = ["SUPER_ADMIN", "ADMIN", "TEACHER"].includes(userRole);
+  const isStaff = usePermissions().includes("materials.manage");
 
   const filteredMaterials = initialMaterials.filter((m) => {
     const matchesSearch =

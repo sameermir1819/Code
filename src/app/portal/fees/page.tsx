@@ -189,7 +189,7 @@ export default async function StudentFeesPage() {
             </h3>
           </div>
           <span className="text-xs text-zinc-400 font-mono">
-            {payments.length} Verified Receipts
+            {payments.length} Receipts
           </span>
         </div>
 
@@ -205,13 +205,16 @@ export default async function StudentFeesPage() {
                   <th className="py-3 px-4">Receipt No</th>
                   <th className="py-3 px-4">Date</th>
                   <th className="py-3 px-4">Payment Method</th>
-                  <th className="py-3 px-4">Amount Paid</th>
+                  <th className="py-3 px-4">Original Payment</th>
+                  <th className="py-3 px-4">Refunded / Net Paid</th>
                   <th className="py-3 px-4">Reference No</th>
                   <th className="py-3 px-4 text-right">Status</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5">
                 {payments.map((p) => {
+                  const refunded = p.refunds.reduce((sum, refund) => sum + refund.amount, 0);
+                  const netPaid = Math.round((p.amount - refunded) * 100) / 100;
                   const payDateStr = new Date(p.paymentDate).toLocaleDateString("en-IN", {
                     month: "short",
                     day: "numeric",
@@ -232,12 +235,13 @@ export default async function StudentFeesPage() {
                       <td className="py-3 px-4 font-bold text-emerald-400 text-sm">
                         ₹{p.amount.toLocaleString("en-IN")}
                       </td>
+                      <td className="py-3 px-4 text-zinc-300">{refunded.toLocaleString("en-IN", { style: "currency", currency: "INR" })} / {netPaid.toLocaleString("en-IN", { style: "currency", currency: "INR" })}</td>
                       <td className="py-3 px-4 font-mono text-[11px] text-zinc-400">
                         {p.referenceNo || "—"}
                       </td>
                       <td className="py-3 px-4 text-right">
                         <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-                          ACKNOWLEDGED
+                          {p.status === "SUCCESS" ? "ACKNOWLEDGED" : p.status === "ADJUSTED" ? "PARTIALLY REFUNDED" : "REFUNDED"}
                         </span>
                       </td>
                     </tr>

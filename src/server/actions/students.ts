@@ -1,7 +1,9 @@
 "use server";
+import { requireStaffPermission } from "@/lib/auth";
 
 import { db } from "@/lib/db";
-import { requireAuth } from "@/lib/auth";
+import { redactRelatedData } from "@/lib/redact-related-data";
+import { requireAuth, getEffectivePermissions } from "@/lib/auth";
 import { logAudit } from "./audit";
 import { getActiveCampusId } from "./campus";
 
@@ -18,7 +20,7 @@ export async function getStudents({
   page?: number;
   limit?: number;
 } = {}) {
-  await requireAuth(["SUPER_ADMIN", "ADMIN", "ACCOUNTANT", "TEACHER"]);
+  await requireStaffPermission("students.view");
 
   const campusId = await getActiveCampusId();
   const where: Record<string, unknown> = {};
@@ -86,7 +88,7 @@ export async function getStudents({
  * Fast aggregate KPI statistics for Students Directory (runs in <15ms)
  */
 export async function getStudentStats() {
-  await requireAuth(["SUPER_ADMIN", "ADMIN", "ACCOUNTANT", "TEACHER"]);
+  await requireStaffPermission("students.view");
   const campusId = await getActiveCampusId();
   const campusFilter = campusId ? { instituteId: campusId } : {};
 
@@ -114,7 +116,7 @@ export async function getStudentStats() {
 }
 
 export async function getStudentById(id: string) {
-  const session = await requireAuth();
+  const session = await requireStaffPermission("students.view");
 
   // Security check: if student, can only view own profile
   if (session.role === "STUDENT" && session.studentId !== id) {
@@ -183,8 +185,8 @@ export async function getStudentById(id: string) {
   const attendanceRate = totalAttendance > 0 ? Math.round((presentCount / totalAttendance) * 100) : 100;
 
   return {
-    ...student,
-    attendanceRate,
+    ...redactRelatedData(student, await getEffectivePermissions(session)),
+    attendanceRate: (await getEffectivePermissions(session)).includes("attendance.view") ? attendanceRate : 0,
   };
 }
 
@@ -207,7 +209,7 @@ export async function createStudent(data: {
   status?: string;
   notes?: string;
 }) {
-  await requireAuth(["SUPER_ADMIN", "ADMIN"]);
+  await requireStaffPermission("students.create");
 
   // Get active campus
   const campusId = await getActiveCampusId();
@@ -292,7 +294,7 @@ export async function updateStudent(
     notes: string;
   }>
 ) {
-  await requireAuth(["SUPER_ADMIN", "ADMIN"]);
+  await requireStaffPermission("students.update");
 
   const updated = await db.student.update({
     where: { id },
@@ -314,6 +316,7 @@ export async function updateStudent(
 }
 
 export async function deleteStudent(id: string) {
+  await requireStaffPermission("students.delete");
   await requireAuth(["SUPER_ADMIN"]);
 
   // Check if financial records exist
@@ -341,7 +344,7 @@ export async function enrollStudentInBatch(
   batchId: string,
   courseId: string
 ) {
-  await requireAuth(["SUPER_ADMIN", "ADMIN"]);
+  await requireStaffPermission("students.update");
 
   // Close any previous active enrollment
   await db.enrollment.updateMany({
@@ -381,7 +384,7 @@ export async function updateStudentParent(
     occupation?: string;
   }
 ) {
-  await requireAuth(["SUPER_ADMIN", "ADMIN"]);
+  await requireStaffPermission("students.update");
 
   const student = await db.student.findUnique({
     where: { id: studentId },

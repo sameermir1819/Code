@@ -51,6 +51,7 @@ COPY --from=builder /app/public ./public
 # Set permissions for prerender cache
 RUN mkdir .next
 RUN chown nextjs:nodejs .next
+RUN mkdir -p /app/.data/uploads && chown -R nextjs:nodejs /app/.data
 
 # Copy standalone bundle and static assets from builder
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
@@ -66,4 +67,3 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD curl -f http://localhost:3000/api/health || exit 1
 
 CMD ["node", "server.js"]
-

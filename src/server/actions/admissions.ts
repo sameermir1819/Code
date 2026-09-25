@@ -1,7 +1,8 @@
 "use server";
+import { requireStaffPermission } from "@/lib/auth";
 
 import { db } from "@/lib/db";
-import { requireAuth } from "@/lib/auth";
+
 import { logAudit } from "./audit";
 import { getActiveCampusId } from "./campus";
 
@@ -45,7 +46,9 @@ export interface AdmissionPayload {
 }
 
 export async function processAdmission(payload: AdmissionPayload) {
-  const session = await requireAuth(["SUPER_ADMIN", "ADMIN"]);
+  await requireStaffPermission("fees.create");
+  await requireStaffPermission("fees.update");
+  const session = await requireStaffPermission("students.create");
 
   const campusId = await getActiveCampusId();
   if (!campusId) throw new Error("No active campus found.");

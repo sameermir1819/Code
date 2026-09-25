@@ -826,7 +826,7 @@ export function PortalTestSeriesClient({
               <div className="flex justify-between">
                 <span className="text-zinc-400">Fee Status:</span>
                 <span className="font-bold text-emerald-400">
-                  ₹{selectedAdmitSlip.feeAmount?.toLocaleString("en-IN")} (PAID VIA {selectedAdmitSlip.paymentMethod})
+                  ₹{selectedAdmitSlip.feeAmount?.toLocaleString("en-IN")} ({selectedAdmitSlip.paymentStatus === "PAID" ? "PAID VIA " + selectedAdmitSlip.paymentMethod : selectedAdmitSlip.paymentStatus})
                 </span>
               </div>
               <div className="flex justify-between">

@@ -446,6 +446,10 @@ model Attendance {
   status     String   @default("PRESENT") // PRESENT, ABSENT, LATE, EXCUSED
   markedBy   String?  // user name or ID
   remarks    String?
+  checkInAt  DateTime?
+  checkOutAt DateTime?
+  checkInScanId  String? @unique
+  checkOutScanId String? @unique
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
@@ -885,5 +889,4 @@ model TestSeriesResult {
   @@index([registrationId])
   @@index([rank])
 }
-
 

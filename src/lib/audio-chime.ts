@@ -1,4 +1,4 @@
-// Web Audio API Chime Synthesizer for Attendance Kiosk and Geo Check-in
+// Web Audio API chimes for the attendance scanner terminal.
 export function playCheckInChime(type: "success" | "warning" | "error" = "success") {
   if (typeof window === "undefined") return;
 
@@ -7,6 +7,7 @@ export function playCheckInChime(type: "success" | "warning" | "error" = "succes
     if (!AudioCtx) return;
 
     const ctx = new AudioCtx();
+    window.setTimeout(() => { void ctx.close().catch(() => {}); }, 450);
 
     if (type === "success") {
       // Pleasant double-tone chime (E5 -> A5)
@@ -75,4 +76,3 @@ export function playCheckInChime(type: "success" | "warning" | "error" = "succes
     // Ignore audio context errors if browser policies restrict autoplay
   }
 }
-

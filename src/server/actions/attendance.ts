@@ -1,12 +1,17 @@
 "use server";
+import { requireStaffPermission } from "@/lib/auth";
 
 import { db } from "@/lib/db";
-import { requireAuth } from "@/lib/auth";
+import type { Prisma } from "@prisma/client";
+import { getActiveCampusId } from "./campus";
+import { parseStudentCard, attendanceDay, attendanceTime, SCAN_COOLDOWN_SECONDS } from "@/lib/attendance-scanner";
+import { randomUUID } from "node:crypto";
+
 import { logAudit } from "./audit";
 import { startOfDay, endOfDay, startOfMonth, endOfMonth } from "date-fns";
 
 export async function getBatchAttendanceForDate(batchId: string, dateStr: string) {
-  await requireAuth();
+  await requireStaffPermission("attendance.view");
   const date = new Date(dateStr);
   const dayStart = startOfDay(date);
   const dayEnd = endOfDay(date);
@@ -64,7 +69,7 @@ export async function saveBatchAttendance(
   dateStr: string,
   records: Array<{ studentId: string; status: string; remarks?: string }>
 ) {
-  const session = await requireAuth(["SUPER_ADMIN", "ADMIN", "TEACHER"]);
+  const session = await requireStaffPermission("attendance.manage");
   const date = new Date(dateStr);
   const dayStart = startOfDay(date);
   const dayEnd = endOfDay(date);
@@ -130,7 +135,7 @@ export async function saveBatchAttendance(
 }
 
 export async function markBatchUnscannedAsAbsent(batchId: string, dateStr: string) {
-  const session = await requireAuth(["SUPER_ADMIN", "ADMIN", "TEACHER"]);
+  const session = await requireStaffPermission("attendance.manage");
   const date = new Date(dateStr);
   const dayStart = startOfDay(date);
   const dayEnd = endOfDay(date);
@@ -179,7 +184,7 @@ export async function markBatchUnscannedAsAbsent(batchId: string, dateStr: strin
 }
 
 export async function getAttendanceDefaulters(thresholdPercentage = 75) {
-  await requireAuth(["SUPER_ADMIN", "ADMIN", "ACCOUNTANT", "TEACHER"]);
+  await requireStaffPermission("attendance.view");
 
   // Calculate attendance rate per active student
   const students = await db.student.findMany({
@@ -253,7 +258,7 @@ export async function getMonthlyAttendanceReport(
   month: number, // 1-12
   year: number
 ): Promise<MonthlyAttendanceReport> {
-  await requireAuth();
+  await requireStaffPermission("attendance.view");
 
   const monthStart = startOfMonth(new Date(year, month - 1, 1));
   const monthEnd = endOfMonth(new Date(year, month - 1, 1));
@@ -332,229 +337,132 @@ export async function getMonthlyAttendanceReport(
   };
 }
 
-import { CAMPUS_GEOFENCE, calculateDistanceMeters } from "@/lib/geofence";
+// QR attendance is accepted only by a signed-in staff terminal.
+const TERMINAL_ROLES = ["SUPER_ADMIN", "ADMIN", "TEACHER", "ACCOUNTANT"];
 
-export async function getCampusGeofenceConfig() {
-  await requireAuth();
-  return CAMPUS_GEOFENCE;
+async function scannerTransaction<T>(work: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await db.$transaction(work, { isolationLevel: "Serializable" });
+    } catch (error) {
+      if ((error as { code?: string }).code !== "P2034" || attempt >= 2) throw error;
+    }
+  }
 }
 
-// ==========================================
-// QR ID ATTENDANCE CHECK-IN
-// ==========================================
-export async function recordQrAttendance(qrPayload: string) {
-  await requireAuth(["SUPER_ADMIN", "ADMIN", "TEACHER", "ACCOUNTANT"]);
-
-  // Parse QR code payload (could be raw studentId, code, or JSON)
-  let rawCode = qrPayload.trim();
-  try {
-    const parsed = JSON.parse(qrPayload);
-    if (parsed.studentId) rawCode = parsed.studentId;
-    else if (parsed.code) rawCode = parsed.code;
-    else if (parsed.id) rawCode = parsed.id;
-  } catch {
-    // raw string
+export async function recordQrAttendance(qrPayload: string, requestId?: string) {
+  const actor = await requireStaffPermission("attendance.manage");
+  const rawCode = parseStudentCard(qrPayload);
+  const scanId = requestId ?? randomUUID();
+  if (typeof scanId !== "string" || !/^[a-zA-Z0-9_-]{1,128}$/.test(scanId)) {
+    throw new Error("Invalid scan request. Please scan the card again.");
   }
+  const campusId = await getActiveCampusId();
+  if (!campusId) throw new Error("Select a campus before scanning cards.");
+  const now = new Date();
+  const { start, end } = attendanceDay(now);
 
-  // Find student by studentId, admissionNo, or primary id
-  const student = await db.student.findFirst({
-    where: {
-      OR: [
-        { studentId: { equals: rawCode } },
-        { admissionNo: { equals: rawCode } },
-        { id: { equals: rawCode } },
-      ],
-    },
-    include: {
-      enrollments: {
-        where: { status: "ACTIVE" },
-        include: { batch: true },
-        take: 1,
+  const result = await scannerTransaction(async (tx) => {
+    const student = await tx.student.findFirst({
+      where: {
+        instituteId: campusId,
+        OR: [{ studentId: rawCode }, { admissionNo: rawCode }, { id: rawCode }],
       },
-    },
-  });
-
-  if (!student) {
-    throw new Error(`Invalid QR / ID Code "${rawCode}". No registered student matches this ID.`);
-  }
-
-  const activeBatch = student.enrollments[0]?.batch;
-  if (!activeBatch) {
-    throw new Error(`Student ${student.name} (${student.studentId}) is not enrolled in an active classroom batch.`);
-  }
-
-  const today = new Date();
-  const dayStart = startOfDay(today);
-  const dayEnd = endOfDay(today);
-
-  // Check if already checked in today
-  const existing = await db.attendance.findFirst({
-    where: {
-      studentId: student.id,
-      batchId: activeBatch.id,
-      date: { gte: dayStart, lte: dayEnd },
-    },
-  });
-
-  let record;
-  let isAlreadyMarked = false;
-
-  if (existing) {
-    isAlreadyMarked = true;
-    record = await db.attendance.update({
-      where: { id: existing.id },
-      data: {
-        status: "PRESENT",
-        markedBy: "QR ID Kiosk (Re-scan)",
-        remarks: `Gate QR Scan at ${new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}`,
+      include: {
+        enrollments: {
+          where: { status: "ACTIVE", batch: { status: "ACTIVE", instituteId: campusId } },
+          include: { batch: true },
+          orderBy: { startDate: "desc" },
+          take: 1,
+        },
       },
     });
-  } else {
-    record = await db.attendance.create({
-      data: {
-        studentId: student.id,
-        batchId: activeBatch.id,
-        date: today,
-        status: "PRESENT",
-        markedBy: "QR ID Kiosk Scanner",
-        remarks: `Gate Entry Verification at ${new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}`,
+    if (!student) throw new Error("Card not recognised at this campus. Please contact the campus desk.");
+    if (student.status !== "ACTIVE") throw new Error("Student account is inactive. Please contact the campus desk.");
+    const batch = student.enrollments[0]?.batch;
+    if (!batch) throw new Error("Student is not enrolled in an active batch at this campus.");
+
+    const existing = await tx.attendance.findFirst({
+      where: { studentId: student.id, batchId: batch.id, date: { gte: start, lt: end } },
+      orderBy: { createdAt: "asc" },
+    });
+    let action: "CHECK_IN" | "CHECK_OUT" = "CHECK_IN";
+    let isAlreadyMarked = false;
+    let message = "";
+    let record = existing;
+
+    // A network retry carries the same ID, so it can never turn a check-in
+    // into a check-out even after the duplicate-scan cooldown has elapsed.
+    if (existing && (existing.checkInScanId === scanId || existing.checkOutScanId === scanId)) {
+      action = existing.checkOutScanId === scanId ? "CHECK_OUT" : "CHECK_IN";
+      isAlreadyMarked = true;
+      message = action === "CHECK_IN" ? "This check-in was already saved." : "This check-out was already saved.";
+    } else if (existing?.checkOutAt) {
+      action = "CHECK_OUT";
+      isAlreadyMarked = true;
+      message = "Already checked out today.";
+    } else if (existing?.checkInAt) {
+      if (now.getTime() - existing.checkInAt.getTime() < SCAN_COOLDOWN_SECONDS * 1000) {
+        isAlreadyMarked = true;
+        message = "Check-in saved. Repeat scan ignored; check-out is available after 30 seconds.";
+      } else {
+        action = "CHECK_OUT";
+        record = await tx.attendance.update({
+          where: { id: existing.id },
+          data: { checkOutAt: now, checkOutScanId: scanId, markedBy: actor.name },
+        });
+        message = "Checked out at " + attendanceTime(now) + ".";
+      }
+    } else {
+      const data = {
+        status: existing?.status === "LATE" ? "LATE" : "PRESENT",
+        checkInAt: now, checkInScanId: scanId,
+        markedBy: actor.name,
+        remarks: "QR card check-in at " + attendanceTime(now),
+      };
+      record = existing
+        ? await tx.attendance.update({ where: { id: existing.id }, data })
+        : await tx.attendance.create({ data: { ...data, studentId: student.id, batchId: batch.id, date: now } });
+      message = "Checked in at " + attendanceTime(now) + ".";
+    }
+    if (!record) throw new Error("Attendance could not be recorded. Please scan again.");
+
+    return {
+      success: true,
+      isAlreadyMarked,
+      action,
+      message,
+      checkInTime: record.checkInAt ? attendanceTime(record.checkInAt) : null,
+      checkOutTime: record.checkOutAt ? attendanceTime(record.checkOutAt) : null,
+      student: {
+        id: student.id, name: student.name, studentId: student.studentId,
+        admissionNo: student.admissionNo, batchName: batch.name,
+        gradeClass: student.gradeClass, photoUrl: student.photoUrl,
       },
+      record,
+    };
+  });
+
+  if (!result.isAlreadyMarked) {
+    await logAudit({
+      action: result.action === "CHECK_IN" ? "ATTENDANCE_CHECK_IN" : "ATTENDANCE_CHECK_OUT",
+      entity: "Attendance", entityId: result.record.id,
+      details: "QR " + result.action + " for " + result.student.studentId + " by " + actor.name,
     });
   }
-
-  return {
-    success: true,
-    isAlreadyMarked,
-    checkInTime: new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }),
-    student: {
-      id: student.id,
-      name: student.name,
-      studentId: student.studentId,
-      admissionNo: student.admissionNo,
-      gradeClass: student.gradeClass || "Senior Secondary",
-      batchName: activeBatch.name,
-      photoUrl: student.photoUrl,
-    },
-    record,
-  };
+  return result;
 }
 
-// ==========================================
-// MOBILE APP GEO CHECK-IN
-// ==========================================
-export async function recordGeoCheckIn(data: {
-  studentId: string;
-  latitude: number;
-  longitude: number;
-  accuracyMeters?: number;
-}) {
-  await requireAuth();
-
-  const student = await db.student.findUnique({
-    where: { id: data.studentId },
-    include: {
-      enrollments: {
-        where: { status: "ACTIVE" },
-        include: { batch: true },
-        take: 1,
-      },
-    },
-  });
-
-  if (!student) {
-    throw new Error("Student account not found.");
-  }
-
-  const activeBatch = student.enrollments[0]?.batch;
-  if (!activeBatch) {
-    throw new Error(`Student ${student.name} is not assigned to an active batch.`);
-  }
-
-  // Calculate distance to campus
-  const distance = calculateDistanceMeters(
-    data.latitude,
-    data.longitude,
-    CAMPUS_GEOFENCE.latitude,
-    CAMPUS_GEOFENCE.longitude
-  );
-
-  const isInside = distance <= CAMPUS_GEOFENCE.radiusMeters;
-
-  const today = new Date();
-  const dayStart = startOfDay(today);
-  const dayEnd = endOfDay(today);
-
-  // Check if already checked in today
-  const existing = await db.attendance.findFirst({
-    where: {
-      studentId: student.id,
-      batchId: activeBatch.id,
-      date: { gte: dayStart, lte: dayEnd },
-    },
-  });
-
-  const checkInTimeStr = new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
-  const remarks = isInside
-    ? `Geo Check-in: Inside Geofence (${distance}m from gate, GPS accuracy ±${Math.round(data.accuracyMeters || 10)}m)`
-    : `Geo Check-in: Outside Boundary (${distance}m from campus)`;
-
-  const status = isInside ? "PRESENT" : "EXCUSED";
-
-  let record;
-  if (existing) {
-    record = await db.attendance.update({
-      where: { id: existing.id },
-      data: {
-        status,
-        markedBy: "Student Mobile App (Geo Check-in)",
-        remarks,
-      },
-    });
-  } else {
-    record = await db.attendance.create({
-      data: {
-        studentId: student.id,
-        batchId: activeBatch.id,
-        date: today,
-        status,
-        markedBy: "Student Mobile App (Geo Check-in)",
-        remarks,
-      },
-    });
-  }
-
-  return {
-    success: isInside,
-    insideGeofence: isInside,
-    distanceMeters: distance,
-    radiusMeters: CAMPUS_GEOFENCE.radiusMeters,
-    checkInTime: checkInTimeStr,
-    message: isInside
-      ? `Check-in Verified! You are ${distance}m within the campus boundary.`
-      : `Outside Geofence. You are ${distance}m away from campus (Max: ${CAMPUS_GEOFENCE.radiusMeters}m).`,
-    student: {
-      id: student.id,
-      name: student.name,
-      studentId: student.studentId,
-      batchName: activeBatch.name,
-    },
-    record,
-  };
-}
-
-// ==========================================
-// TODAY'S LIVE ATTENDANCE LOG (GATE / RADAR)
-// ==========================================
 export async function getTodayAttendanceLiveFeed() {
-  await requireAuth();
-
-  const today = new Date();
-  const dayStart = startOfDay(today);
-  const dayEnd = endOfDay(today);
-
+  await requireStaffPermission("attendance.view");
+  const campusId = await getActiveCampusId();
+  if (!campusId) return [];
+  const { start, end } = attendanceDay();
   const records = await db.attendance.findMany({
     where: {
-      date: { gte: dayStart, lte: dayEnd },
+      date: { gte: start, lt: end },
+      batch: { instituteId: campusId },
+      status: { in: ["PRESENT", "LATE"] },
     },
     orderBy: { updatedAt: "desc" },
     take: 30,
@@ -563,18 +471,13 @@ export async function getTodayAttendanceLiveFeed() {
       batch: { select: { id: true, name: true } },
     },
   });
-
   return records.map((r) => ({
-    id: r.id,
-    studentId: r.student.id,
-    studentCode: r.student.studentId,
-    studentName: r.student.name,
-    batchName: r.batch.name,
-    status: r.status,
-    markedBy: r.markedBy || "System",
-    remarks: r.remarks || "",
-    timestamp: r.updatedAt.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit" }),
+    id: r.id, studentId: r.student.id, studentCode: r.student.studentId,
+    studentName: r.student.name, batchName: r.batch.name, status: r.status,
+    markedBy: r.markedBy || "Campus staff", remarks: r.remarks || "",
+    timestamp: attendanceTime(r.updatedAt),
+    checkInTime: r.checkInAt ? attendanceTime(r.checkInAt) : null,
+    checkOutTime: r.checkOutAt ? attendanceTime(r.checkOutAt) : null,
+    gateStatus: r.checkOutAt ? "CHECKED_OUT" : r.checkInAt ? "INSIDE" : "NOT_SCANNED",
   }));
 }
-
-

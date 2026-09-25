@@ -15,7 +15,9 @@ interface AttendanceRecord {
   id: string;
   date: Date | string;
   status: string;
-  notes?: string | null;
+  remarks?: string | null;
+  checkInAt?: Date | string | null;
+  checkOutAt?: Date | string | null;
   batch?: {
     id: string;
     name: string;
@@ -57,7 +59,7 @@ export function StudentAttendanceClient({
         <div>
           <h1 className="text-2xl font-black text-white">Attendance Ledger</h1>
           <p className="text-xs text-zinc-400">
-            Official biometric and daily class participation history for {studentName}.
+            QR card attendance and daily class participation history for {studentName}.
           </p>
         </div>
       </div>
@@ -70,7 +72,7 @@ export function StudentAttendanceClient({
             {rate}%
           </span>
           <span className="text-[10px] text-emerald-400 block mt-1 font-medium">
-            Biometric Validated
+            Attendance Record
           </span>
         </div>
 
@@ -149,6 +151,8 @@ export function StudentAttendanceClient({
                   <th className="py-3 px-4">Date &amp; Day</th>
                   <th className="py-3 px-4">Course / Batch</th>
                   <th className="py-3 px-4">Status</th>
+                  <th className="py-3 px-4">Check-in</th>
+                  <th className="py-3 px-4">Check-out</th>
                   <th className="py-3 px-4 text-right">Remarks</th>
                 </tr>
               </thead>
@@ -156,6 +160,7 @@ export function StudentAttendanceClient({
                 {filtered.map((r) => {
                   const d = new Date(r.date);
                   const formattedDate = d.toLocaleDateString("en-IN", {
+                    timeZone: "Asia/Kolkata",
                     weekday: "short",
                     day: "numeric",
                     month: "short",
@@ -166,9 +171,6 @@ export function StudentAttendanceClient({
                     <tr key={r.id} className="hover:bg-white/[0.02] transition-colors">
                       <td className="py-3 px-4">
                         <span className="font-bold text-white block">{formattedDate}</span>
-                        <span className="text-[10px] font-mono text-zinc-500">
-                          {d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
-                        </span>
                       </td>
 
                       <td className="py-3 px-4">
@@ -197,8 +199,14 @@ export function StudentAttendanceClient({
                         </span>
                       </td>
 
+                      <td className="py-3 px-4 font-mono text-zinc-300">
+                        {r.checkInAt ? new Date(r.checkInAt).toLocaleTimeString("en-IN", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit" }) : "—"}
+                      </td>
+                      <td className="py-3 px-4 font-mono text-zinc-300">
+                        {r.checkOutAt ? new Date(r.checkOutAt).toLocaleTimeString("en-IN", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit" }) : "—"}
+                      </td>
                       <td className="py-3 px-4 text-right text-zinc-400 text-[11px]">
-                        {r.notes || "Biometric Verified"}
+                        {r.remarks || "Recorded by campus staff"}
                       </td>
                     </tr>
                   );
@@ -211,4 +219,3 @@ export function StudentAttendanceClient({
     </div>
   );
 }
-

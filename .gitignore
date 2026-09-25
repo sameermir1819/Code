@@ -39,5 +39,6 @@ next-env.d.ts
 
 # Scratch files & IDEs
 /scratch/
+/.data/
 .vscode/
 .idea/

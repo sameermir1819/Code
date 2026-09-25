@@ -1,27 +1,33 @@
 "use server";
+import { requireStaffPermission } from "@/lib/auth";
 
 import { db } from "@/lib/db";
-import { requireAuth } from "@/lib/auth";
+import { getEffectivePermissions } from "@/lib/auth";
+import { authorizedCampusId } from "@/lib/campus-scope";
+import { collectionTotals, postedPaymentStatuses, indiaDateRange } from "@/lib/collection-totals";
 import { getActiveCampusId } from "./campus";
-import { startOfMonth, endOfMonth, startOfDay, endOfDay, subMonths, format } from "date-fns";
 
 export async function getDashboardStats() {
-  const session = await requireAuth(["SUPER_ADMIN", "ADMIN", "ACCOUNTANT", "TEACHER"]);
+  const session = await requireStaffPermission("dashboard.view");
   const role = session.role;
   const userName = session.name || "Administrator";
   const now = new Date();
-  const campusId = await getActiveCampusId();
+  const campusId = authorizedCampusId(session, await getActiveCampusId());
+
+  const permissions = await getEffectivePermissions(session);
+  const required = ["SUPER_ADMIN", "ADMIN"].includes(role) ? ["students.view", "teachers.view", "batches.view", "attendance.view", "fees.view", "exams.view"] : role === "ACCOUNTANT" ? ["fees.view"] : role === "TEACHER" ? ["batches.view", "timetable.view", "exams.view"] : [];
+  if (required.some((code) => !permissions.includes(code as any))) return { isAdmin: false, userRole: role, userName, message: "Dashboard contains restricted sections. Open an available module from navigation." };
 
   // Role Gate: Only Admins can see the Executive Dashboard Data
   const isAdmin = role === "SUPER_ADMIN" || role === "ADMIN";
 
   // If Admin: Return Full Executive Data scoped to active campus
   if (isAdmin) {
-    const monthStart = startOfMonth(now);
-    const monthEnd = endOfMonth(now);
-    const todayStart = startOfDay(now);
-    const todayEnd = endOfDay(now);
-    const sixMonthsAgoStart = startOfMonth(subMonths(now, 5));
+    const monthStart = indiaDateRange(now, "month").start;
+    const monthEnd = indiaDateRange(now, "month").end;
+    const todayStart = indiaDateRange(now, "day").start;
+    const todayEnd = indiaDateRange(now, "day").end;
+    const sixMonthsAgoStart = indiaDateRange(now, "month", -5).start;
 
     // Base filter scoped to active campus
     const campusFilter = campusId ? { instituteId: campusId } : {};
@@ -43,6 +49,7 @@ export async function getDashboardStats() {
       recentAdmissions,
       recentPayments,
       allSixMonthPayments,
+      allSixMonthRefunds,
       batchesWithCounts,
     ] = await Promise.all([
       db.student.count({ where: campusFilter }),
@@ -54,14 +61,8 @@ export async function getDashboardStats() {
         where: { ...batchCampusFilter, date: { gte: todayStart, lte: todayEnd } },
         select: { status: true },
       }),
-      db.payment.aggregate({
-        where: { ...studentCampusFilter, paymentDate: { gte: todayStart, lte: todayEnd }, status: "SUCCESS" },
-        _sum: { amount: true },
-      }),
-      db.payment.aggregate({
-        where: { ...studentCampusFilter, paymentDate: { gte: monthStart, lte: monthEnd }, status: "SUCCESS" },
-        _sum: { amount: true },
-      }),
+      collectionTotals(campusId, { gte: todayStart, lte: todayEnd }),
+      collectionTotals(campusId, { gte: monthStart, lte: monthEnd }),
       db.feePlan.aggregate({
         where: studentCampusFilter,
         _sum: { balanceAmount: true, totalAmount: true, paidAmount: true },
@@ -105,7 +106,7 @@ export async function getDashboardStats() {
         },
       }),
       db.payment.findMany({
-        where: { ...studentCampusFilter, status: "SUCCESS" },
+        where: { ...studentCampusFilter, status: { in: postedPaymentStatuses } },
         take: 5,
         orderBy: { paymentDate: "desc" },
         select: {
@@ -122,9 +123,13 @@ export async function getDashboardStats() {
         where: {
           ...studentCampusFilter,
           paymentDate: { gte: sixMonthsAgoStart, lte: monthEnd },
-          status: "SUCCESS",
+          status: { in: postedPaymentStatuses },
         },
         select: { amount: true, paymentDate: true },
+      }),
+      db.refundAdjustment.findMany({
+        where: { payment: { ...studentCampusFilter, status: { in: postedPaymentStatuses } }, refundDate: { gte: sixMonthsAgoStart, lte: monthEnd } },
+        select: { amount: true, refundDate: true },
       }),
       db.batch.findMany({
         where: { ...campusFilter, status: "ACTIVE" },
@@ -149,23 +154,22 @@ export async function getDashboardStats() {
         ? Math.round((presentToday / totalTodayAttendance) * 100)
         : 0;
 
-    const todayCollections = todayPayments._sum.amount || 0;
-    const monthCollections = monthPayments._sum.amount || 0;
+    const todayCollections = todayPayments.net;
+    const monthCollections = monthPayments.net;
     const totalOutstandingFees = feePlanAggregates._sum.balanceAmount || 0;
 
     // Process 6-month revenue data in memory (0 DB roundtrips)
     const monthlyRevenueData = [];
     for (let i = 5; i >= 0; i--) {
-      const mDate = subMonths(now, i);
-      const mStart = startOfMonth(mDate);
-      const mEnd = endOfMonth(mDate);
-      const label = format(mDate, "MMM yyyy");
+      const { start: mStart, end: mEnd } = indiaDateRange(now, "month", -i);
+      const label = mStart.toLocaleDateString("en-IN", { month: "short", year: "numeric", timeZone: "Asia/Kolkata" });
 
       const collections = allSixMonthPayments
         .filter((p) => p.paymentDate >= mStart && p.paymentDate <= mEnd)
         .reduce((sum, p) => sum + p.amount, 0);
 
-      monthlyRevenueData.push({ month: label, collections });
+      const refunds = allSixMonthRefunds.filter((r) => r.refundDate >= mStart && r.refundDate <= mEnd).reduce((sum, r) => sum + r.amount, 0);
+      monthlyRevenueData.push({ month: label, collections: Math.round((collections - refunds) * 100) / 100 });
     }
 
     // Batch Distribution
@@ -305,27 +309,21 @@ export async function getDashboardStats() {
 
   // Non-Admin: ACCOUNTANT
   if (role === "ACCOUNTANT") {
-    const todayStart = startOfDay(now);
-    const todayEnd = endOfDay(now);
-    const monthStart = startOfMonth(now);
-    const monthEnd = endOfMonth(now);
+    const todayStart = indiaDateRange(now, "day").start;
+    const todayEnd = indiaDateRange(now, "day").end;
+    const monthStart = indiaDateRange(now, "month").start;
+    const monthEnd = indiaDateRange(now, "month").end;
     const studentCampusFilter = campusId ? { student: { instituteId: campusId } } : {};
 
     const [todayPayments, monthPayments, feePlanAggregates, recentPayments] = await Promise.all([
-      db.payment.aggregate({
-        where: { ...studentCampusFilter, paymentDate: { gte: todayStart, lte: todayEnd }, status: "SUCCESS" },
-        _sum: { amount: true },
-      }),
-      db.payment.aggregate({
-        where: { ...studentCampusFilter, paymentDate: { gte: monthStart, lte: monthEnd }, status: "SUCCESS" },
-        _sum: { amount: true },
-      }),
+      collectionTotals(campusId, { gte: todayStart, lte: todayEnd }),
+      collectionTotals(campusId, { gte: monthStart, lte: monthEnd }),
       db.feePlan.aggregate({
         where: studentCampusFilter,
         _sum: { balanceAmount: true },
       }),
       db.payment.findMany({
-        where: { ...studentCampusFilter, status: "SUCCESS" },
+        where: { ...studentCampusFilter, status: { in: postedPaymentStatuses } },
         take: 8,
         orderBy: { paymentDate: "desc" },
         include: { student: true },
@@ -337,8 +335,8 @@ export async function getDashboardStats() {
       userRole: role,
       userName,
       accountantData: {
-        todayCollections: todayPayments._sum.amount || 0,
-        monthCollections: monthPayments._sum.amount || 0,
+        todayCollections: todayPayments.net,
+        monthCollections: monthPayments.net,
         totalOutstanding: feePlanAggregates._sum.balanceAmount || 0,
         recentPayments,
       },

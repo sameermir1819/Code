@@ -1,15 +1,8 @@
 "use server";
+import { requireStaffPermission } from "@/lib/auth";
 
 import { db } from "@/lib/db";
-import {
-  hashPassword,
-  verifyPassword,
-  createSessionToken,
-  setSessionCookie,
-  clearSessionCookie,
-  getSession,
-  requireAuth,
-} from "@/lib/auth";
+import { hashPassword, verifyPassword, createSessionToken, setSessionCookie, clearSessionCookie, getSession } from "@/lib/auth";
 import { logAudit } from "./audit";
 import { Role } from "@/lib/permissions";
 
@@ -70,6 +63,9 @@ export async function loginUser(formData: {
 
         // If no User record exists yet, auto-provision one for the student
         if (!user) {
+          if (matchedStudent.status !== "ACTIVE" || rawPassword !== matchedStudent.studentId) {
+            return { success: false, error: "Invalid username/email or password. Please contact administration for account setup." };
+          }
           const generatedEmail =
             matchedStudent.email || `${matchedStudent.studentId.toLowerCase()}@student.local`;
           const pwdHash = await hashPassword(matchedStudent.studentId);
@@ -109,26 +105,19 @@ export async function loginUser(formData: {
       return { success: false, error: "Invalid username/email or password" };
     }
 
-    // If student is enrolled & ACTIVE in institutional records, ensure User status is synced to ACTIVE
+    // Resolve the profile without overriding an administrator's account status.
     if (user.role === "STUDENT") {
       if (!matchedStudent) {
         matchedStudent = await db.student.findFirst({
           where: { OR: [{ userId: user.id }, { email: user.email }] },
         });
       }
-      if (matchedStudent && matchedStudent.status === "ACTIVE" && user.status !== "ACTIVE") {
-        await db.user.update({
-          where: { id: user.id },
-          data: { status: "ACTIVE" },
-        });
-        user.status = "ACTIVE";
-      }
     }
 
-    if (user.status !== "ACTIVE") {
+    if (user.status !== "ACTIVE" || user.isArchived) {
       return {
         success: false,
-        error: `Account is ${user.status.toLowerCase()}. Please contact administration.`,
+        error: "Account is unavailable. Please contact administration.",
       };
     }
 
@@ -140,36 +129,12 @@ export async function loginUser(formData: {
       isValidPassword = await verifyPassword(rawPassword, user.passwordHash);
     }
 
-    // Default password fallback for students before they change it
-    if (!isValidPassword && user.role === "STUDENT") {
-      if (!matchedStudent) {
-        matchedStudent = await db.student.findFirst({
-          where: { OR: [{ userId: user.id }, { email: user.email }] },
-        });
-      }
-
-      const defaultPasswords = ["student123", "Student@123", "password123"];
-      if (defaultPasswords.includes(rawPassword)) {
-        isValidPassword = true;
-      }
-
-      if (!isValidPassword && matchedStudent) {
-        const studentCode = matchedStudent.studentId?.trim().toLowerCase();
-        const admissionCode = matchedStudent.admissionNo?.trim().toLowerCase();
-        const enteredPwd = rawPassword.toLowerCase();
-
-        if (enteredPwd === studentCode || enteredPwd === admissionCode) {
-          isValidPassword = true;
-        }
-      }
-    }
-
     if (!isValidPassword) {
       return {
         success: false,
         error:
           user.role === "STUDENT"
-            ? "Invalid Student Code or password. If logging in for the first time, use your default password (student123 or your Student Code)."
+            ? "Invalid Student Code or password. Please contact administration if you need a password reset."
             : "Invalid email or password",
       };
     }
@@ -323,15 +288,7 @@ export async function updateUserProfile(data: {
 
 export async function getInstituteProfile() {
   const institute = await db.institute.findFirst();
-  if (!institute) {
-    return await db.institute.create({
-      data: {
-        name: "Futurex Learning",
-        code: "FL-CAMPUS-01",
-        tagline: "Excellence in Academic Coaching & Competitive Entry Test Prep",
-      },
-    });
-  }
+  if (!institute) throw new Error("No campus configured. An administrator must create a campus first.");
   return institute;
 }
 
@@ -349,7 +306,7 @@ export async function updateInstituteProfile(data: {
   currencySymbol?: string;
   logoUrl?: string;
 }) {
-  await requireAuth(["SUPER_ADMIN", "ADMIN"]);
+  await requireStaffPermission("settings.manage");
   const institute = await getInstituteProfile();
 
   const updated = await db.institute.update({

@@ -1,4 +1,5 @@
 "use client";
+import { usePermissions } from "@/components/layout/permission-provider";
 
 import { useState, useTransition, useMemo, useEffect } from "react";
 import {
@@ -121,7 +122,7 @@ export function BatchesManager({
   const [sortBy, setSortBy] = useState<"RECENT" | "NAME" | "CAPACITY" | "STUDENTS">("RECENT");
   const [viewMode, setViewMode] = useState<"GRID" | "TABLE">("GRID");
 
-  const isAdmin = userRole === "SUPER_ADMIN" || userRole === "ADMIN";
+  const isAdmin = usePermissions().includes("batches.manage");
 
   // Create Form State (No Target Course / Program)
   const [formData, setFormData] = useState({

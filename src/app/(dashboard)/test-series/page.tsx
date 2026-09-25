@@ -1,5 +1,6 @@
+import { requireStaffPermission } from "@/lib/auth";
 import React from "react";
-import { requireAuth } from "@/lib/auth";
+import { requireAuth, getEffectivePermissions } from "@/lib/auth";
 import { getTestSeriesList } from "@/server/actions/test-series";
 import { db } from "@/lib/db";
 import { TestSeriesClient } from "./test-series-client";
@@ -10,11 +11,13 @@ export const metadata = {
 };
 
 export default async function TestSeriesPage() {
+  const actor = await requireStaffPermission("test-series.view");
+  const permissions = await getEffectivePermissions(actor);
   await requireAuth();
 
   const [testSeriesData, enrolledStudents] = await Promise.all([
     getTestSeriesList(),
-    db.student.findMany({
+    permissions.includes("students.view") ? db.student.findMany({
       where: { status: "ACTIVE" },
       select: {
         id: true,
@@ -25,7 +28,7 @@ export default async function TestSeriesPage() {
         phone: true,
       },
       orderBy: { name: "asc" },
-    }),
+    }) : Promise.resolve([]),
   ]);
 
   return (

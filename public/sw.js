@@ -1,5 +1,5 @@
 // Futurex Learning Student Portal Service Worker
-const CACHE_NAME = "futurex-student-v1";
+const CACHE_NAME = "futurex-student-v2";
 const PRECACHE_ASSETS = [
   "/",
   "/apply",
@@ -46,6 +46,7 @@ self.addEventListener("fetch", (event) => {
   // Skip dynamic API and dev hot-reloads
   if (
     url.pathname.startsWith("/api") ||
+    url.pathname.startsWith("/uploads/") ||
     url.pathname.startsWith("/_next/webpack-hmr")
   ) {
     return;
@@ -83,4 +84,3 @@ self.addEventListener("fetch", (event) => {
       })
   );
 });
-

@@ -53,19 +53,19 @@ export function Header({ currentRole, userName, unreadCount = 0, campuses = [], 
   };
 
   return (
-    <header className="h-16 border-b border-border/60 bg-background/80 backdrop-blur-md px-6 flex items-center justify-between gap-4 sticky top-0 z-30 font-poppins">
+    <header className="h-16 shrink-0 border-b border-border/60 bg-background/80 backdrop-blur-md pl-14 pr-2 sm:pr-4 lg:px-6 flex items-center justify-between gap-2 lg:gap-4 sticky top-0 z-30 font-poppins print:hidden">
       {/* Global Campus Selector + Quick Search (Ctrl+K) */}
-      <div className="flex items-center gap-3 flex-1 max-w-xl">
+      <div className="flex items-center gap-2 min-w-0 flex-1 max-w-xl">
         <CampusSelector campuses={campuses} activeCampus={activeCampus} />
-        <div className="flex-1 max-w-md">
+        <div className="min-w-0 flex-1 max-w-md">
           <GlobalSearchModal />
         </div>
       </div>
 
       {/* Right controls */}
-      <div className="flex items-center gap-2.5">
+      <div className="flex shrink-0 items-center gap-0.5 sm:gap-2.5">
         {/* Active User Role Badge */}
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl border bg-muted/40 text-xs font-semibold text-foreground shadow-2xs">
+        <div className="hidden xl:flex items-center gap-2 px-3 py-1.5 rounded-xl border bg-muted/40 text-xs font-semibold text-foreground shadow-2xs">
           <Shield className="h-3.5 w-3.5 text-primary" />
           <span className="tracking-wide text-[11px] font-bold">{currentRole.replace("_", " ")}</span>
         </div>
@@ -95,7 +95,7 @@ export function Header({ currentRole, userName, unreadCount = 0, campuses = [], 
           )}
         </Button>
 
-        <div className="h-5 w-px bg-border/60 mx-1" />
+        <div className="hidden sm:block h-5 w-px bg-border/60 mx-1" />
 
         {/* Logout */}
         <Button

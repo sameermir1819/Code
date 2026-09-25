@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { Role } from "@/lib/permissions";
+import { canNavigate } from "@/lib/navigation-permissions";
 import { InstituteLogo } from "@/components/ui/institute-logo";
 import {
   LayoutDashboard,
@@ -25,9 +27,12 @@ import {
   QrCode,
   PhoneCall,
   Download,
+  Menu,
+  X,
 } from "lucide-react";
 
 interface SidebarProps {
+  permissions: string[];
   userRole: Role;
   userName: string;
   logoUrl?: string | null;
@@ -123,7 +128,7 @@ const NAV_GROUPS: NavGroup[] = [
         label: "Fee Collection",
         href: "/finance/payments",
         icon: CreditCard,
-        altHrefs: ["/finance"],
+        altHrefs: ["/finance/receipts"],
       },
       {
         label: "Outstanding Dues",
@@ -149,7 +154,7 @@ const NAV_GROUPS: NavGroup[] = [
   },
   {
     title: "ADMINISTRATION",
-    roles: ["SUPER_ADMIN", "ADMIN"],
+    roles: ["SUPER_ADMIN", "ADMIN", "ACCOUNTANT"],
     items: [
       {
         label: "Users & Roles",
@@ -177,39 +182,22 @@ const NAV_GROUPS: NavGroup[] = [
   },
 ];
 
-/**
- * Per-item visibility map for fine-grained role control.
- * Keys match `href` values. If absent, item is visible to all in its group.
- */
-const ITEM_ROLES: Record<string, Role[]> = {
-  "/students": ["SUPER_ADMIN", "ADMIN", "ACCOUNTANT", "TEACHER", "COUNSELOR", "STAFF"],
-  "/admissions": ["SUPER_ADMIN", "ADMIN"],
-  "/leads": ["SUPER_ADMIN", "ADMIN", "ACCOUNTANT", "TEACHER", "COUNSELOR", "STAFF"],
-  "/dashboard/batches": ["SUPER_ADMIN", "ADMIN", "TEACHER"],
-  "/faculty": ["SUPER_ADMIN", "ADMIN"],
-  "/teachers": ["SUPER_ADMIN", "ADMIN"],
-  "/test-series": ["SUPER_ADMIN", "ADMIN", "TEACHER"],
-  "/announcements": ["SUPER_ADMIN", "ADMIN", "TEACHER"],
-  "/data-export": ["SUPER_ADMIN", "ADMIN", "ACCOUNTANT"],
-};
-
-/** Returns true if the given role can see the nav item at `href`. */
-function canSeeItem(href: string, role: Role): boolean {
-  if (role === "SUPER_ADMIN") return true;
-  const allowed = ITEM_ROLES[href];
-  if (!allowed) return true; // no restriction → visible to all
-  return allowed.includes(role);
-}
-
-/** Returns true if the given role can see the nav group. */
-function canSeeGroup(group: NavGroup, role: Role): boolean {
-  if (role === "SUPER_ADMIN") return true;
-  if (!group.roles || group.roles.length === 0) return true;
-  return group.roles.includes(role);
-}
-
-export function Sidebar({ userRole, userName, logoUrl, instituteName = "Futurex Learning" }: SidebarProps) {
+export function Sidebar({ userRole, userName, logoUrl, permissions, instituteName = "Futurex Learning" }: SidebarProps) {
   const pathname = usePathname();
+  const mobileMenu = useRef<HTMLDialogElement>(null);
+
+  useEffect(() => {
+    mobileMenu.current?.close();
+  }, [pathname]);
+
+  useEffect(() => {
+    const desktop = window.matchMedia("(min-width: 1024px)");
+    const closeOnDesktop = () => {
+      if (desktop.matches) mobileMenu.current?.close();
+    };
+    desktop.addEventListener("change", closeOnDesktop);
+    return () => desktop.removeEventListener("change", closeOnDesktop);
+  }, []);
 
   const isActive = (item: NavItem): boolean => {
     const hrefs = [item.href, ...(item.altHrefs ?? [])];
@@ -219,8 +207,8 @@ export function Sidebar({ userRole, userName, logoUrl, instituteName = "Futurex 
     });
   };
 
-  return (
-    <aside className="w-64 bg-[#090d16] border-r border-white/[0.08] flex flex-col h-screen text-zinc-300 select-none shrink-0 font-sans">
+  const content = (
+    <aside className="w-full bg-[#090d16] border-r border-white/[0.08] flex flex-col h-full text-zinc-300 select-none shrink-0 font-sans">
       {/* ── Brand Header ────────────────────────────── */}
       <div className="h-16 flex items-center px-5 border-b border-white/[0.08] gap-3 shrink-0 bg-[#070a12]">
         <InstituteLogo logoUrl={logoUrl ?? null} name={instituteName} size={36} />
@@ -241,10 +229,9 @@ export function Sidebar({ userRole, userName, logoUrl, instituteName = "Futurex 
       {/* ── Navigation ──────────────────────────────── */}
       <nav className="flex-1 overflow-y-auto px-3 py-3 space-y-0.5 text-xs">
         {NAV_GROUPS.map((group) => {
-          if (!canSeeGroup(group, userRole)) return null;
 
           const visibleItems = group.items.filter((item) =>
-            canSeeItem(item.href, userRole)
+            canNavigate(item.href, permissions)
           );
           if (visibleItems.length === 0) return null;
 
@@ -264,6 +251,7 @@ export function Sidebar({ userRole, userName, logoUrl, instituteName = "Futurex 
                     <Link
                       key={item.href}
                       href={item.href}
+                      aria-current={active ? "page" : undefined}
                       className={cn(
                         "flex items-center gap-3 px-3 py-2 rounded-xl font-medium transition-all relative group",
                         active
@@ -287,7 +275,7 @@ export function Sidebar({ userRole, userName, logoUrl, instituteName = "Futurex 
 
       {/* ── User Footer ─────────────────────────────── */}
       <Link
-        href="/settings"
+        href="/profile"
         className="p-3.5 border-t border-white/[0.08] bg-[#070a12] flex items-center gap-2.5 hover:bg-white/[0.03] transition-colors group cursor-pointer shrink-0"
         title="Customize My Profile & Settings"
       >
@@ -308,5 +296,38 @@ export function Sidebar({ userRole, userName, logoUrl, instituteName = "Futurex 
         </div>
       </Link>
     </aside>
+  );
+
+  return (
+    <>
+      <div className="hidden lg:block w-64 h-screen shrink-0 print:hidden">{content}</div>
+      <button
+        type="button"
+        aria-label="Open navigation menu"
+        aria-haspopup="dialog"
+        onClick={() => mobileMenu.current?.showModal()}
+        className="fixed top-3.5 left-3 z-40 flex h-9 w-9 items-center justify-center rounded-lg border bg-background lg:hidden print:hidden"
+      >
+        <Menu className="h-5 w-5" />
+      </button>
+      <dialog
+        ref={mobileMenu}
+        aria-label="Main navigation"
+        className="fixed inset-y-0 left-0 m-0 h-dvh max-h-none w-72 max-w-[90vw] border-0 bg-[#090d16] p-0 text-white backdrop:bg-black/60 print:hidden"
+        onClick={(event) => {
+          if (event.target === event.currentTarget || (event.target as HTMLElement).closest("a")) {
+            mobileMenu.current?.close();
+          }
+        }}
+      >
+        <div className="flex h-12 items-center justify-between border-b border-white/10 px-4">
+          <span className="text-sm font-semibold">Navigation</span>
+          <button type="button" aria-label="Close navigation menu" onClick={() => mobileMenu.current?.close()} className="rounded-lg p-2 hover:bg-white/10">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="h-[calc(100dvh_-_3rem)]">{content}</div>
+      </dialog>
+    </>
   );
 }

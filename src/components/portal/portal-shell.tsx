@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { InstituteLogo } from "@/components/ui/institute-logo";
 import { logoutUser } from "@/server/actions/auth";
+import { canNavigate } from "@/lib/navigation-permissions";
 import {
   LayoutDashboard,
   CalendarCheck2,
@@ -39,6 +40,7 @@ interface StudentInfo {
 }
 
 interface PortalShellProps {
+  permissions: string[];
   student: StudentInfo | null;
   instituteName: string;
   instituteLogoUrl?: string | null;
@@ -119,6 +121,7 @@ const QUICK_ACTIONS = [
 ];
 
 export function PortalShell({
+  permissions,
   student,
   instituteName,
   instituteLogoUrl,
@@ -171,7 +174,7 @@ export function PortalShell({
 
           {/* Navigation Links List */}
           <nav className="space-y-1 pt-2">
-            {NAV_ITEMS.map((item) => {
+            {NAV_ITEMS.filter(item => canNavigate(item.href, permissions)).map((item) => {
               const Icon = item.icon;
               const isActive =
                 item.href === "/portal"
@@ -349,7 +352,7 @@ export function PortalShell({
               </div>
 
               <div className="grid grid-cols-1 gap-1">
-                {NAV_ITEMS.map((item) => {
+                {NAV_ITEMS.filter(item => canNavigate(item.href, permissions)).map((item) => {
                   const Icon = item.icon;
                   const isActive =
                     item.href === "/portal"
@@ -501,7 +504,7 @@ export function PortalShell({
             </div>
 
             <div className="grid grid-cols-2 gap-2.5 pt-1">
-              {QUICK_ACTIONS.map((action) => {
+              {QUICK_ACTIONS.filter(item => canNavigate(item.href, permissions)).map((action) => {
                 const Icon = action.icon;
                 const isCurrent =
                   action.href === "/portal"

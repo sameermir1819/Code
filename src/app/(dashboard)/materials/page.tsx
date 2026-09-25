@@ -1,3 +1,4 @@
+import { requireStaffPermission } from "@/lib/auth";
 import { getStudyMaterials } from "@/server/actions/materials";
 import { getCurrentUser } from "@/server/actions/auth";
 import { db } from "@/lib/db";
@@ -6,6 +7,7 @@ import { MaterialsManager } from "@/components/materials/materials-manager";
 export const dynamic = "force-dynamic";
 
 export default async function MaterialsPage() {
+  await requireStaffPermission("materials.view");
   const [materials, user, subjects] = await Promise.all([
     getStudyMaterials(),
     getCurrentUser(),

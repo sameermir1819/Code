@@ -1,88 +1,35 @@
 import { NextRequest, NextResponse } from "next/server";
 import { writeFile, mkdir } from "fs/promises";
 import { join } from "path";
-import { existsSync } from "fs";
-import { getSession } from "@/lib/auth";
-
-function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return bytes + " B";
-  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
-  return (bytes / (1024 * 1024)).toFixed(1) + " MB";
-}
-
-function detectFileType(fileName: string, mimeType: string): string {
-  const ext = fileName.split(".").pop()?.toUpperCase() || "";
-  if (["PDF"].includes(ext)) return "PDF";
-  if (["DOC", "DOCX", "ODT", "RTF", "TXT"].includes(ext)) return "DOCUMENT";
-  if (["PNG", "JPG", "JPEG", "WEBP", "SVG"].includes(ext)) return "IMAGE";
-  if (["PPT", "PPTX"].includes(ext)) return "DOCUMENT";
-  return "NOTES";
-}
+import { randomUUID } from "crypto";
+import { getSession, getEffectivePermissions } from "@/lib/auth";
+import { uploadRoot, validateUpload } from "@/lib/private-uploads";
 
 export async function POST(req: NextRequest) {
+  const session = await getSession();
+  if (!session) return NextResponse.json({ success: false, message: "Login required" }, { status: 401 });
+  if (["STUDENT", "PARENT"].includes(session.role) || !(await getEffectivePermissions(session)).includes("materials.manage")) return NextResponse.json({ success: false, message: "You cannot upload study materials" }, { status: 403 });
+  const maxSize = 50 * 1024 * 1024;
+  if (Number(req.headers.get("content-length")) > maxSize + 1024 * 1024) return NextResponse.json({ success: false, message: "File exceeds 50MB limit" }, { status: 413 });
   try {
-    const session = await getSession();
-    if (!session) {
-      return NextResponse.json(
-        { success: false, message: "Unauthorized: Active session required to upload files." },
-        { status: 401 }
-      );
-    }
-
-    const formData = await req.formData();
-    const file = formData.get("file") as File | null;
-
-    if (!file) {
-      return NextResponse.json(
-        { success: false, message: "No file was uploaded." },
-        { status: 400 }
-      );
-    }
-
-    // Maximum 50MB
-    const MAX_SIZE = 50 * 1024 * 1024;
-    if (file.size > MAX_SIZE) {
-      return NextResponse.json(
-        { success: false, message: "File exceeds 50MB size limit." },
-        { status: 400 }
-      );
-    }
-
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
-
-    // Target directory: public/uploads/materials
-    const uploadsDir = join(process.cwd(), "public", "uploads", "materials");
-    if (!existsSync(uploadsDir)) {
-      await mkdir(uploadsDir, { recursive: true });
-    }
-
-    // Clean filename: timestamp + sanitized name
-    const sanitizedBase = file.name
-      .replace(/[^a-zA-Z0-9._-]/g, "_")
-      .replace(/_{2,}/g, "_");
-    const uniqueFileName = `${Date.now()}_${sanitizedBase}`;
-    const filePath = join(uploadsDir, uniqueFileName);
-
-    await writeFile(filePath, buffer);
-
-    const publicUrl = `/api/uploads/materials/${uniqueFileName}`;
-    const formattedSize = formatFileSize(file.size);
-    const fileType = detectFileType(file.name, file.type);
-
-    return NextResponse.json({
-      success: true,
-      fileUrl: publicUrl,
-      url: publicUrl,
-      fileName: file.name,
-      fileSize: formattedSize,
-      size: formattedSize,
-      fileType,
-      message: "File uploaded successfully.",
-    });
-  } catch (error: unknown) {
-    console.error("Upload API Error:", error);
-    const message = error instanceof Error ? error.message : "Failed to upload file";
-    return NextResponse.json({ success: false, message }, { status: 500 });
+    const form = await req.formData();
+    const file = form.get("file");
+    if (!file || typeof file === "string" || !file.size || file.size > maxSize) return NextResponse.json({ success: false, message: "Choose a non-empty file up to 50MB" }, { status: 400 });
+    const buffer = Buffer.from(await file.arrayBuffer());
+    let format;
+    try { format = validateUpload(file.name, buffer); }
+    catch (error) { return NextResponse.json({ success: false, message: (error as Error).message }, { status: 400 }); }
+    const directory = join(uploadRoot, "materials");
+    await mkdir(directory, { recursive: true });
+    const name = randomUUID() + format.ext;
+    const filePath = join(directory, name);
+    await writeFile(filePath + ".json", JSON.stringify({ userId: session.id }), { flag: "wx" });
+    await writeFile(filePath, buffer, { flag: "wx" });
+    const url = "/api/uploads/materials/" + name;
+    const size = file.size >= 1024 * 1024 ? (file.size / (1024 * 1024)).toFixed(1) + " MB" : Math.ceil(file.size / 1024) + " KB";
+    return NextResponse.json({ success: true, fileUrl: url, url, fileName: file.name, fileSize: size, size, fileType: format.type });
+  } catch (error) {
+    console.error("Upload failed", error);
+    return NextResponse.json({ success: false, message: "Upload failed. Please try again." }, { status: 500 });
   }
 }

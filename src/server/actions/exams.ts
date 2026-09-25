@@ -1,7 +1,8 @@
 "use server";
+import { requireStaffPermission } from "@/lib/auth";
 
 import { db } from "@/lib/db";
-import { requireAuth } from "@/lib/auth";
+
 import { calculateGrade } from "@/lib/utils";
 import { logAudit } from "./audit";
 import { getActiveCampusId } from "./campus";
@@ -11,7 +12,7 @@ export async function getExams({
   subjectId,
   status,
 }: { batchId?: string; subjectId?: string; status?: string } = {}) {
-  await requireAuth();
+  await requireStaffPermission("exams.view");
   const campusId = await getActiveCampusId();
   const where: Record<string, unknown> = {};
 
@@ -35,7 +36,9 @@ export async function getExams({
 }
 
 export async function getExamById(id: string) {
-  await requireAuth();
+  await requireStaffPermission("results.view");
+  await requireStaffPermission("students.view");
+  await requireStaffPermission("exams.view");
   const exam = await db.exam.findUnique({
     where: { id },
     include: {
@@ -112,7 +115,7 @@ export async function createExam(data: {
   durationMinutes: number;
   instructions?: string;
 }) {
-  await requireAuth(["SUPER_ADMIN", "ADMIN", "TEACHER"]);
+  await requireStaffPermission("exams.create");
 
   const exam = await db.exam.create({
     data: {
@@ -144,7 +147,7 @@ export async function saveExamMarks(
   examId: string,
   entries: Array<{ studentId: string; marksObtained: number; remarks?: string }>
 ) {
-  const session = await requireAuth(["SUPER_ADMIN", "ADMIN", "TEACHER"]);
+  const session = await requireStaffPermission("results.manage");
   const exam = await db.exam.findUnique({ where: { id: examId } });
   if (!exam) throw new Error("Exam not found");
 
@@ -207,7 +210,7 @@ export async function saveExamMarks(
 }
 
 export async function publishExam(examId: string) {
-  await requireAuth(["SUPER_ADMIN", "ADMIN", "TEACHER"]);
+  await requireStaffPermission("results.manage");
   const exam = await db.exam.update({
     where: { id: examId },
     data: { status: "PUBLISHED" },
