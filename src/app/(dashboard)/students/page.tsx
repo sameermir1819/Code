@@ -932,7 +932,6 @@ export default function StudentsPage() {
                       value={editForm.batchId}
                       onChange={(e) => setEditForm({ ...editForm, batchId: e.target.value })}
                       disabled={isLoadingEditBatches}
-                      required={editForm.instituteId !== editingStudent.instituteId}
                       className="w-full h-9 px-3 rounded-md border border-input bg-background text-xs font-medium"
                     >
                       <option value="">-- No Batch (Unassigned) --</option>

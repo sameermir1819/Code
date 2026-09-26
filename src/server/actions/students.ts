@@ -375,10 +375,6 @@ export async function updateStudent(
         throw new Error("Selected batch must be active and belong to the student's selected campus.");
       }
     }
-    if (campusChanged && !selectedBatch) {
-      throw new Error("Select an active batch from the new campus before moving this student.");
-    }
-
     const student = await tx.student.update({
       where: { id },
       data: {
@@ -406,11 +402,16 @@ export async function updateStudent(
       });
     }
 
-    if (selectedBatch) {
+    // A campus move can intentionally leave the student unassigned. Likewise,
+    // choosing "No Batch" must close the current enrollment instead of silently
+    // keeping the old classroom assignment active.
+    if (campusChanged || batchChanged) {
       await tx.enrollment.updateMany({
         where: { studentId: id, status: "ACTIVE" },
         data: { status: "TRANSFERRED", endDate: new Date() },
       });
+    }
+    if (selectedBatch) {
       await tx.enrollment.create({
         data: {
           studentId: id,

@@ -97,6 +97,87 @@ test('archiving a teacher removes active batch and timetable assignments', async
   ]);
 });
 
+test('deleting a non-student user permanently removes the login account', async () => {
+  const deleted = [];
+  const audits = [];
+  const actor = { id: 'admin', name: 'Admin', role: 'SUPER_ADMIN' };
+  const target = {
+    id: 'teacher-user',
+    name: 'Teacher Login',
+    email: 'teacher@example.invalid',
+    role: 'TEACHER',
+    student: null,
+  };
+  const api = load('src/server/actions/users.ts', {
+    '@/lib/db': {
+      db: {
+        user: {
+          findUnique: async () => target,
+          delete: async (args) => deleted.push(args),
+        },
+      },
+    },
+    '@/lib/auth': { requirePermission: async () => actor },
+    '@/lib/permissions': { ROLE_PERMISSIONS: {} },
+    '@/lib/permission-catalog': { syncPermissionCatalog: async () => {} },
+    '@/lib/student-user': { createStudentUser: async () => {} },
+    './audit': { logAudit: async (event) => audits.push(event) },
+    './campus': { getActiveCampusId: async () => 'campus-a' },
+    'next/cache': { revalidatePath: () => {} },
+  });
+
+  assert.deepEqual(clean(await api.deleteUser(target.id)), { success: true });
+  assert.deepEqual(clean(deleted), [{ where: { id: target.id } }]);
+  assert.equal(audits[0].action, 'USER_DELETED');
+});
+
+test('moving a student campus without a batch leaves them intentionally unassigned', async () => {
+  const enrollmentUpdates = [];
+  const studentUpdates = [];
+  const userUpdates = [];
+  const actor = { id: 'admin', name: 'Admin', role: 'SUPER_ADMIN' };
+  const tx = {
+    student: {
+      findFirst: async () => ({ instituteId: 'campus-a', userId: 'student-user' }),
+      update: async (args) => {
+        studentUpdates.push(args);
+        return { id: 'student-a', studentId: 'STU-1', name: 'Student', ...args.data };
+      },
+    },
+    enrollment: {
+      findFirst: async () => ({ batchId: 'batch-a' }),
+      updateMany: async (args) => enrollmentUpdates.push(args),
+      create: async () => { throw new Error('no enrollment should be created'); },
+    },
+    batch: { findFirst: async () => null },
+    user: { updateMany: async (args) => userUpdates.push(args) },
+  };
+  const api = load('src/server/actions/students.ts', {
+    '@/lib/db': { db: { $transaction: async (callback) => callback(tx) } },
+    '@/lib/auth': {
+      requireStaffPermission: async () => actor,
+      requireAuth: async () => actor,
+      getEffectivePermissions: async () => [],
+    },
+    '@/lib/redact-related-data': { redactRelatedData: (value) => value },
+    './audit': { logAudit: async () => {} },
+    './campus': { getActiveCampusId: async () => 'campus-a' },
+    '@/lib/student-user': { createStudentUser: async () => {} },
+    '@/lib/campus-scope': scope,
+    '@/lib/student-identifiers': { allocateStudentIdentifiers: async () => ({}) },
+  });
+
+  const result = await api.updateStudent('student-a', {
+    instituteId: 'campus-b',
+    batchId: '',
+  });
+  assert.equal(result.success, true);
+  assert.equal(studentUpdates[0].data.instituteId, 'campus-b');
+  assert.equal(userUpdates[0].data.instituteId, 'campus-b');
+  assert.equal(enrollmentUpdates.length, 1);
+  assert.equal(enrollmentUpdates[0].data.status, 'TRANSFERRED');
+});
+
 test('batch results omit archived teachers and their timetable slots', async () => {
   let query;
   const actor = { id: 'admin', name: 'Admin', role: 'SUPER_ADMIN' };

@@ -881,6 +881,48 @@ export async function archiveUser(userId: string) {
 }
 
 // =========================================================================
+// 7B. DELETE USER ACCOUNT (Permanent credential removal)
+// =========================================================================
+export async function deleteUser(userId: string) {
+  const actor = await requirePermission("users.delete");
+
+  const targetUser = await db.user.findUnique({
+    where: { id: userId },
+    include: { student: { select: { id: true } } },
+  });
+  if (!targetUser) throw new Error("Target user not found");
+
+  if (targetUser.role === "SUPER_ADMIN") {
+    throw new Error("FORBIDDEN: Super Administrator accounts are protected and cannot be deleted.");
+  }
+  if (targetUser.role === "ADMIN" && actor.role !== "SUPER_ADMIN") {
+    throw new Error("FORBIDDEN: Only Super Administrators can delete Administrator accounts.");
+  }
+
+  // Student login and academic record are one managed entity in this system.
+  // Its dedicated action performs the additional permission and cleanup checks.
+  if (targetUser.role === "STUDENT" && targetUser.student) {
+    return deleteStudentUser(userId);
+  }
+
+  await db.user.delete({ where: { id: userId } });
+
+  await logAudit({
+    action: "USER_DELETED",
+    entity: "User",
+    entityId: userId,
+    details: `${actor.name} permanently deleted user account ${targetUser.email}. Linked faculty or parent records were preserved without login access.`,
+  });
+
+  revalidatePath("/", "layout");
+  revalidatePath("/dashboard/users");
+  revalidatePath("/users");
+  revalidatePath("/faculty");
+  revalidatePath("/dashboard/faculty");
+  return { success: true };
+}
+
+// =========================================================================
 // 8. BULK UPDATE STATUS (Protected against Super Admin)
 // =========================================================================
 export async function bulkUpdateUsersStatus(

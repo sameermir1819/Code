@@ -6,7 +6,7 @@ import {
   getUsers,
   changeUserStatus,
   changeUserRole,
-  archiveUser,
+  deleteUser,
   bulkUpdateUsersStatus,
   exportUsersCSV,
   provisionStudentUserAccounts,
@@ -255,8 +255,8 @@ export function UsersTable({
     });
   };
 
-  // Action: Archive User
-  const promptArchive = (user: any) => {
+  // Action: Delete User
+  const promptDelete = (user: any) => {
     if (user.role === "STUDENT" && user.student) {
       setConfirmModalConfig({
         isOpen: true,
@@ -276,13 +276,13 @@ export function UsersTable({
 
     setConfirmModalConfig({
       isOpen: true,
-      title: `Archive Account for ${user.name}?`,
-      description: `This account will be archived and hidden from the standard directory. Access credentials will be disabled while preserving relational integrity across all modules.`,
-      confirmLabel: "Archive User",
+      title: `Delete Account for ${user.name}?`,
+      description: `This permanently deletes the login account. Linked faculty or parent records and historical audit entries will remain preserved without login access. This cannot be undone.`,
+      confirmLabel: "Delete User",
       variant: "destructive",
       action: async () => {
-        await archiveUser(user.id);
-        setSuccessMsg(`User ${user.name} archived.`);
+        await deleteUser(user.id);
+        setSuccessMsg(`User ${user.name} deleted.`);
         refreshUsers();
       },
     });
@@ -888,11 +888,11 @@ export function UsersTable({
                             !isSuperAdmin &&
                             (u.role !== "STUDENT" || canDeleteStudents) && (
                             <button
-                              onClick={() => promptArchive(u)}
+                              onClick={() => promptDelete(u)}
                               title={
                                 u.role === "STUDENT" && u.student
                                   ? "Delete Student and User"
-                                  : "Archive User"
+                                  : "Delete User"
                               }
                               className="p-1.5 rounded hover:bg-red-100 text-red-600 dark:hover:bg-red-950/50 transition-colors"
                             >
@@ -1029,7 +1029,7 @@ export function UsersTable({
           setViewingUserId(null);
           setEditingUser(u);
         }}
-        onDelete={(u) => promptArchive(u)}
+        onDelete={(u) => promptDelete(u)}
         actorRole={actorRole}
         availableSubjects={availableSubjects}
         canUpdateUsers={canUpdateUsers}
