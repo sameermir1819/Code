@@ -3,6 +3,7 @@ import Link from "next/link";
 import { db } from "@/lib/db";
 import { getAllCampuses } from "@/server/actions/campus";
 import { CalendarPlus, MapPin } from "lucide-react";
+import { TimetableLocationFilter } from "@/components/academics/timetable-location-filter";
 
 export const dynamic = "force-dynamic";
 export default async function TimetablePage({
@@ -41,16 +42,7 @@ export default async function TimetablePage({
       <div><h1 className="text-2xl font-bold">Classes &amp; Timetable</h1><p className="text-sm text-muted-foreground">Global class schedule across all locations. Open a batch to manage its schedule.</p></div>
       {canManage && <Link href="/dashboard/batches" className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-sm hover:bg-primary/90"><CalendarPlus className="h-4 w-4" />Manage Classes by Batch</Link>}
     </div>
-    <form method="get" className="flex flex-col gap-3 rounded-xl border bg-card p-4 sm:flex-row sm:items-end">
-      <div className="flex-1">
-        <label htmlFor="timetable-location" className="mb-1.5 block text-xs font-semibold">Filter by location</label>
-        <select id="timetable-location" name="location" defaultValue={location} className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
-          <option value="GLOBAL">All Locations (Global)</option>
-          {campuses.map((campus) => <option key={campus.id} value={campus.id}>{campus.name}{campus.city ? ` — ${campus.city}` : ""}</option>)}
-        </select>
-      </div>
-      <button type="submit" className="h-10 rounded-md bg-primary px-5 text-sm font-semibold text-primary-foreground">Apply Filter</button>
-    </form>
+    <TimetableLocationFilter campuses={campuses} value={location} />
     {!slots.length ? <p className="rounded-xl border bg-card p-6 text-muted-foreground">No classes scheduled yet.</p> : days.map((day) => {
       const classes = slots.filter((slot) => slot.dayOfWeek === day);
       if (!classes.length) return null;
