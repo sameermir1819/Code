@@ -345,6 +345,14 @@ test('material upload ownership tokens are bound to user and file and expire', (
   assert.equal(uploads.verifyMaterialUploadToken(token + 'x', fileUrl, 'teacher-a'), false);
 });
 
+test('batch study-material form supports both device upload and drive links', () => {
+  const source = fs.readFileSync(path.join(__dirname, '..', 'src/components/academics/batch-detail-view.tsx'), 'utf8');
+  assert.match(source, /Google Drive \/ Link/);
+  assert.match(source, /type="url"/);
+  assert.match(source, /fileType: "LINK"/);
+  assert.match(source, /batchId: batch\.id/);
+});
+
 test('finance metrics use remaining plan balances and refund-aware collections for one campus', async () => {
   const db = {
     payment: { aggregate: async ({ where }) => { assert.equal(where.student.instituteId, 'own'); return { _sum: { amount: 100 }, _count: 1 }; } },

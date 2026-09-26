@@ -40,6 +40,7 @@ import {
   Paperclip,
   ShieldCheck,
   MessageCircle,
+  Link as LinkIcon,
 } from "lucide-react";
 
 interface BatchDetailViewProps {
@@ -125,6 +126,7 @@ export function BatchDetailView({
   // ── Upload Material Form & File State ──
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [materialSource, setMaterialSource] = useState<"file" | "link">("file");
   const [isUploadingFile, setIsUploadingFile] = useState(false);
   const [newMaterial, setNewMaterial] = useState({
     title: "",
@@ -251,7 +253,12 @@ export function BatchDetailView({
     }
 
     if (!selectedFile && !newMaterial.fileUrl.trim()) {
-      setFeedback({ type: "error", message: "Please select a file from your device to upload." });
+      setFeedback({
+        type: "error",
+        message: materialSource === "link"
+          ? "Please paste a Google Drive or web link."
+          : "Please select a file from your device to upload.",
+      });
       return;
     }
 
@@ -261,6 +268,11 @@ export function BatchDetailView({
       let finalUploadToken = newMaterial.uploadToken;
       let finalFileSize = newMaterial.fileSize;
       let finalFileType = newMaterial.fileType;
+
+      if (materialSource === "link") {
+        finalFileType = "LINK";
+        finalFileSize = "Web Link";
+      }
 
       if (selectedFile) {
         const fd = new FormData();
@@ -305,6 +317,7 @@ export function BatchDetailView({
       setFeedback({ type: "success", message: `Study note "${newMaterial.title}" uploaded successfully!` });
       setIsUploadMaterialModalOpen(false);
       setSelectedFile(null);
+      setMaterialSource("file");
       setNewMaterial({
         title: "",
         description: "",
@@ -1216,6 +1229,43 @@ export function BatchDetailView({
             </div>
 
             <form onSubmit={handleUploadMaterial} className="space-y-3 text-xs">
+              <div className="grid grid-cols-2 rounded-lg border bg-muted p-1 font-semibold">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMaterialSource("file");
+                    setNewMaterial((previous) => ({
+                      ...previous,
+                      fileUrl: "",
+                      uploadToken: "",
+                      fileSize: "",
+                      fileType: previous.fileType === "LINK" ? "PDF" : previous.fileType,
+                    }));
+                  }}
+                  className={`flex items-center justify-center gap-1.5 rounded-md py-2 ${materialSource === "file" ? "bg-card text-primary shadow-sm" : "text-muted-foreground"}`}
+                >
+                  <Upload className="h-3.5 w-3.5" /> Upload File
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMaterialSource("link");
+                    setSelectedFile(null);
+                    if (fileInputRef.current) fileInputRef.current.value = "";
+                    setNewMaterial((previous) => ({
+                      ...previous,
+                      fileUrl: "",
+                      uploadToken: "",
+                      fileSize: "Web Link",
+                      fileType: "LINK",
+                    }));
+                  }}
+                  className={`flex items-center justify-center gap-1.5 rounded-md py-2 ${materialSource === "link" ? "bg-card text-primary shadow-sm" : "text-muted-foreground"}`}
+                >
+                  <LinkIcon className="h-3.5 w-3.5" /> Google Drive / Link
+                </button>
+              </div>
+
               <div>
                 <label className="font-semibold text-muted-foreground block mb-1">Document Title *</label>
                 <input
@@ -1259,10 +1309,11 @@ export function BatchDetailView({
                 </div>
               </div>
 
-              <div>
+              {materialSource === "file" ? <div>
                 <label className="font-semibold text-muted-foreground block mb-1">Select File from Device *</label>
                 <div className="flex items-center gap-2">
                   <input
+                    ref={fileInputRef}
                     type="file"
                     onChange={handleFileChange}
                     className="w-full px-3 py-1.5 rounded-lg border bg-background text-xs"
@@ -1274,7 +1325,26 @@ export function BatchDetailView({
                     Selected: {selectedFile.name} ({(selectedFile.size / 1024).toFixed(1)} KB)
                   </p>
                 )}
-              </div>
+              </div> : <div>
+                <label className="font-semibold text-muted-foreground block mb-1">Google Drive / Web Link *</label>
+                <input
+                  type="url"
+                  required
+                  value={newMaterial.fileUrl}
+                  onChange={(event) => setNewMaterial({
+                    ...newMaterial,
+                    fileUrl: event.target.value,
+                    uploadToken: "",
+                    fileType: "LINK",
+                    fileSize: "Web Link",
+                  })}
+                  placeholder="https://drive.google.com/file/d/..."
+                  className="w-full px-3 py-2 rounded-lg border bg-background text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  Google Drive sharing ko “Anyone with the link” par set karein, ya koi HTTPS notes link paste karein.
+                </p>
+              </div>}
 
               <div>
                 <label className="font-semibold text-muted-foreground block mb-1">Description / Instructions</label>
@@ -1298,7 +1368,7 @@ export function BatchDetailView({
                   Cancel
                 </Button>
                 <Button type="submit" size="sm" disabled={isUploadingFile} className="cursor-pointer">
-                  {isUploadingFile ? "Uploading..." : "Upload to Drive"}
+                  {isUploadingFile ? "Saving..." : materialSource === "link" ? "Add Drive Link" : "Upload to Batch"}
                 </Button>
               </div>
             </form>
