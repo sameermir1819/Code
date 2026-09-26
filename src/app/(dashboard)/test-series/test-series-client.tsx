@@ -85,7 +85,7 @@ interface TestSeriesExamItem {
 
 interface TestSeriesItem {
   id: string;
-  instituteId: string;
+  instituteId: string | null;
   institute?: { id: string; name: string; code: string; city?: string | null };
   title: string;
   code: string;
@@ -185,7 +185,7 @@ export function TestSeriesClient({ seriesList, stats, enrolledStudents, availabl
 
   // Create Series Form
   const [newSeriesData, setNewSeriesData] = useState(() =>
-    getDefaultSeriesData(availableCampuses[0]?.id || "")
+    getDefaultSeriesData("GLOBAL")
   );
 
   // Schedule Exam Form
@@ -207,8 +207,11 @@ export function TestSeriesClient({ seriesList, stats, enrolledStudents, availabl
   // Register Candidate Form
   const [regData, setRegData] = useState({
     testSeriesId: seriesList[0]?.id || "",
+    instituteId: seriesList[0]?.instituteId || availableCampuses[0]?.id || "",
     candidateType: "enrolled" as "enrolled" | "external",
-    studentId: enrolledStudents.find((student) => student.instituteId === seriesList[0]?.instituteId)?.id || "",
+    studentId: enrolledStudents.find(
+      (student) => !seriesList[0]?.instituteId || student.instituteId === seriesList[0]?.instituteId
+    )?.id || "",
     externalStudentName: "",
     externalStudentPhone: "",
     externalStudentEmail: "",
@@ -250,12 +253,12 @@ export function TestSeriesClient({ seriesList, stats, enrolledStudents, availabl
   const candidateBatches = Array.from(
     new Map(
       enrolledStudents
-        .filter((student) => !registrationSeries || student.instituteId === registrationSeries.instituteId)
+        .filter((student) => !registrationSeries?.instituteId || student.instituteId === registrationSeries.instituteId)
         .flatMap((student) => student.enrollments.map((item) => [item.batch.id, item.batch] as const))
     ).values()
   ).sort((a, b) => a.name.localeCompare(b.name));
   const eligibleStudents = enrolledStudents.filter((student) => {
-    if (registrationSeries && student.instituteId !== registrationSeries.instituteId) return false;
+    if (registrationSeries?.instituteId && student.instituteId !== registrationSeries.instituteId) return false;
     if (candidateBatch !== "ALL" && !student.enrollments.some((item) => item.batchId === candidateBatch)) return false;
     const query = candidateSearch.trim().toLowerCase();
     if (!query) return true;
@@ -278,12 +281,12 @@ export function TestSeriesClient({ seriesList, stats, enrolledStudents, availabl
   });
 
   const visibleSeries = seriesList.filter(
-    (series) => locationFilter === "GLOBAL" || series.instituteId === locationFilter
+    (series) => locationFilter === "GLOBAL" || !series.instituteId || series.instituteId === locationFilter
   );
 
   const openCreateSeriesModal = () => {
     setEditingSeries(null);
-    setNewSeriesData(getDefaultSeriesData(availableCampuses[0]?.id || ""));
+    setNewSeriesData(getDefaultSeriesData("GLOBAL"));
     setActionErrorMsg("");
     setShowCreateSeriesModal(true);
   };
@@ -296,7 +299,7 @@ export function TestSeriesClient({ seriesList, stats, enrolledStudents, availabl
   const handleOpenEditSeries = (series: TestSeriesItem) => {
     setEditingSeries(series);
     setNewSeriesData({
-      instituteId: series.instituteId,
+      instituteId: series.instituteId || "GLOBAL",
       title: series.title,
       code: series.code,
       description: series.description || "",
@@ -384,6 +387,7 @@ export function TestSeriesClient({ seriesList, stats, enrolledStudents, availabl
     startTransition(async () => {
       const res = await registerStudentForTestSeries({
         testSeriesId: regData.testSeriesId,
+        instituteId: regData.instituteId,
         studentId: regData.candidateType === "enrolled" ? regData.studentId : null,
         externalStudentName: regData.candidateType === "external" ? regData.externalStudentName : null,
         externalStudentPhone: regData.candidateType === "external" ? regData.externalStudentPhone : null,
@@ -839,7 +843,7 @@ export function TestSeriesClient({ seriesList, stats, enrolledStudents, availabl
                       {series.targetExam}
                     </Badge>
                     <Badge variant="outline" className="text-[10px]">
-                      {series.institute?.name || "Location"}
+                      {series.institute?.name || "Global — All Locations"}
                     </Badge>
                     <div className="flex items-center gap-1.5">
                       <span className="text-xs font-mono font-semibold text-muted-foreground">{series.code}</span>
@@ -1708,7 +1712,7 @@ export function TestSeriesClient({ seriesList, stats, enrolledStudents, availabl
                   onChange={(event) => setNewSeriesData({ ...newSeriesData, instituteId: event.target.value })}
                   className="w-full h-9 px-3 rounded-md border border-input bg-background text-xs"
                 >
-                  <option value="">Select location</option>
+                  <option value="GLOBAL">Global — All Locations</option>
                   {availableCampuses.map((campus) => (
                     <option key={campus.id} value={campus.id}>
                       {campus.name} ({campus.code})
@@ -2066,11 +2070,14 @@ export function TestSeriesClient({ seriesList, stats, enrolledStudents, availabl
                   value={regData.testSeriesId}
                   onChange={(e) => {
                     const s = seriesList.find((item) => item.id === e.target.value);
-                    const firstStudent = enrolledStudents.find((student) => student.instituteId === s?.instituteId);
+                    const firstStudent = enrolledStudents.find(
+                      (student) => !s?.instituteId || student.instituteId === s.instituteId
+                    );
                     setCandidateBatch("ALL");
                     setRegData({
                       ...regData,
                       testSeriesId: e.target.value,
+                      instituteId: s?.instituteId || firstStudent?.instituteId || availableCampuses[0]?.id || "",
                       feeAmount: s?.fee || 2500,
                       studentId: firstStudent?.id || "",
                     });
@@ -2079,7 +2086,7 @@ export function TestSeriesClient({ seriesList, stats, enrolledStudents, availabl
                 >
                   {seriesList.map((s) => (
                     <option key={s.id} value={s.id}>
-                      {s.code}: {s.title} (Fee: ₹{s.fee})
+                      {s.code}: {s.title} — {s.institute?.name || "Global"} (Fee: ₹{s.fee})
                     </option>
                   ))}
                 </select>
@@ -2131,7 +2138,7 @@ export function TestSeriesClient({ seriesList, stats, enrolledStudents, availabl
                       onChange={(e) => {
                         const batchId = e.target.value;
                         const first = enrolledStudents.find((student) =>
-                          (!registrationSeries || student.instituteId === registrationSeries.instituteId) &&
+                          (!registrationSeries?.instituteId || student.instituteId === registrationSeries.instituteId) &&
                           (batchId === "ALL" || student.enrollments.some((item) => item.batchId === batchId))
                         );
                         setCandidateBatch(batchId);
@@ -2165,6 +2172,22 @@ export function TestSeriesClient({ seriesList, stats, enrolledStudents, availabl
                 </div>
               ) : (
                 <div className="space-y-3 p-3 rounded-xl bg-muted/40 border">
+                  {!registrationSeries?.instituteId && (
+                    <div className="space-y-1">
+                      <label className="font-semibold text-foreground">Registration Location <span className="text-destructive">*</span></label>
+                      <select
+                        required
+                        value={regData.instituteId}
+                        onChange={(e) => setRegData({ ...regData, instituteId: e.target.value })}
+                        className="h-9 w-full rounded-md border border-input bg-background px-3 text-xs"
+                      >
+                        <option value="">Select location</option>
+                        {availableCampuses.map((campus) => (
+                          <option key={campus.id} value={campus.id}>{campus.name}{campus.city ? ` — ${campus.city}` : ""}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
                   <div className="space-y-1">
                     <label className="font-semibold text-foreground">Full Legal Name <span className="text-destructive">*</span></label>
                     <Input

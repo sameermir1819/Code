@@ -9,6 +9,7 @@ import { redactRelatedData } from "@/lib/redact-related-data";
 import { requireAuth, getEffectivePermissions } from "@/lib/auth";
 import { resolveCurrentStudent } from "@/server/actions/portal";
 import { revalidatePath } from "next/cache";
+import type { SessionUser } from "@/lib/permissions";
 
 type TestSeriesFormInput = {
   instituteId?: string;
@@ -34,6 +35,24 @@ function revalidateTestSeriesPaths() {
 function parseSeriesDate(value: string) {
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function resolveTestSeriesInstituteId(session: SessionUser, requestedId?: string | null): string | null {
+  if (!requestedId || requestedId === "GLOBAL") {
+    if (session.role !== "SUPER_ADMIN" && session.instituteId) {
+      throw new Error("Only central administration can create a Global Test Series.");
+    }
+    return null;
+  }
+  return authorizedCampusId(session, requestedId);
+}
+
+function assertTestSeriesManageAccess(session: SessionUser, instituteId: string | null) {
+  if (instituteId) return assertCampusAccess(session, instituteId);
+  if (session.role !== "SUPER_ADMIN" && session.instituteId) {
+    throw new Error("Only central administration can manage a Global Test Series.");
+  }
+  return null;
 }
 
 /**
@@ -138,7 +157,7 @@ export async function getTestSeriesDetails(id: string) {
  */
 export async function createTestSeries(formData: TestSeriesFormInput) {
   const session = await requireStaffPermission("test-series.manage");
-  const instituteId = authorizedCampusId(
+  const instituteId = resolveTestSeriesInstituteId(
     session,
     formData.instituteId || (await getActiveCampusId())
   );
@@ -218,15 +237,10 @@ export async function updateTestSeries(id: string, formData: TestSeriesFormInput
     if (!existingSeries) {
       return { success: false, error: "Test Series not found." };
     }
-    if (
-      session.role !== "SUPER_ADMIN" &&
-      session.instituteId !== existingSeries.instituteId
-    ) {
-      return { success: false, error: "You cannot update another location's Test Series." };
-    }
-    const instituteId = authorizedCampusId(
+    assertTestSeriesManageAccess(session, existingSeries.instituteId);
+    const instituteId = resolveTestSeriesInstituteId(
       session,
-      formData.instituteId || existingSeries.instituteId
+      formData.instituteId === undefined ? existingSeries.instituteId : formData.instituteId
     );
     const updatedSeries = await db.testSeries.update({
       where: { id },
@@ -274,7 +288,7 @@ export async function deleteTestSeries(id: string) {
     if (!existing) {
       return { success: false, error: "Test Series not found." };
     }
-    assertCampusAccess(session, existing.instituteId);
+    assertTestSeriesManageAccess(session, existing.instituteId);
 
     await db.testSeries.delete({ where: { id } });
 
@@ -320,7 +334,7 @@ export async function createTestSeriesExam(formData: {
     if (!series) {
       return { success: false, error: "Test Series not found." };
     }
-    assertCampusAccess(session, series.instituteId);
+    assertTestSeriesManageAccess(session, series.instituteId);
     const exam = await db.testSeriesExam.create({
       data: {
         testSeriesId: formData.testSeriesId,
@@ -355,6 +369,7 @@ export async function createTestSeriesExam(formData: {
  */
 export async function registerStudentForTestSeries(formData: {
   testSeriesId: string;
+  instituteId?: string | null;
   studentId?: string | null;
   externalStudentName?: string | null;
   externalStudentPhone?: string | null;
@@ -397,9 +412,15 @@ export async function registerStudentForTestSeries(formData: {
     if (!series) {
       return { success: false, error: "Test Series not found." };
     }
-    assertCampusAccess(session, series.instituteId);
+    let lead: {
+      id: string;
+      instituteId: string | null;
+      interestType: string;
+      testSeriesId: string | null;
+      isConverted: boolean;
+    } | null = null;
     if (formData.leadId) {
-      const lead = await db.lead.findUnique({
+      lead = await db.lead.findUnique({
         where: { id: formData.leadId },
         select: {
           id: true,
@@ -418,18 +439,35 @@ export async function registerStudentForTestSeries(formData: {
       if (lead.testSeriesId && lead.testSeriesId !== series.id) {
         return { success: false, error: "Lead must be enrolled in its selected Test Series." };
       }
-      if (lead.instituteId && lead.instituteId !== series.instituteId) {
-        return { success: false, error: "Lead and Test Series must belong to the same location." };
+    }
+    let selectedStudent: { id: string; instituteId: string } | null = null;
+    if (formData.studentId) {
+      selectedStudent = await db.student.findUnique({
+        where: { id: formData.studentId },
+        select: { id: true, instituteId: true },
+      });
+      if (!selectedStudent) {
+        return { success: false, error: "Selected student was not found." };
       }
     }
-    if (formData.studentId) {
-      const student = await db.student.findFirst({
-        where: { id: formData.studentId, instituteId: series.instituteId },
-        select: { id: true },
-      });
-      if (!student) {
-        return { success: false, error: "Student and test series must belong to the same location." };
-      }
+    const registrationInstituteId = selectedStudent?.instituteId
+      || lead?.instituteId
+      || formData.instituteId
+      || series.instituteId
+      || session.instituteId;
+    if (!registrationInstituteId || registrationInstituteId === "GLOBAL") {
+      return { success: false, error: "Select the candidate's registration location." };
+    }
+    assertCampusAccess(session, registrationInstituteId);
+    if (series.instituteId && series.instituteId !== registrationInstituteId) {
+      return { success: false, error: "Candidate and Test Series must belong to the same location." };
+    }
+    const registrationInstitute = await db.institute.findUnique({
+      where: { id: registrationInstituteId },
+      select: { code: true },
+    });
+    if (!registrationInstitute) {
+      return { success: false, error: "Selected registration location was not found." };
     }
     const count = await db.testSeriesRegistration.count({
       where: { testSeriesId: formData.testSeriesId },
@@ -442,7 +480,7 @@ export async function registerStudentForTestSeries(formData: {
     if (!formData.studentId) {
       const phone = formData.externalStudentPhone!.trim().replace(/\s+/g, " ");
       const existingCandidate = await db.externalCandidate.findUnique({
-        where: { instituteId_phone: { instituteId: series.instituteId, phone } },
+        where: { instituteId_phone: { instituteId: registrationInstituteId, phone } },
         select: { id: true },
       });
       if (existingCandidate) {
@@ -461,11 +499,11 @@ export async function registerStudentForTestSeries(formData: {
         });
         externalCandidateId = candidate.id;
       } else {
-        const candidateCount = await db.externalCandidate.count({ where: { instituteId: series.instituteId } });
+        const candidateCount = await db.externalCandidate.count({ where: { instituteId: registrationInstituteId } });
         const candidate = await db.externalCandidate.create({
           data: {
-            instituteId: series.instituteId,
-            candidateNo: `EXT-${series.institute.code}-${year}-${String(candidateCount + 1).padStart(5, "0")}`,
+            instituteId: registrationInstituteId,
+            candidateNo: `EXT-${registrationInstitute.code}-${year}-${String(candidateCount + 1).padStart(5, "0")}`,
             name: formData.externalStudentName!.trim(),
             phone,
             email: formData.externalStudentEmail?.trim().toLowerCase() || null,
@@ -580,14 +618,11 @@ export async function submitTestResults(
     if (!exam) {
       return { success: false, error: "Test Series exam not found." };
     }
-    const targetCampusId = exam.testSeries?.instituteId || actorCampusId;
-    if (!targetCampusId) {
-      return { success: false, error: "Test Series location could not be resolved." };
-    }
-    const instituteId = authorizedCampusId(session, targetCampusId);
-    if (instituteId !== targetCampusId) {
-      return { success: false, error: "You cannot manage results for another location." };
-    }
+    // The fallback keeps compatibility with older records/tests that do not load
+    // the relation; real global series are managed only by central administration.
+    const instituteId = exam.testSeries
+      ? assertTestSeriesManageAccess(session, exam.testSeries.instituteId)
+      : authorizedCampusId(session, actorCampusId || "");
     const invalidCounts = results.some((result) =>
       [result.correctCount, result.incorrectCount, result.unattemptedCount].some(
         (value) => value !== undefined && (!Number.isInteger(value) || value < 0)
@@ -612,7 +647,9 @@ export async function submitTestResults(
       where: {
         id: { in: registrationIds },
         testSeriesId: exam.testSeriesId,
-        OR: [{ studentId: null }, { student: { instituteId } }],
+        ...(instituteId
+          ? { OR: [{ studentId: null }, { student: { instituteId } }] }
+          : {}),
       },
       select: { id: true },
     });
@@ -745,7 +782,7 @@ export async function getStudentPortalTestSeries() {
   const registered = await db.testSeriesRegistration.findMany({
     where: {
       studentId: student.id,
-      testSeries: { is: { instituteId: student.instituteId } },
+      testSeries: { is: { OR: [{ instituteId: student.instituteId }, { instituteId: null }] } },
     },
     include: {
       testSeries: {
@@ -770,7 +807,7 @@ export async function getStudentPortalTestSeries() {
   const available = await db.testSeries.findMany({
     where: {
       id: { notIn: registeredSeriesIds },
-      instituteId: student.instituteId,
+      OR: [{ instituteId: student.instituteId }, { instituteId: null }],
       status: "ACTIVE",
     },
     include: {
@@ -805,7 +842,11 @@ export async function enrollStudentSelf(testSeriesId: string, paymentMethod: str
     where: { id: testSeriesId },
   });
 
-  if (!series || series.status !== "ACTIVE" || series.instituteId !== student.instituteId) {
+  if (
+    !series ||
+    series.status !== "ACTIVE" ||
+    (series.instituteId && series.instituteId !== student.instituteId)
+  ) {
     return { success: false, error: "Test Series not available." };
   }
 
@@ -878,7 +919,15 @@ export async function updateTestSeriesPayment(
     if (!existing) {
       return { success: false, error: "Candidate registration not found." };
     }
-    assertCampusAccess(session, existing.testSeries.instituteId);
+    const paymentCampusId = existing.studentId
+      ? (await db.student.findUnique({ where: { id: existing.studentId }, select: { instituteId: true } }))?.instituteId
+      : existing.externalCandidateId
+        ? (await db.externalCandidate.findUnique({ where: { id: existing.externalCandidateId }, select: { instituteId: true } }))?.instituteId
+        : existing.testSeries.instituteId;
+    if (!paymentCampusId) {
+      return { success: false, error: "Candidate registration location could not be resolved." };
+    }
+    assertCampusAccess(session, paymentCampusId);
     if (existing.refundedAmount > 0) {
       return { success: false, error: "Refunded registrations must be managed through the Refund action." };
     }

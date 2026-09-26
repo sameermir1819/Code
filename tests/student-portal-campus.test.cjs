@@ -104,7 +104,7 @@ test('student overview scopes related records and announcements to enrolled camp
   });
 });
 
-test('student portal only lists test series from the student campus', async () => {
+test('student portal lists its campus and global test series', async () => {
   const queries = {};
   const seriesMocks = {
     '@/lib/auth': {
@@ -133,8 +133,11 @@ test('student portal only lists test series from the student campus', async () =
 
   assert.deepEqual(JSON.parse(JSON.stringify(queries.registrations)), {
     studentId: student.id,
-    testSeries: { is: { instituteId: student.instituteId } },
+    testSeries: { is: { OR: [{ instituteId: student.instituteId }, { instituteId: null }] } },
   });
-  assert.equal(queries.available.instituteId, student.instituteId);
+  assert.deepEqual(JSON.parse(JSON.stringify(queries.available.OR)), [
+    { instituteId: student.instituteId },
+    { instituteId: null },
+  ]);
   assert.equal(queries.available.status, 'ACTIVE');
 });

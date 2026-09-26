@@ -1606,7 +1606,7 @@ export default function LeadsPage() {
                       <option value="">Select Test Series</option>
                       {testSeriesOptions.map((series) => (
                         <option key={series.id} value={series.id}>
-                          {series.title} ({series.code}) — {series.institute.name} — ₹{Number(series.fee).toLocaleString("en-IN")}
+                          {series.title} ({series.code}) — {series.institute?.name || "Global — All Locations"} — ₹{Number(series.fee).toLocaleString("en-IN")}
                         </option>
                       ))}
                     </select>
@@ -1808,7 +1808,7 @@ export default function LeadsPage() {
                   <option value="">Select Test Series</option>
                   {testSeriesOptions.map((series) => (
                     <option key={series.id} value={series.id}>
-                      {series.title} ({series.code}) — {series.institute.name}
+                      {series.title} ({series.code}) — {series.institute?.name || "Global — All Locations"}
                     </option>
                   ))}
                 </select>

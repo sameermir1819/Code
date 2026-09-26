@@ -810,7 +810,7 @@ model LeadFollowUp {
 // -------------------------------------------------------------
 model TestSeries {
   id              String   @id @default(cuid())
-  instituteId     String
+  instituteId     String?
   title           String // e.g. "NEET 2026 All India Major Mock Series"
   code            String   @unique // e.g. "TS-2026-NEET-01"
   description     String?
@@ -824,7 +824,7 @@ model TestSeries {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  institute     Institute                @relation(fields: [instituteId], references: [id], onDelete: Cascade)
+  institute     Institute?               @relation(fields: [instituteId], references: [id], onDelete: Cascade)
   exams         TestSeriesExam[]
   registrations TestSeriesRegistration[]
 

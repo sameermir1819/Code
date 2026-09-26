@@ -31,7 +31,7 @@ interface BatchOption {
 
 interface TestSeriesOption {
   id: string;
-  instituteId: string;
+  instituteId: string | null;
   title: string;
   code: string;
   targetExam: string;
@@ -99,7 +99,9 @@ export function AdmissionApplicationForm({
     notes: "",
   });
   const campusBatches = batches.filter((batch) => batch.instituteId === formData.campusId);
-  const campusTestSeries = testSeries.filter((series) => series.instituteId === formData.campusId);
+  const campusTestSeries = testSeries.filter(
+    (series) => !series.instituteId || series.instituteId === formData.campusId
+  );
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -117,7 +119,7 @@ export function AdmissionApplicationForm({
     if (matchedSeries) {
       setFormData((current) => ({
         ...current,
-        campusId: matchedSeries.instituteId,
+        campusId: matchedSeries.instituteId || current.campusId,
         interestType: "TEST_SERIES",
         batchId: "",
         testSeriesId: matchedSeries.id,
@@ -415,7 +417,9 @@ export function AdmissionApplicationForm({
                     ...formData,
                     campusId,
                     batchId: batches.find((batch) => batch.instituteId === campusId)?.id || "",
-                    testSeriesId: testSeries.find((series) => series.instituteId === campusId)?.id || "",
+                    testSeriesId: testSeries.find(
+                      (series) => !series.instituteId || series.instituteId === campusId
+                    )?.id || "",
                   });
                 }}
                 className="w-full px-4 py-2.5 rounded-xl bg-[#111625] border border-white/10 text-white text-xs focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all font-semibold"

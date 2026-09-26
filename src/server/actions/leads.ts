@@ -216,7 +216,7 @@ export async function createLead(data: {
   const cleanPhone = data.phone.trim();
   const nextDateVal = data.nextFollowUp || data.nextFollowUpDate;
   const schoolVal = data.currentSchool || data.schoolCollege;
-  let selectedTestSeries: { id: string; instituteId: string } | null = null;
+  let selectedTestSeries: { id: string; instituteId: string | null } | null = null;
   if (data.interestType === "TEST_SERIES") {
     if (!data.testSeriesId) throw new Error("Please select a Test Series.");
     selectedTestSeries = await db.testSeries.findFirst({
@@ -234,7 +234,8 @@ export async function createLead(data: {
 
   const lead = await db.lead.create({
     data: {
-      instituteId: selectedTestSeries?.instituteId || authorizedCampusId(actor, data.instituteId || activeCampusId),
+      instituteId: selectedTestSeries?.instituteId
+        || authorizedCampusId(actor, data.instituteId || activeCampusId),
       name: data.name.trim(),
       phone: cleanPhone,
       email: data.email?.trim().toLowerCase() || null,
@@ -335,7 +336,7 @@ export async function updateLead(
       select: { id: true, instituteId: true },
     });
     if (!series) throw new Error("Selected Test Series is not available.");
-    updateData.instituteId = series.instituteId;
+    if (series.instituteId) updateData.instituteId = series.instituteId;
   }
 
   if (data.name) updateData.name = data.name.trim();
@@ -658,12 +659,14 @@ export async function submitPublicAdmissionEnquiry(data: {
       where: {
         id: data.testSeriesId,
         status: { in: ["ACTIVE", "UPCOMING"] },
-        ...(targetInstituteId ? { instituteId: targetInstituteId } : {}),
+        ...(targetInstituteId
+          ? { OR: [{ instituteId: targetInstituteId }, { instituteId: null }] }
+          : {}),
       },
       select: { id: true, instituteId: true, title: true },
     });
     if (!series) return { success: false, error: "Selected Test Series is not available at this campus." };
-    targetInstituteId = series.instituteId;
+    targetInstituteId = series.instituteId || targetInstituteId;
     selectedTestSeriesId = series.id;
     interestLabel = series.title;
   } else {
