@@ -909,11 +909,15 @@ export async function transferStudentBatch(
 export async function getTimetable({
   batchId,
   teacherId,
-}: { batchId?: string; teacherId?: string } = {}) {
+  campusId,
+}: { batchId?: string; teacherId?: string; campusId?: string } = {}) {
   await requireStaffPermission("timetable.view");
   const where: Record<string, unknown> = {};
   if (batchId) where.batchId = batchId;
   if (teacherId) where.teacherId = teacherId;
+  if (campusId && !["ALL", "GLOBAL"].includes(campusId)) {
+    where.batch = { instituteId: campusId };
+  }
 
   return await db.timetableSlot.findMany({
     where,
@@ -936,6 +940,9 @@ export async function createTimetableSlot(data: {
   room: string;
 }) {
   const actor = await requireStaffPermission("timetable.manage");
+  if (!data.dayOfWeek || !data.startTime || !data.endTime || data.startTime >= data.endTime) {
+    throw new Error("Select a valid day and time range.");
+  }
   const [batch, teacher] = await Promise.all([
     db.batch.findFirst({ where: { id: data.batchId }, select: { id: true, instituteId: true } }),
     db.teacher.findFirst({ where: { id: data.teacherId, status: "ACTIVE" }, select: { id: true } }),
@@ -973,6 +980,7 @@ export async function createTimetableSlot(data: {
     where: {
       dayOfWeek: data.dayOfWeek,
       room: data.room,
+      batch: { instituteId: batch.instituteId },
       OR: [
         {
           startTime: { lte: data.startTime },
