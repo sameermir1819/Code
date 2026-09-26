@@ -1,10 +1,8 @@
 import { requireStaffPermission } from "@/lib/auth";
-import { authorizedCampusId } from "@/lib/campus-scope";
 import React from "react";
 import { requireAuth, getEffectivePermissions } from "@/lib/auth";
 import { getTestSeriesList } from "@/server/actions/test-series";
 import { db } from "@/lib/db";
-import { getActiveCampusId } from "@/server/actions/campus";
 import { TestSeriesClient } from "./test-series-client";
 
 export const metadata = {
@@ -16,16 +14,11 @@ export default async function TestSeriesPage() {
   const actor = await requireStaffPermission("test-series.view");
   const permissions = await getEffectivePermissions(actor);
   await requireAuth();
-  const campusId = actor.role === "SUPER_ADMIN"
-    ? undefined
-    : authorizedCampusId(actor, await getActiveCampusId());
-
   const [testSeriesData, enrolledStudents] = await Promise.all([
     getTestSeriesList(),
     permissions.includes("students.view") ? db.student.findMany({
       where: {
         status: "ACTIVE",
-        ...(campusId ? { instituteId: campusId } : {}),
       },
       select: {
         id: true,

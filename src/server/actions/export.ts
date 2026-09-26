@@ -3,8 +3,9 @@ import { requireStaffPermission } from "@/lib/auth";
 
 import { db } from "@/lib/db";
 
-import { authorizedCampusId } from "@/lib/campus-scope";
-import { getActiveCampusId } from "./campus";
+function resolveExportCampus(campusId?: string) {
+  return campusId && !["ALL", "GLOBAL"].includes(campusId) ? campusId : "ALL";
+}
 
 // Helper function to escape CSV cell content
 function escapeCSV(val: any): string {
@@ -28,8 +29,8 @@ function buildCSV(headers: string[], rows: any[][]): string {
 export async function exportStudentsCSV(campusId?: string) {
   await requireStaffPermission("students.view");
   await requireStaffPermission("fees.view");
-  const actor = await requireStaffPermission("exports.view");
-  const activeCampusId = authorizedCampusId(actor, campusId || (await getActiveCampusId()));
+  await requireStaffPermission("exports.view");
+  const activeCampusId = resolveExportCampus(campusId);
 
   const where: any = {};
   if (activeCampusId && activeCampusId !== "ALL") {
@@ -134,8 +135,8 @@ export async function exportStudentsCSV(campusId?: string) {
 // =========================================================================
 export async function exportPaymentsCSV(campusId?: string) {
   await requireStaffPermission("fees.view");
-  const actor = await requireStaffPermission("exports.view");
-  const activeCampusId = authorizedCampusId(actor, campusId || (await getActiveCampusId()));
+  await requireStaffPermission("exports.view");
+  const activeCampusId = resolveExportCampus(campusId);
 
   const where: any = {};
   if (activeCampusId && activeCampusId !== "ALL") {
@@ -207,8 +208,8 @@ export async function exportPaymentsCSV(campusId?: string) {
 // =========================================================================
 export async function exportDefaultersCSV(campusId?: string) {
   await requireStaffPermission("fees.view");
-  const actor = await requireStaffPermission("exports.view");
-  const activeCampusId = authorizedCampusId(actor, campusId || (await getActiveCampusId()));
+  await requireStaffPermission("exports.view");
+  const activeCampusId = resolveExportCampus(campusId);
 
   const where: any = {
     balanceAmount: { gt: 0 },
@@ -287,8 +288,8 @@ export async function exportDefaultersCSV(campusId?: string) {
 // =========================================================================
 export async function exportBatchesCSV(campusId?: string) {
   await requireStaffPermission("batches.view");
-  const actor = await requireStaffPermission("exports.view");
-  const activeCampusId = authorizedCampusId(actor, campusId || (await getActiveCampusId()));
+  await requireStaffPermission("exports.view");
+  const activeCampusId = resolveExportCampus(campusId);
 
   const where: any = {};
   if (activeCampusId && activeCampusId !== "ALL") {
@@ -348,8 +349,8 @@ export async function exportBatchesCSV(campusId?: string) {
 // =========================================================================
 export async function exportLeadsCSV(campusId?: string) {
   await requireStaffPermission("leads.view");
-  const actor = await requireStaffPermission("exports.view");
-  const activeCampusId = authorizedCampusId(actor, campusId || (await getActiveCampusId()));
+  await requireStaffPermission("exports.view");
+  const activeCampusId = resolveExportCampus(campusId);
 
   const where: any = {};
   if (activeCampusId && activeCampusId !== "ALL") {
@@ -432,8 +433,8 @@ export async function exportFullBackupJSON(campusId?: string) {
   await requireStaffPermission("leads.view");
   await requireStaffPermission("attendance.view");
   await requireStaffPermission("users.view");
-  const actor = await requireStaffPermission("exports.view");
-  const activeCampusId = authorizedCampusId(actor, campusId || (await getActiveCampusId()));
+  await requireStaffPermission("exports.view");
+  const activeCampusId = resolveExportCampus(campusId);
 
   const instituteWhere: any = {};
   if (activeCampusId && activeCampusId !== "ALL") {

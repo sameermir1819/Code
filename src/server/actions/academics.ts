@@ -888,9 +888,8 @@ export async function getTimetable({
   batchId,
   teacherId,
 }: { batchId?: string; teacherId?: string } = {}) {
-  const actor = await requireStaffPermission("timetable.view");
-  const instituteId = authorizedCampusId(actor, await getActiveCampusId());
-  const where: Record<string, unknown> = { batch: { instituteId } };
+  await requireStaffPermission("timetable.view");
+  const where: Record<string, unknown> = {};
   if (batchId) where.batchId = batchId;
   if (teacherId) where.teacherId = teacherId;
 

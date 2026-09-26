@@ -9,7 +9,7 @@ import {
   exportLeadsCSV,
   exportFullBackupJSON,
 } from "@/server/actions/export";
-import { getCampuses, getActiveCampusId } from "@/server/actions/campus";
+import { getCampuses, type CampusItem } from "@/server/actions/campus";
 import {
   Card,
   CardContent,
@@ -38,26 +38,17 @@ import {
 } from "lucide-react";
 
 export default function DataExportPage() {
-  const [activeCampus, setActiveCampus] = useState<{ id: string; name: string } | null>(null);
+  const [campuses, setCampuses] = useState<CampusItem[]>([]);
+  const [exportCampusId, setExportCampusId] = useState("GLOBAL");
   const [loadingExport, setLoadingExport] = useState<string | null>(null);
   const [lastDownloaded, setLastDownloaded] = useState<{ name: string; count?: number; time: string } | null>(null);
 
-  // Load active campus context
+  // Load all locations; exports default to the global dataset.
   const loadCampusContext = async () => {
     try {
-      const [campuses, currentId] = await Promise.all([
-        getCampuses(),
-        getActiveCampusId(),
-      ]);
-
-      if (currentId === "ALL") {
-        setActiveCampus({ id: "ALL", name: "All Campuses (Global)" });
-      } else {
-        const found = campuses.find((c) => c.id === currentId);
-        setActiveCampus(found ? { id: found.id, name: found.name } : { id: "ALL", name: "All Campuses" });
-      }
+      setCampuses(await getCampuses());
     } catch {
-      setActiveCampus({ id: "ALL", name: "All Campuses" });
+      setCampuses([]);
     }
   };
 
@@ -88,7 +79,7 @@ export default function DataExportPage() {
   const handleExportStudents = async () => {
     setLoadingExport("students");
     try {
-      const res = await exportStudentsCSV();
+      const res = await exportStudentsCSV(exportCampusId);
       if (res.success && res.csv) {
         triggerDownload(res.csv, res.filename, "text/csv;charset=utf-8;");
         setLastDownloaded({ name: "Students Directory", count: res.count, time: new Date().toLocaleTimeString() });
@@ -104,7 +95,7 @@ export default function DataExportPage() {
   const handleExportPayments = async () => {
     setLoadingExport("payments");
     try {
-      const res = await exportPaymentsCSV();
+      const res = await exportPaymentsCSV(exportCampusId);
       if (res.success && res.csv) {
         triggerDownload(res.csv, res.filename, "text/csv;charset=utf-8;");
         setLastDownloaded({ name: "Payments & Fee Ledger", count: res.count, time: new Date().toLocaleTimeString() });
@@ -120,7 +111,7 @@ export default function DataExportPage() {
   const handleExportDefaulters = async () => {
     setLoadingExport("defaulters");
     try {
-      const res = await exportDefaultersCSV();
+      const res = await exportDefaultersCSV(exportCampusId);
       if (res.success && res.csv) {
         triggerDownload(res.csv, res.filename, "text/csv;charset=utf-8;");
         setLastDownloaded({ name: "Fee Defaulters & Dues", count: res.count, time: new Date().toLocaleTimeString() });
@@ -136,7 +127,7 @@ export default function DataExportPage() {
   const handleExportBatches = async () => {
     setLoadingExport("batches");
     try {
-      const res = await exportBatchesCSV();
+      const res = await exportBatchesCSV(exportCampusId);
       if (res.success && res.csv) {
         triggerDownload(res.csv, res.filename, "text/csv;charset=utf-8;");
         setLastDownloaded({ name: "Batches & Courses", count: res.count, time: new Date().toLocaleTimeString() });
@@ -152,7 +143,7 @@ export default function DataExportPage() {
   const handleExportLeads = async () => {
     setLoadingExport("leads");
     try {
-      const res = await exportLeadsCSV();
+      const res = await exportLeadsCSV(exportCampusId);
       if (res.success && res.csv) {
         triggerDownload(res.csv, res.filename, "text/csv;charset=utf-8;");
         setLastDownloaded({ name: "Admissions CRM Leads", count: res.count, time: new Date().toLocaleTimeString() });
@@ -168,7 +159,7 @@ export default function DataExportPage() {
   const handleExportBackup = async () => {
     setLoadingExport("backup");
     try {
-      const res = await exportFullBackupJSON();
+      const res = await exportFullBackupJSON(exportCampusId);
       if (res.success && res.json) {
         triggerDownload(res.json, res.filename, "application/json;charset=utf-8;");
         setLastDownloaded({ name: "Full System JSON Backup", time: new Date().toLocaleTimeString() });
@@ -198,12 +189,22 @@ export default function DataExportPage() {
           </p>
         </div>
 
-        {/* Current Campus Context Badge */}
+        {/* Global-by-default location filter */}
         <div className="flex items-center gap-2 bg-card border border-border px-3.5 py-2 rounded-xl shadow-sm">
           <Building2 className="w-4 h-4 text-primary" />
           <div className="text-xs">
             <span className="text-muted-foreground block text-[10px]">EXPORT CONTEXT:</span>
-            <span className="font-semibold text-foreground">{activeCampus?.name || "Loading..."}</span>
+            <select
+              value={exportCampusId}
+              onChange={(event) => setExportCampusId(event.target.value)}
+              className="min-w-48 bg-transparent font-semibold text-foreground outline-none"
+              aria-label="Filter exports by location"
+            >
+              <option value="GLOBAL">All Locations (Global)</option>
+              {campuses.map((campus) => (
+                <option key={campus.id} value={campus.id}>{campus.name}</option>
+              ))}
+            </select>
           </div>
         </div>
       </div>
