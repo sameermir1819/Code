@@ -9,3 +9,13 @@ export function authorizedCampusId(session: SessionUser, selectedCampusId: strin
   }
   return id;
 }
+
+// Use for writes whose target record already determines the location. Global/central
+// staff may act on any selected location; assigned staff remain limited to theirs.
+export function assertCampusAccess(session: SessionUser, targetCampusId: string): string {
+  const authorizedId = authorizedCampusId(session, targetCampusId);
+  if (authorizedId !== targetCampusId) {
+    throw new Error("You do not have permission to manage records for this location.");
+  }
+  return targetCampusId;
+}

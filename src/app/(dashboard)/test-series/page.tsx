@@ -3,6 +3,7 @@ import React from "react";
 import { requireAuth, getEffectivePermissions } from "@/lib/auth";
 import { getTestSeriesList } from "@/server/actions/test-series";
 import { db } from "@/lib/db";
+import { getAllCampuses } from "@/server/actions/campus";
 import { TestSeriesClient } from "./test-series-client";
 
 export const metadata = {
@@ -14,7 +15,7 @@ export default async function TestSeriesPage() {
   const actor = await requireStaffPermission("test-series.view");
   const permissions = await getEffectivePermissions(actor);
   await requireAuth();
-  const [testSeriesData, enrolledStudents] = await Promise.all([
+  const [testSeriesData, enrolledStudents, campuses] = await Promise.all([
     getTestSeriesList(),
     permissions.includes("students.view") ? db.student.findMany({
       where: {
@@ -39,6 +40,7 @@ export default async function TestSeriesPage() {
       },
       orderBy: { name: "asc" },
     }) : Promise.resolve([]),
+    getAllCampuses(),
   ]);
 
   return (
@@ -47,6 +49,7 @@ export default async function TestSeriesPage() {
         seriesList={testSeriesData.seriesList as any}
         stats={testSeriesData.stats}
         enrolledStudents={enrolledStudents}
+        availableCampuses={campuses}
         canViewResults={permissions.includes("results.view")}
         canManageResults={permissions.includes("results.view") && permissions.includes("results.manage")}
       />

@@ -1,9 +1,8 @@
 "use server";
 import { requirePermission, requireStaffPermission } from "@/lib/auth";
-import { authorizedCampusId } from "@/lib/campus-scope";
+import { assertCampusAccess } from "@/lib/campus-scope";
 import { db } from "@/lib/db";
 import { requireAuth, getSession } from "@/lib/auth";
-import { getActiveCampusId } from "./campus";
 import { logAudit } from "./audit";
 
 // ==========================================
@@ -91,20 +90,26 @@ export async function createAnnouncement(data: {
   expiryDate?: string;
 }) {
   const session = await requireStaffPermission("announcements.manage");
-  const instituteId = authorizedCampusId(session, await getActiveCampusId());
+  let targetCampusId: string | null = null;
   if (data.courseId) {
-    const course = await db.course.findFirst({
-      where: { id: data.courseId, instituteId },
-      select: { id: true },
+    const course = await db.course.findUnique({
+      where: { id: data.courseId },
+      select: { id: true, instituteId: true },
     });
-    if (!course) throw new Error("Selected course does not belong to the active campus.");
+    if (!course) throw new Error("Selected course was not found.");
+    assertCampusAccess(session, course.instituteId);
+    targetCampusId = course.instituteId;
   }
   if (data.batchId) {
-    const batch = await db.batch.findFirst({
-      where: { id: data.batchId, instituteId },
-      select: { id: true },
+    const batch = await db.batch.findUnique({
+      where: { id: data.batchId },
+      select: { id: true, instituteId: true },
     });
-    if (!batch) throw new Error("Selected batch does not belong to the active campus.");
+    if (!batch) throw new Error("Selected batch was not found.");
+    assertCampusAccess(session, batch.instituteId);
+    if (targetCampusId && targetCampusId !== batch.instituteId) {
+      throw new Error("Course and batch must belong to the same location.");
+    }
   }
 
   const announcement = await db.announcement.create({
@@ -132,7 +137,6 @@ export async function createAnnouncement(data: {
 
 export async function deleteAnnouncement(id: string) {
   const session = await requireStaffPermission("announcements.manage");
-  const instituteId = authorizedCampusId(session, await getActiveCampusId());
   const announcement = await db.announcement.findUnique({
     where: { id },
     select: {
@@ -143,12 +147,8 @@ export async function deleteAnnouncement(id: string) {
     },
   });
   if (!announcement) throw new Error("Announcement not found.");
-  if (
-    (announcement.courseId && announcement.course?.instituteId !== instituteId) ||
-    (announcement.batchId && announcement.batch?.instituteId !== instituteId)
-  ) {
-    throw new Error("You can only delete announcements for your active campus.");
-  }
+  const targetCampusId = announcement.batch?.instituteId || announcement.course?.instituteId;
+  if (targetCampusId) assertCampusAccess(session, targetCampusId);
   await db.announcement.delete({ where: { id } });
   return { success: true };
 }

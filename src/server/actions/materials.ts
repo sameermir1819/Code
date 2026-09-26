@@ -5,8 +5,7 @@ import { db } from "@/lib/db";
 
 import { logAudit } from "./audit";
 import { materialAccessWhere } from "@/lib/material-access";
-import { authorizedCampusId } from "@/lib/campus-scope";
-import { getActiveCampusId } from "./campus";
+import { assertCampusAccess } from "@/lib/campus-scope";
 import { existingUploadPath, uploadRoot, uploadOwner } from "@/lib/private-uploads";
 
 export async function getStudyMaterials({
@@ -54,7 +53,6 @@ export async function createStudyMaterial(data: {
 
   const safeFileUrl = data.fileUrl?.trim();
   if (!data.title?.trim() || !safeFileUrl) throw new Error("Title and file are required");
-  const instituteId = authorizedCampusId(session, await getActiveCampusId());
   if (safeFileUrl.startsWith("/api/uploads/materials/")) {
     const parts = safeFileUrl.slice("/api/uploads/".length).split("/");
     const file = await existingUploadPath(uploadRoot, parts);
@@ -64,13 +62,21 @@ export async function createStudyMaterial(data: {
     try { url = new URL(safeFileUrl); } catch { throw new Error("Use a valid HTTPS link or upload a file"); }
     if (!["https:", "http:"].includes(url.protocol) || url.username || url.password) throw new Error("Only HTTP or HTTPS links are supported");
   }
-  if (data.courseId && !await db.course.findFirst({ where: { id: data.courseId, instituteId }, select: { id: true } })) throw new Error("Course is not in your campus");
+  const course = data.courseId
+    ? await db.course.findUnique({ where: { id: data.courseId }, select: { id: true, instituteId: true } })
+    : null;
+  if (data.courseId && !course) throw new Error("Course not found");
+  if (course) assertCampusAccess(session, course.instituteId);
   if (data.batchId) {
     const batch = await db.batch.findFirst({ where: {
-      id: data.batchId, instituteId, ...(data.courseId ? { courseId: data.courseId } : {}),
+      id: data.batchId, ...(data.courseId ? { courseId: data.courseId } : {}),
       ...(session.role === "TEACHER" ? { teachers: { some: { teacherId: session.teacherId || "" } } } : {}),
-    }, select: { id: true } });
+    }, select: { id: true, instituteId: true } });
     if (!batch) throw new Error("You cannot add materials to this batch");
+    assertCampusAccess(session, batch.instituteId);
+    if (course && course.instituteId !== batch.instituteId) {
+      throw new Error("Course and batch must belong to the same location.");
+    }
   } else if (session.role === "TEACHER") {
     throw new Error("Select one of your assigned batches");
   }

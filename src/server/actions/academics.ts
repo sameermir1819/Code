@@ -7,7 +7,7 @@ import { getEffectivePermissions } from "@/lib/auth";
 import { logAudit } from "./audit";
 import { revalidatePath } from "next/cache";
 import { getActiveCampusId } from "./campus";
-import { authorizedCampusId } from "@/lib/campus-scope";
+import { assertCampusAccess, authorizedCampusId } from "@/lib/campus-scope";
 
 // ==========================================
 // COURSES
@@ -21,6 +21,7 @@ export async function getCourses(selectedCampusId?: string) {
     where: campusId ? { instituteId: campusId } : {},
     orderBy: { createdAt: "desc" },
     include: {
+      institute: { select: { id: true, name: true, code: true, city: true } },
       subjects: { include: { subject: true } },
       batches: { where: { status: "ACTIVE" } },
       _count: { select: { enrollments: { where: { status: "ACTIVE" } } } },
@@ -29,6 +30,7 @@ export async function getCourses(selectedCampusId?: string) {
 }
 
 export async function createCourse(data: {
+  instituteId?: string;
   name: string;
   code: string;
   description?: string;
@@ -39,7 +41,7 @@ export async function createCourse(data: {
   subjectIds?: string[];
 }) {
   const actor = await requireStaffPermission("courses.manage");
-  const campusId = authorizedCampusId(actor, await getActiveCampusId());
+  const campusId = authorizedCampusId(actor, data.instituteId || (await getActiveCampusId()));
   if (!campusId) throw new Error("No active campus found");
 
   const course = await db.course.create({
@@ -446,17 +448,12 @@ export async function createBatchSubject(data: {
   teacherId?: string;
 }) {
   const session = await requireStaffPermission("batches.manage");
-  const scopedInstituteId = session.role !== "SUPER_ADMIN"
-    ? authorizedCampusId(session, await getActiveCampusId())
-    : undefined;
-  const batch = await db.batch.findFirst({
-    where: {
-      id: data.batchId,
-      ...(scopedInstituteId ? { instituteId: scopedInstituteId } : {}),
-    },
+  const batch = await db.batch.findUnique({
+    where: { id: data.batchId },
     include: { course: true },
   });
   if (!batch) throw new Error("Batch not found");
+  assertCampusAccess(session, batch.instituteId);
   const instituteId = batch.instituteId;
   if (data.teacherId) {
     const teacher = await db.teacher.findFirst({
@@ -638,6 +635,7 @@ export async function createBatch(data: {
 export async function updateBatch(
   id: string,
   data: {
+    instituteId?: string;
     name?: string;
     code?: string;
     courseId?: string;
@@ -650,23 +648,52 @@ export async function updateBatch(
   }
 ) {
   const actor = await requireStaffPermission("batches.manage");
-  const scopedInstituteId = actor.role !== "SUPER_ADMIN"
-    ? authorizedCampusId(actor, await getActiveCampusId())
-    : undefined;
-  const existing = await db.batch.findFirst({
-    where: {
-      id,
-      ...(scopedInstituteId ? { instituteId: scopedInstituteId } : {}),
-    },
+  const existing = await db.batch.findUnique({
+    where: { id },
   });
   if (!existing) throw new Error("Batch not found");
-  const instituteId = existing.instituteId;
-  if (data.courseId) {
-    const course = await db.course.findFirst({
-      where: { id: data.courseId, instituteId },
+  assertCampusAccess(actor, existing.instituteId);
+  const instituteId = data.instituteId
+    ? assertCampusAccess(actor, data.instituteId)
+    : existing.instituteId;
+  const isMovingLocation = instituteId !== existing.instituteId;
+  if (isMovingLocation) {
+    const enrollmentCount = await db.enrollment.count({ where: { batchId: id } });
+    if (enrollmentCount > 0) {
+      throw new Error("This batch has student enrollment history. Transfer its students before changing the location.");
+    }
+  }
+
+  let courseId = data.courseId;
+  if (isMovingLocation && !courseId) {
+    let targetCourse = await db.course.findFirst({
+      where: { instituteId, status: "ACTIVE" },
+      orderBy: { createdAt: "asc" },
       select: { id: true },
     });
-    if (!course) throw new Error("Course does not belong to the active campus");
+    if (!targetCourse) {
+      targetCourse = await db.course.create({
+        data: {
+          instituteId,
+          name: "Academic Program",
+          code: `GEN-PROG-${instituteId}`,
+          duration: "1 Year",
+          gradeClass: "All",
+          standardFee: 100000,
+          registrationFee: 5000,
+          status: "ACTIVE",
+        },
+        select: { id: true },
+      });
+    }
+    courseId = targetCourse.id;
+  }
+  if (courseId) {
+    const course = await db.course.findFirst({
+      where: { id: courseId, instituteId },
+      select: { id: true },
+    });
+    if (!course) throw new Error("Course does not belong to the selected location");
   }
   if (data.teacherIds?.length) {
     const teacherIds = [...new Set(data.teacherIds)];
@@ -680,9 +707,10 @@ export async function updateBatch(
   }
 
   const updateData: any = {};
+  if (isMovingLocation) updateData.instituteId = instituteId;
   if (data.name !== undefined) updateData.name = data.name.trim();
   if (data.code !== undefined) updateData.code = data.code.trim().toUpperCase();
-  if (data.courseId !== undefined) updateData.courseId = data.courseId;
+  if (courseId !== undefined) updateData.courseId = courseId;
   if (data.startDate !== undefined) updateData.startDate = new Date(data.startDate);
   if (data.endDate !== undefined) updateData.endDate = new Date(data.endDate);
   if (data.capacity !== undefined) updateData.capacity = Number(data.capacity);
@@ -743,16 +771,9 @@ export async function updateBatch(
 
 export async function deleteBatch(id: string) {
   const actor = await requireStaffPermission("batches.manage");
-  const scopedInstituteId = actor.role !== "SUPER_ADMIN"
-    ? authorizedCampusId(actor, await getActiveCampusId())
-    : undefined;
-  const batch = await db.batch.findFirst({
-    where: {
-      id,
-      ...(scopedInstituteId ? { instituteId: scopedInstituteId } : {}),
-    },
-  });
+  const batch = await db.batch.findUnique({ where: { id } });
   if (!batch) throw new Error("Batch not found");
+  assertCampusAccess(actor, batch.instituteId);
 
   await db.$transaction(async (tx) => {
     await tx.timetableSlot.deleteMany({ where: { batchId: id } });
@@ -823,13 +844,12 @@ export async function transferStudentBatch(
   reason?: string
 ) {
   const actor = await requireStaffPermission("batches.manage");
-  const instituteId = authorizedCampusId(actor, await getActiveCampusId());
-
-  const currentEnrollment = await db.enrollment.findFirst({
-    where: { id: enrollmentId, student: { instituteId } },
+  const currentEnrollment = await db.enrollment.findUnique({
+    where: { id: enrollmentId },
     include: { student: true, batch: true },
   });
   if (!currentEnrollment) throw new Error("Current enrollment not found");
+  const instituteId = assertCampusAccess(actor, currentEnrollment.batch.instituteId);
 
   const targetBatch = await db.batch.findFirst({
     where: { id: newBatchId, instituteId },
@@ -916,12 +936,12 @@ export async function createTimetableSlot(data: {
   room: string;
 }) {
   const actor = await requireStaffPermission("timetable.manage");
-  const instituteId = authorizedCampusId(actor, await getActiveCampusId());
   const [batch, teacher] = await Promise.all([
-    db.batch.findFirst({ where: { id: data.batchId, instituteId }, select: { id: true } }),
+    db.batch.findFirst({ where: { id: data.batchId }, select: { id: true, instituteId: true } }),
     db.teacher.findFirst({ where: { id: data.teacherId, status: "ACTIVE" }, select: { id: true } }),
   ]);
   if (!batch || !teacher) throw new Error("Select a valid batch and an active faculty member.");
+  assertCampusAccess(actor, batch.instituteId);
 
   // 1. Check Teacher conflict
   const teacherConflict = await db.timetableSlot.findFirst({
@@ -1024,9 +1044,12 @@ export async function createTimetableSlot(data: {
 
 export async function deleteTimetableSlot(id: string) {
   const actor = await requireStaffPermission("timetable.manage");
-  const instituteId = authorizedCampusId(actor, await getActiveCampusId());
-  const slot = await db.timetableSlot.findFirst({ where: { id, batch: { instituteId } }, select: { id: true } });
+  const slot = await db.timetableSlot.findFirst({
+    where: { id },
+    select: { id: true, batch: { select: { instituteId: true } } },
+  });
   if (!slot) throw new Error("Timetable slot not found");
+  assertCampusAccess(actor, slot.batch.instituteId);
   await db.timetableSlot.delete({ where: { id } });
   await logAudit({
     action: "TIMETABLE_SLOT_DELETED",

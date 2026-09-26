@@ -1,13 +1,22 @@
 import { getCourses } from "@/server/actions/academics";
+import { getAllCampuses } from "@/server/actions/campus";
 import { formatCurrency } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { BookOpen, Layers, Users, Plus } from "lucide-react";
+import { MapPin } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
-export default async function CoursesPage() {
-  const courses = await getCourses();
+export default async function CoursesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ location?: string }>;
+}) {
+  const { location = "GLOBAL" } = await searchParams;
+  const [courses, campuses] = await Promise.all([
+    getCourses(location),
+    getAllCampuses(),
+  ]);
 
   return (
     <div className="space-y-6">
@@ -20,6 +29,30 @@ export default async function CoursesPage() {
         </div>
       </div>
 
+      <form method="get" className="flex flex-col sm:flex-row sm:items-end gap-3 rounded-xl border bg-card p-4">
+        <div className="flex-1">
+          <label htmlFor="course-location" className="mb-1.5 block text-xs font-semibold">
+            Filter by location
+          </label>
+          <select
+            id="course-location"
+            name="location"
+            defaultValue={location}
+            className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+          >
+            <option value="GLOBAL">All Locations (Global)</option>
+            {campuses.map((campus) => (
+              <option key={campus.id} value={campus.id}>
+                {campus.name}{campus.city ? ` — ${campus.city}` : ""}
+              </option>
+            ))}
+          </select>
+        </div>
+        <button type="submit" className="h-10 rounded-md bg-primary px-5 text-sm font-semibold text-primary-foreground">
+          Apply Filter
+        </button>
+      </form>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {courses.map((c) => (
           <Card key={c.id} className="flex flex-col justify-between">
@@ -30,6 +63,10 @@ export default async function CoursesPage() {
                     {c.code}
                   </Badge>
                   <CardTitle className="text-lg font-bold">{c.name}</CardTitle>
+                  <div className="mt-1 flex items-center gap-1 text-[11px] text-muted-foreground">
+                    <MapPin className="h-3 w-3" />
+                    <span>{c.institute.name}{c.institute.city ? ` — ${c.institute.city}` : ""}</span>
+                  </div>
                 </div>
                 <Badge variant={c.status === "ACTIVE" ? "success" : "secondary"}>
                   {c.status}

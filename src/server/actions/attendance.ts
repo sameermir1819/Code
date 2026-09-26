@@ -1,6 +1,6 @@
 "use server";
 
-import { authorizedCampusId } from "@/lib/campus-scope";
+import { assertCampusAccess } from "@/lib/campus-scope";
 import { requireStaffPermission } from "@/lib/auth";
 
 import { db } from "@/lib/db";
@@ -77,12 +77,12 @@ export async function saveBatchAttendance(
   records: Array<{ studentId: string; status: string; remarks?: string }>
 ) {
   const session = await requireStaffPermission("attendance.manage");
-  const instituteId = authorizedCampusId(session, await getActiveCampusId());
   const batch = await db.batch.findFirst({
-    where: { id: batchId, instituteId },
-    select: { id: true },
+    where: { id: batchId },
+    select: { id: true, instituteId: true },
   });
   if (!batch) throw new Error("Batch not found");
+  const instituteId = assertCampusAccess(session, batch.instituteId);
   const studentIds = [...new Set(records.map((record) => record.studentId))];
   const enrolledStudents = await db.enrollment.findMany({
     where: {
@@ -162,12 +162,12 @@ export async function saveBatchAttendance(
 
 export async function markBatchUnscannedAsAbsent(batchId: string, dateStr: string) {
   const session = await requireStaffPermission("attendance.manage");
-  const instituteId = authorizedCampusId(session, await getActiveCampusId());
   const batch = await db.batch.findFirst({
-    where: { id: batchId, instituteId },
-    select: { id: true },
+    where: { id: batchId },
+    select: { id: true, instituteId: true },
   });
   if (!batch) throw new Error("Batch not found");
+  assertCampusAccess(session, batch.instituteId);
   const date = new Date(dateStr);
   const dayStart = startOfDay(date);
   const dayEnd = endOfDay(date);

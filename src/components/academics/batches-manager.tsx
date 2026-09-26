@@ -478,6 +478,7 @@ export function BatchesManager({
     startTransition(async () => {
       try {
         const res = await updateBatch(editingBatch.id, {
+          instituteId: editFormData.instituteId,
           name: editFormData.name,
           code: editFormData.code,
           startDate: editFormData.startDate,
@@ -1612,8 +1613,8 @@ export function BatchesManager({
                   </label>
                   <select
                     value={editFormData.instituteId}
-                    disabled
-                    className="w-full h-9 px-3 rounded-md border border-input bg-muted text-muted-foreground"
+                    onChange={(event) => setEditFormData({ ...editFormData, instituteId: event.target.value })}
+                    className="w-full h-9 px-3 rounded-md border border-input bg-background text-foreground"
                   >
                     {availableCampuses.map((campus) => (
                       <option key={campus.id} value={campus.id}>
@@ -1622,7 +1623,7 @@ export function BatchesManager({
                     ))}
                   </select>
                   <p className="mt-1 text-[10px] text-muted-foreground">
-                    Existing batches keep their location to protect enrollments and attendance history.
+                    Empty batches can be reassigned. Batches with enrollment history must have their students transferred first.
                   </p>
                 </div>
 

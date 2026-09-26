@@ -86,6 +86,7 @@ interface TestSeriesExamItem {
 interface TestSeriesItem {
   id: string;
   instituteId: string;
+  institute?: { id: string; name: string; code: string; city?: string | null };
   title: string;
   code: string;
   description?: string | null;
@@ -109,6 +110,7 @@ interface Props {
     totalExamsScheduled: number;
   };
   enrolledStudents: EnrolledStudent[];
+  availableCampuses?: Array<{ id: string; name: string; code: string; city?: string | null }>;
   canViewResults: boolean;
   canManageResults: boolean;
 }
@@ -121,7 +123,8 @@ const toDateInputValue = (value: string | Date) => {
   return date.toISOString().split("T")[0];
 };
 
-const getDefaultSeriesData = () => ({
+const getDefaultSeriesData = (instituteId = "") => ({
+  instituteId,
   title: "",
   code: "",
   description: "",
@@ -134,11 +137,12 @@ const getDefaultSeriesData = () => ({
   status: "ACTIVE",
 });
 
-export function TestSeriesClient({ seriesList, stats, enrolledStudents, canViewResults, canManageResults }: Props) {
+export function TestSeriesClient({ seriesList, stats, enrolledStudents, availableCampuses = [], canViewResults, canManageResults }: Props) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<"programs" | "registrations" | "schedule" | "results">("programs");
   const [searchTerm, setSearchTerm] = useState("");
   const [programFilter, setProgramFilter] = useState<string>("ALL");
+  const [locationFilter, setLocationFilter] = useState("GLOBAL");
   const [selectedSeriesId, setSelectedSeriesId] = useState<string>(seriesList[0]?.id || "");
   const [isPending, startTransition] = useTransition();
 
@@ -180,7 +184,9 @@ export function TestSeriesClient({ seriesList, stats, enrolledStudents, canViewR
   const [actionErrorMsg, setActionErrorMsg] = useState("");
 
   // Create Series Form
-  const [newSeriesData, setNewSeriesData] = useState(getDefaultSeriesData);
+  const [newSeriesData, setNewSeriesData] = useState(() =>
+    getDefaultSeriesData(availableCampuses[0]?.id || "")
+  );
 
   // Schedule Exam Form
   const [newExamData, setNewExamData] = useState({
@@ -271,9 +277,13 @@ export function TestSeriesClient({ seriesList, stats, enrolledStudents, canViewR
     return matchesProgram && matchesSearch;
   });
 
+  const visibleSeries = seriesList.filter(
+    (series) => locationFilter === "GLOBAL" || series.instituteId === locationFilter
+  );
+
   const openCreateSeriesModal = () => {
     setEditingSeries(null);
-    setNewSeriesData(getDefaultSeriesData());
+    setNewSeriesData(getDefaultSeriesData(availableCampuses[0]?.id || ""));
     setActionErrorMsg("");
     setShowCreateSeriesModal(true);
   };
@@ -286,6 +296,7 @@ export function TestSeriesClient({ seriesList, stats, enrolledStudents, canViewR
   const handleOpenEditSeries = (series: TestSeriesItem) => {
     setEditingSeries(series);
     setNewSeriesData({
+      instituteId: series.instituteId,
       title: series.title,
       code: series.code,
       description: series.description || "",
@@ -803,8 +814,21 @@ export function TestSeriesClient({ seriesList, stats, enrolledStudents, canViewR
       {/* ── TAB 1: Programs ── */}
       {activeTab === "programs" && (
         <div className="space-y-4">
+          <div className="flex justify-end">
+            <select
+              value={locationFilter}
+              onChange={(event) => setLocationFilter(event.target.value)}
+              className="h-9 rounded-lg border bg-background px-3 text-xs font-semibold text-foreground"
+              aria-label="Filter Test Series by location"
+            >
+              <option value="GLOBAL">All Locations (Global)</option>
+              {availableCampuses.map((campus) => (
+                <option key={campus.id} value={campus.id}>{campus.name}</option>
+              ))}
+            </select>
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {seriesList.map((series) => (
+            {visibleSeries.map((series) => (
               <Card
                 key={series.id}
                 className="rounded-2xl border bg-card/60 transition-all duration-200 hover:border-primary/50 hover:shadow-md flex flex-col justify-between shadow-2xs"
@@ -813,6 +837,9 @@ export function TestSeriesClient({ seriesList, stats, enrolledStudents, canViewR
                   <div className="flex items-center justify-between mb-2">
                     <Badge variant="outline" className="text-[10px] font-mono uppercase tracking-wider font-semibold">
                       {series.targetExam}
+                    </Badge>
+                    <Badge variant="outline" className="text-[10px]">
+                      {series.institute?.name || "Location"}
                     </Badge>
                     <div className="flex items-center gap-1.5">
                       <span className="text-xs font-mono font-semibold text-muted-foreground">{series.code}</span>
@@ -1673,6 +1700,22 @@ export function TestSeriesClient({ seriesList, stats, enrolledStudents, canViewR
             </div>
 
             <form onSubmit={handleCreateSeries} className="space-y-3.5">
+              <div className="space-y-1">
+                <label className="font-semibold text-foreground">Assigned Location <span className="text-destructive">*</span></label>
+                <select
+                  required
+                  value={newSeriesData.instituteId}
+                  onChange={(event) => setNewSeriesData({ ...newSeriesData, instituteId: event.target.value })}
+                  className="w-full h-9 px-3 rounded-md border border-input bg-background text-xs"
+                >
+                  <option value="">Select location</option>
+                  {availableCampuses.map((campus) => (
+                    <option key={campus.id} value={campus.id}>
+                      {campus.name} ({campus.code})
+                    </option>
+                  ))}
+                </select>
+              </div>
               <div className="space-y-1">
                 <label className="font-semibold text-foreground">Program Title <span className="text-destructive">*</span></label>
                 <Input

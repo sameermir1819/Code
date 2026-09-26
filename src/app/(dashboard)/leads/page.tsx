@@ -18,6 +18,7 @@ import {
   LeadSource,
 } from "@/server/actions/leads";
 import { registerStudentForTestSeries } from "@/server/actions/test-series";
+import { getAllCampuses, type CampusItem } from "@/server/actions/campus";
 import { exportLeadsCSV } from "@/server/actions/export";
 import { formatDate, formatDateTime } from "@/lib/utils";
 import {
@@ -101,6 +102,7 @@ export default function LeadsPage() {
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [priorityFilter, setPriorityFilter] = useState<string>("ALL");
   const [sourceFilter, setSourceFilter] = useState<string>("ALL");
+  const [locationFilter, setLocationFilter] = useState<string>("GLOBAL");
   const [viewMode, setViewMode] = useState<"table" | "pipeline" | "logs">("table");
 
   // ─── Interaction Logs View State ────────────────────────────────────
@@ -120,6 +122,7 @@ export default function LeadsPage() {
   const [activeFollowUpLead, setActiveFollowUpLead] = useState<Lead | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [testSeriesOptions, setTestSeriesOptions] = useState<TestSeriesOption[]>([]);
+  const [campuses, setCampuses] = useState<CampusItem[]>([]);
   const [testSeriesLeadToEnroll, setTestSeriesLeadToEnroll] = useState<Lead | null>(null);
   const [testSeriesEnrollment, setTestSeriesEnrollment] = useState({
     testSeriesId: "",
@@ -131,6 +134,7 @@ export default function LeadsPage() {
 
   // ─── Add/Edit Form State ────────────────────────────────────────────
   const [formData, setFormData] = useState({
+    instituteId: "",
     name: "",
     phone: "",
     email: "",
@@ -160,27 +164,33 @@ export default function LeadsPage() {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [leadsRes, metricsRes, seriesRes] = await Promise.all([
+      const [leadsRes, metricsRes, seriesRes, campusList] = await Promise.all([
         getLeads({
           search,
           status: statusFilter,
           priority: priorityFilter,
           source: sourceFilter,
+          campusId: locationFilter,
           limit: 100,
         }),
-        getLeadsMetrics(),
+        getLeadsMetrics(locationFilter),
         getLeadTestSeriesOptions(),
+        getAllCampuses(),
       ]);
       setLeads(leadsRes.leads);
       setMetrics(metricsRes);
       setTestSeriesOptions(seriesRes);
+      setCampuses(campusList);
+      setFormData((current) => current.instituteId || !campusList[0]
+        ? current
+        : { ...current, instituteId: campusList[0].id });
     } catch (err) {
       console.error("Failed to load leads data:", err);
     } finally {
       setLoading(false);
       setMetricsLoading(false);
     }
-  }, [search, statusFilter, priorityFilter, sourceFilter]);
+  }, [search, statusFilter, priorityFilter, sourceFilter, locationFilter]);
 
   // ─── Fetch All Interaction Logs ─────────────────────────────────────
   const fetchLogs = useCallback(async () => {
@@ -255,6 +265,7 @@ export default function LeadsPage() {
 
       if (priorityFilter !== "ALL" && log.lead?.priority !== priorityFilter) return false;
       if (sourceFilter !== "ALL" && log.lead?.source !== sourceFilter) return false;
+      if (locationFilter !== "GLOBAL" && log.lead?.institute?.id !== locationFilter && log.lead?.source !== "WEBSITE") return false;
 
       if (!q) return true;
       const studentName = log.lead?.name?.toLowerCase() || "";
@@ -271,7 +282,7 @@ export default function LeadsPage() {
         notes.includes(q)
       );
     });
-  }, [allLogs, logsSearch, search, logsMethodFilter, priorityFilter, sourceFilter]);
+  }, [allLogs, logsSearch, search, logsMethodFilter, priorityFilter, sourceFilter, locationFilter]);
 
   // ─── Handle Add / Edit Submission ───────────────────────────────────
   const handleSubmitLead = async (e: React.FormEvent) => {
@@ -315,6 +326,7 @@ export default function LeadsPage() {
 
   const resetForm = () => {
     setFormData({
+      instituteId: campuses[0]?.id || "",
       name: "",
       phone: "",
       email: "",
@@ -336,6 +348,7 @@ export default function LeadsPage() {
   const openEditModal = (lead: Lead) => {
     setEditingLead(lead);
     setFormData({
+      instituteId: lead.instituteId || campuses[0]?.id || "",
       name: lead.name,
       phone: lead.phone,
       email: lead.email || "",
@@ -722,6 +735,17 @@ export default function LeadsPage() {
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
+          <select
+            value={locationFilter}
+            onChange={(e) => setLocationFilter(e.target.value)}
+            className="text-xs h-9 rounded-md bg-background/50 border border-border px-2.5 text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+          >
+            <option value="GLOBAL">All Locations</option>
+            {campuses.map((campus) => (
+              <option key={campus.id} value={campus.id}>{campus.name}</option>
+            ))}
+          </select>
+
           {/* Priority Filter */}
           <select
             value={priorityFilter}
@@ -1483,6 +1507,27 @@ export default function LeadsPage() {
 
             <form onSubmit={handleSubmitLead} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="md:col-span-2">
+                  <label className="text-xs font-medium text-foreground block mb-1">
+                    Assigned Location *
+                  </label>
+                  <select
+                    required
+                    value={formData.instituteId}
+                    disabled={formData.interestType === "TEST_SERIES"}
+                    onChange={(e) => setFormData({ ...formData, instituteId: e.target.value })}
+                    className="w-full text-sm h-10 rounded-md bg-background border border-border px-3 text-foreground disabled:opacity-60"
+                  >
+                    <option value="">Select Location</option>
+                    {campuses.map((campus) => (
+                      <option key={campus.id} value={campus.id}>{campus.name}{campus.city ? ` — ${campus.city}` : ""}</option>
+                    ))}
+                  </select>
+                  {formData.interestType === "TEST_SERIES" && (
+                    <p className="mt-1 text-[10px] text-muted-foreground">Location is taken from the selected Test Series.</p>
+                  )}
+                </div>
+
                 <div>
                   <label className="text-xs font-medium text-foreground block mb-1">
                     Student Full Name *
@@ -1553,6 +1598,7 @@ export default function LeadsPage() {
                           ...formData,
                           testSeriesId: e.target.value,
                           courseInterest: series?.title || "",
+                          instituteId: series?.instituteId || formData.instituteId,
                         });
                       }}
                       className="w-full text-sm h-10 rounded-md bg-background border border-border px-3 text-foreground focus:outline-none focus:ring-1 focus:ring-primary"

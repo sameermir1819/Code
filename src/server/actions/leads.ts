@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 
 import { logAudit } from "./audit";
 import { getActiveCampusId } from "./campus";
+import { authorizedCampusId } from "@/lib/campus-scope";
 import { revalidatePath } from "next/cache";
 
 export type LeadStatus =
@@ -181,6 +182,7 @@ export async function getLead(id: string) {
 // 3. CREATE LEAD (Inquiry / Query)
 // =========================================================================
 export async function createLead(data: {
+  instituteId?: string;
   name: string;
   phone: string;
   email?: string;
@@ -232,7 +234,7 @@ export async function createLead(data: {
 
   const lead = await db.lead.create({
     data: {
-      instituteId: selectedTestSeries?.instituteId || (activeCampusId && activeCampusId !== "ALL" ? activeCampusId : null),
+      instituteId: selectedTestSeries?.instituteId || authorizedCampusId(actor, data.instituteId || activeCampusId),
       name: data.name.trim(),
       phone: cleanPhone,
       email: data.email?.trim().toLowerCase() || null,
@@ -282,6 +284,7 @@ export async function createLead(data: {
 export async function updateLead(
   id: string,
   data: {
+    instituteId?: string;
     name?: string;
     phone?: string;
     email?: string | null;
@@ -310,6 +313,10 @@ export async function updateLead(
   const existing = await db.lead.findUnique({ where: { id } });
   if (!existing) throw new Error("Lead not found.");
   const updateData: Record<string, any> = {};
+
+  if (data.instituteId !== undefined) {
+    updateData.instituteId = authorizedCampusId(actor, data.instituteId);
+  }
 
   const effectiveInterestType = data.interestType || existing.interestType || "ADMISSION";
   const effectiveTestSeriesId = data.testSeriesId !== undefined
@@ -428,22 +435,9 @@ export async function addLeadFollowUp(
 // =========================================================================
 export async function getRecentLeadFollowUps(limit = 100) {
   try {
-    const actor = await requireStaffPermission("leads.view");
-    const campusId = await getActiveCampusId();
-
-    const where: any = {};
-    if (campusId && campusId !== "ALL" && actor.role !== "SUPER_ADMIN") {
-      where.lead = {
-        OR: [
-          { instituteId: campusId },
-          { instituteId: null },
-          { source: "WEBSITE" },
-        ],
-      };
-    }
+    await requireStaffPermission("leads.view");
 
     const logs = await db.leadFollowUp.findMany({
-      where,
       orderBy: { createdAt: "desc" },
       take: limit,
       include: {
@@ -494,14 +488,12 @@ export async function deleteLead(id: string) {
 // =========================================================================
 // 7. GET LEADS CRM METRICS
 // =========================================================================
-export async function getLeadsMetrics() {
-  const actor = await requireStaffPermission("leads.view");
-  const activeCampusId = await getActiveCampusId();
-
+export async function getLeadsMetrics(campusId?: string) {
+  await requireStaffPermission("leads.view");
   const where: Record<string, any> = {};
-  if (actor.role !== "SUPER_ADMIN" && activeCampusId && activeCampusId !== "ALL") {
+  if (campusId && !["ALL", "GLOBAL"].includes(campusId)) {
     where.OR = [
-      { instituteId: activeCampusId },
+      { instituteId: campusId },
       { source: "WEBSITE" },
       { instituteId: null },
     ];

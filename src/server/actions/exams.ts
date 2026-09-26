@@ -1,13 +1,12 @@
 "use server";
 
-import { authorizedCampusId } from "@/lib/campus-scope";
+import { assertCampusAccess } from "@/lib/campus-scope";
 import { requireStaffPermission } from "@/lib/auth";
 
 import { db } from "@/lib/db";
 
 import { calculateGrade } from "@/lib/utils";
 import { logAudit } from "./audit";
-import { getActiveCampusId } from "./campus";
 
 export async function getExams({
   batchId,
@@ -113,12 +112,20 @@ export async function createExam(data: {
   instructions?: string;
 }) {
   const session = await requireStaffPermission("exams.create");
-  const instituteId = authorizedCampusId(session, await getActiveCampusId());
   const batch = await db.batch.findFirst({
-    where: { id: data.batchId, instituteId },
-    select: { id: true },
+    where: { id: data.batchId },
+    select: { id: true, instituteId: true },
   });
   if (!batch) throw new Error("Batch not found");
+  assertCampusAccess(session, batch.instituteId);
+  const subject = await db.subject.findFirst({
+    where: {
+      id: data.subjectId,
+      OR: [{ instituteId: null }, { instituteId: batch.instituteId }],
+    },
+    select: { id: true },
+  });
+  if (!subject) throw new Error("Select a global subject or a subject assigned to the batch location.");
 
   const exam = await db.exam.create({
     data: {
@@ -151,11 +158,12 @@ export async function saveExamMarks(
   entries: Array<{ studentId: string; marksObtained: number; remarks?: string }>
 ) {
   const session = await requireStaffPermission("results.manage");
-  const instituteId = authorizedCampusId(session, await getActiveCampusId());
   const exam = await db.exam.findFirst({
-    where: { id: examId, batch: { instituteId } },
+    where: { id: examId },
+    include: { batch: { select: { instituteId: true } } },
   });
   if (!exam) throw new Error("Exam not found");
+  const instituteId = assertCampusAccess(session, exam.batch.instituteId);
 
   await db.$transaction(async (tx) => {
     const studentIds = [...new Set(entries.map((entry) => entry.studentId))];
@@ -232,12 +240,12 @@ export async function saveExamMarks(
 
 export async function publishExam(examId: string) {
   const session = await requireStaffPermission("results.manage");
-  const instituteId = authorizedCampusId(session, await getActiveCampusId());
   const existingExam = await db.exam.findFirst({
-    where: { id: examId, batch: { instituteId } },
-    select: { id: true },
+    where: { id: examId },
+    select: { id: true, batch: { select: { instituteId: true } } },
   });
   if (!existingExam) throw new Error("Exam not found");
+  assertCampusAccess(session, existingExam.batch.instituteId);
   const exam = await db.exam.update({
     where: { id: examId },
     data: { status: "PUBLISHED" },
