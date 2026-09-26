@@ -6,7 +6,7 @@ import { db } from "@/lib/db";
 import { logAudit } from "./audit";
 import { materialAccessWhere } from "@/lib/material-access";
 import { assertCampusAccess } from "@/lib/campus-scope";
-import { existingUploadPath, uploadRoot, uploadOwner } from "@/lib/private-uploads";
+import { existingUploadPath, uploadRoot, uploadOwner, verifyMaterialUploadToken } from "@/lib/private-uploads";
 
 export async function getStudyMaterials({
   courseId,
@@ -44,6 +44,7 @@ export async function createStudyMaterial(data: {
   description?: string;
   fileType: string;
   fileUrl: string;
+  uploadToken?: string;
   fileSize?: string;
   courseId?: string;
   batchId?: string;
@@ -54,9 +55,12 @@ export async function createStudyMaterial(data: {
   const safeFileUrl = data.fileUrl?.trim();
   if (!data.title?.trim() || !safeFileUrl) throw new Error("Title and file are required");
   if (safeFileUrl.startsWith("/api/uploads/materials/")) {
-    const parts = safeFileUrl.slice("/api/uploads/".length).split("/");
-    const file = await existingUploadPath(uploadRoot, parts);
-    if (!file || await uploadOwner(file) !== session.id) throw new Error("Choose a file uploaded by your account");
+    const tokenIsValid = verifyMaterialUploadToken(data.uploadToken, safeFileUrl, session.id);
+    if (!tokenIsValid) {
+      const parts = safeFileUrl.slice("/api/uploads/".length).split("/");
+      const file = await existingUploadPath(uploadRoot, parts);
+      if (!file || await uploadOwner(file) !== session.id) throw new Error("Choose a file uploaded by your account");
+    }
   } else {
     let url: URL;
     try { url = new URL(safeFileUrl); } catch { throw new Error("Use a valid HTTPS link or upload a file"); }

@@ -131,6 +131,7 @@ export function BatchDetailView({
     description: "",
     fileType: "PDF",
     fileUrl: "",
+    uploadToken: "",
     fileSize: "",
     subjectId: "",
   });
@@ -152,6 +153,7 @@ export function BatchDetailView({
         ...prev,
         title: prev.title.trim() ? prev.title : cleanTitle,
         fileType: detectedType,
+        uploadToken: "",
       }));
     }
   };
@@ -256,6 +258,7 @@ export function BatchDetailView({
     setIsUploadingFile(true);
     try {
       let finalFileUrl = newMaterial.fileUrl;
+      let finalUploadToken = newMaterial.uploadToken;
       let finalFileSize = newMaterial.fileSize;
       let finalFileType = newMaterial.fileType;
 
@@ -274,6 +277,7 @@ export function BatchDetailView({
           throw new Error(data.message || "File upload failed on server.");
         }
         finalFileUrl = data.fileUrl || data.url || "";
+        finalUploadToken = data.uploadToken || "";
         finalFileSize = data.fileSize || data.size || "1.5 MB";
         finalFileType = data.fileType || finalFileType;
       }
@@ -292,6 +296,7 @@ export function BatchDetailView({
         description: newMaterial.description,
         fileType: finalFileType as any,
         fileUrl: finalFileUrl,
+        uploadToken: finalUploadToken || undefined,
         fileSize: finalFileSize || undefined,
         subjectId: chosenSubjectId,
         batchId: batch.id,
@@ -305,6 +310,7 @@ export function BatchDetailView({
         description: "",
         fileType: "PDF",
         fileUrl: "",
+        uploadToken: "",
         fileSize: "",
         subjectId: defaultSubjectId,
       });

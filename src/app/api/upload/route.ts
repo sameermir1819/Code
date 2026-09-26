@@ -3,7 +3,7 @@ import { writeFile, mkdir } from "fs/promises";
 import { join } from "path";
 import { randomUUID } from "crypto";
 import { getSession, getEffectivePermissions } from "@/lib/auth";
-import { uploadRoot, validateUpload } from "@/lib/private-uploads";
+import { hasPersistentMaterialStorage, issueMaterialUploadToken, uploadMaterialObject, uploadRoot, validateUpload } from "@/lib/private-uploads";
 
 export async function POST(req: NextRequest) {
   const session = await getSession();
@@ -20,14 +20,21 @@ export async function POST(req: NextRequest) {
     try { format = validateUpload(file.name, buffer); }
     catch (error) { return NextResponse.json({ success: false, message: (error as Error).message }, { status: 400 }); }
     const directory = join(uploadRoot, "materials");
-    await mkdir(directory, { recursive: true });
     const name = randomUUID() + format.ext;
-    const filePath = join(directory, name);
-    await writeFile(filePath + ".json", JSON.stringify({ userId: session.id }), { flag: "wx" });
-    await writeFile(filePath, buffer, { flag: "wx" });
     const url = "/api/uploads/materials/" + name;
+    if (hasPersistentMaterialStorage()) {
+      await uploadMaterialObject(name, buffer, format.mime);
+    } else {
+      if (process.env.NODE_ENV === "production") {
+        return NextResponse.json({ success: false, message: "Persistent file storage is not configured." }, { status: 503 });
+      }
+      await mkdir(directory, { recursive: true });
+      const filePath = join(directory, name);
+      await writeFile(filePath + ".json", JSON.stringify({ userId: session.id }), { flag: "wx" });
+      await writeFile(filePath, buffer, { flag: "wx" });
+    }
     const size = file.size >= 1024 * 1024 ? (file.size / (1024 * 1024)).toFixed(1) + " MB" : Math.ceil(file.size / 1024) + " KB";
-    return NextResponse.json({ success: true, fileUrl: url, url, fileName: file.name, fileSize: size, size, fileType: format.type });
+    return NextResponse.json({ success: true, fileUrl: url, url, uploadToken: issueMaterialUploadToken(url, session.id), fileName: file.name, fileSize: size, size, fileType: format.type });
   } catch (error) {
     console.error("Upload failed", error);
     return NextResponse.json({ success: false, message: "Upload failed. Please try again." }, { status: 500 });

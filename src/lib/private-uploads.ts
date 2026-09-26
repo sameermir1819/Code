@@ -1,5 +1,6 @@
 import { resolve, relative, isAbsolute, extname } from "path";
 import { readFile, realpath } from "fs/promises";
+import { createHmac, timingSafeEqual } from "crypto";
 
 export const uploadRoot = resolve(process.cwd(), ".data", "uploads");
 export const legacyUploadRoot = resolve(process.cwd(), "public", "uploads");
@@ -27,6 +28,114 @@ export async function uploadOwner(file: string): Promise<string | null> {
     const metadata = JSON.parse(await readFile(`${file}.json`, "utf8"));
     return typeof metadata.userId === "string" ? metadata.userId : null;
   } catch { return null; }
+}
+
+const MATERIAL_BUCKET = "study-materials";
+let materialBucketReady: Promise<void> | null = null;
+
+function storageConfig() {
+  const url = process.env.SUPABASE_URL?.replace(/\/$/, "");
+  const key = process.env.SUPABASE_SECRET_KEY;
+  return url && key ? { url, key } : null;
+}
+
+export function hasPersistentMaterialStorage() {
+  return Boolean(storageConfig());
+}
+
+function storageHeaders(config: { key: string }) {
+  return { apikey: config.key, Authorization: `Bearer ${config.key}` };
+}
+
+async function ensureMaterialBucket() {
+  const config = storageConfig();
+  if (!config) throw new Error("Persistent study-material storage is not configured.");
+  if (!materialBucketReady) {
+    materialBucketReady = (async () => {
+      const existing = await fetch(`${config.url}/storage/v1/bucket/${MATERIAL_BUCKET}`, {
+        headers: storageHeaders(config),
+        cache: "no-store",
+      });
+      if (existing.ok) return;
+      const created = await fetch(`${config.url}/storage/v1/bucket`, {
+        method: "POST",
+        headers: { ...storageHeaders(config), "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: MATERIAL_BUCKET,
+          name: MATERIAL_BUCKET,
+          public: false,
+          file_size_limit: 50 * 1024 * 1024,
+          allowed_mime_types: [
+            "application/pdf", "application/msword",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            "application/vnd.ms-powerpoint",
+            "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+            "text/plain", "image/png", "image/jpeg", "image/webp",
+          ],
+        }),
+      });
+      if (!created.ok) {
+        materialBucketReady = null;
+        throw new Error("Could not initialize persistent study-material storage.");
+      }
+    })();
+  }
+  return materialBucketReady;
+}
+
+export async function uploadMaterialObject(fileName: string, bytes: Buffer, mime: string) {
+  const config = storageConfig();
+  if (!config) throw new Error("Persistent study-material storage is not configured.");
+  await ensureMaterialBucket();
+  const key = `materials/${fileName}`;
+  const response = await fetch(`${config.url}/storage/v1/object/${MATERIAL_BUCKET}/${key}`, {
+    method: "POST",
+    headers: { ...storageHeaders(config), "Content-Type": mime, "x-upsert": "false" },
+    body: bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer,
+  });
+  if (!response.ok) throw new Error("File could not be saved to persistent storage.");
+  return key;
+}
+
+export async function readMaterialObject(fileName: string) {
+  const config = storageConfig();
+  if (!config) return null;
+  const response = await fetch(
+    `${config.url}/storage/v1/object/authenticated/${MATERIAL_BUCKET}/materials/${encodeURIComponent(fileName)}`,
+    { headers: storageHeaders(config), cache: "no-store" }
+  );
+  if (response.status === 404) return null;
+  if (!response.ok) throw new Error("Persistent study-material file is unavailable.");
+  return Buffer.from(await response.arrayBuffer());
+}
+
+function uploadTokenSecret() {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) throw new Error("Upload signing is not configured.");
+  return secret;
+}
+
+export function issueMaterialUploadToken(fileUrl: string, userId: string) {
+  const expires = Date.now() + 30 * 60 * 1000;
+  const payload = Buffer.from(JSON.stringify({ fileUrl, userId, expires })).toString("base64url");
+  const signature = createHmac("sha256", uploadTokenSecret()).update(payload).digest("base64url");
+  return `${payload}.${signature}`;
+}
+
+export function verifyMaterialUploadToken(token: string | undefined, fileUrl: string, userId: string) {
+  if (!token) return false;
+  const [payload, suppliedSignature] = token.split(".");
+  if (!payload || !suppliedSignature) return false;
+  const expectedSignature = createHmac("sha256", uploadTokenSecret()).update(payload).digest("base64url");
+  const supplied = Buffer.from(suppliedSignature);
+  const expected = Buffer.from(expectedSignature);
+  if (supplied.length !== expected.length || !timingSafeEqual(supplied, expected)) return false;
+  try {
+    const value = JSON.parse(Buffer.from(payload, "base64url").toString("utf8"));
+    return value.fileUrl === fileUrl && value.userId === userId && Number(value.expires) >= Date.now();
+  } catch {
+    return false;
+  }
 }
 export function validateUpload(name: string, bytes: Buffer) {
   const ext = extname(name).toLowerCase();

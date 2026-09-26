@@ -3,7 +3,7 @@ import { readFile } from "fs/promises";
 import { getSession, getEffectivePermissions } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { materialAccessWhere } from "@/lib/material-access";
-import { existingUploadPath, uploadOwner, uploadRoot, legacyUploadRoot, validateUpload, uploadPath } from "@/lib/private-uploads";
+import { existingUploadPath, uploadOwner, uploadRoot, legacyUploadRoot, readMaterialObject, validateUpload, uploadPath } from "@/lib/private-uploads";
 
 export const dynamic = "force-dynamic";
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
@@ -23,9 +23,10 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ pat
     const privateFile = await existingUploadPath(uploadRoot, parts);
     const ownsUnpublishedFile = privateFile && permissions.includes("materials.manage") && !["STUDENT", "PARENT"].includes(session.role) && await uploadOwner(privateFile) === session.id;
     if (!material && !ownsUnpublishedFile) return new NextResponse("Not found", { status: 404 });
-    const file = privateFile || await existingUploadPath(legacyUploadRoot, parts);
-    if (!file) return new NextResponse("Not found", { status: 404 });
-    const bytes = await readFile(file);
+    const persistentBytes = material ? await readMaterialObject(parts[1]) : null;
+    const file = persistentBytes ? null : privateFile || await existingUploadPath(legacyUploadRoot, parts);
+    if (!persistentBytes && !file) return new NextResponse("Not found", { status: 404 });
+    const bytes = persistentBytes || await readFile(file!);
     let format;
     try { format = validateUpload(parts[1], bytes); }
     catch { return new NextResponse("Unsupported file format", { status: 415 }); }

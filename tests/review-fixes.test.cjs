@@ -312,6 +312,39 @@ test('authorized upload writes private storage and owner metadata; spoofed files
   assert.match((await response.json()).fileUrl, /^\/api\/uploads\/materials\/[a-f0-9-]+\.pdf$/);
 });
 
+test('production study-material upload uses persistent storage and a signed ownership token', async () => {
+  const objects = [];
+  const api = load('src/app/api/upload/route.ts', {
+    '@/lib/auth': { getSession: async () => ({ role: 'TEACHER', id: 'teacher-a' }) },
+    '@/lib/private-uploads': {
+      ...uploads,
+      hasPersistentMaterialStorage: () => true,
+      uploadMaterialObject: async (name, bytes, mime) => objects.push({ name, bytes: bytes.toString(), mime }),
+      issueMaterialUploadToken: (url, userId) => `signed:${userId}:${url}`,
+    },
+    'fs/promises': { mkdir: async () => { throw new Error('local storage must not be used'); }, writeFile: async () => { throw new Error('local storage must not be used'); } },
+  });
+  const content = '%PDF-1.7 persistent';
+  const response = await api.POST({
+    headers: { get: () => null },
+    formData: async () => ({ get: () => ({ name: 'notes.pdf', size: content.length, arrayBuffer: async () => Buffer.from(content) }) }),
+  });
+  assert.equal(response.status, 200);
+  const json = await response.json();
+  assert.equal(objects.length, 1);
+  assert.equal(objects[0].mime, 'application/pdf');
+  assert.equal(json.uploadToken, `signed:teacher-a:${json.fileUrl}`);
+});
+
+test('material upload ownership tokens are bound to user and file and expire', () => {
+  const fileUrl = '/api/uploads/materials/notes.pdf';
+  const token = uploads.issueMaterialUploadToken(fileUrl, 'teacher-a');
+  assert.equal(uploads.verifyMaterialUploadToken(token, fileUrl, 'teacher-a'), true);
+  assert.equal(uploads.verifyMaterialUploadToken(token, fileUrl, 'teacher-b'), false);
+  assert.equal(uploads.verifyMaterialUploadToken(token, '/api/uploads/materials/other.pdf', 'teacher-a'), false);
+  assert.equal(uploads.verifyMaterialUploadToken(token + 'x', fileUrl, 'teacher-a'), false);
+});
+
 test('finance metrics use remaining plan balances and refund-aware collections for one campus', async () => {
   const db = {
     payment: { aggregate: async ({ where }) => { assert.equal(where.student.instituteId, 'own'); return { _sum: { amount: 100 }, _count: 1 }; } },

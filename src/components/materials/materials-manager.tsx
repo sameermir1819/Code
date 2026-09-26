@@ -2,7 +2,7 @@
 "use client";
 import { usePermissions } from "@/components/layout/permission-provider";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createStudyMaterial, deleteStudyMaterial, trackMaterialDownload } from "@/server/actions/materials";
 import { formatDate } from "@/lib/utils";
@@ -78,6 +78,7 @@ export function MaterialsManager({ initialMaterials, subjects, userRole }: Mater
     description: "",
     fileType: "LINK",
     fileUrl: "",
+    uploadToken: "",
     fileSize: "Web Link",
     subjectId: "",
   });
@@ -85,7 +86,11 @@ export function MaterialsManager({ initialMaterials, subjects, userRole }: Mater
 
   const isStaff = usePermissions().includes("materials.manage");
 
-  const filteredMaterials = initialMaterials.filter((m) => {
+  useEffect(() => {
+    setMaterials(initialMaterials);
+  }, [initialMaterials]);
+
+  const filteredMaterials = materials.filter((m) => {
     const matchesSearch =
       m.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (m.description && m.description.toLowerCase().includes(searchQuery.toLowerCase())) ||
@@ -118,6 +123,7 @@ export function MaterialsManager({ initialMaterials, subjects, userRole }: Mater
         setForm((prev) => ({
           ...prev,
           fileUrl: data.fileUrl,
+          uploadToken: data.uploadToken || "",
           fileSize: data.fileSize || "1.0 MB",
           fileType: data.fileType || "PDF",
           title: prev.title || file.name.replace(/\.[^/.]+$/, ""),
@@ -154,6 +160,7 @@ export function MaterialsManager({ initialMaterials, subjects, userRole }: Mater
           description: form.description.trim() || undefined,
           fileType: uploadMode === "link" ? "LINK" : form.fileType,
           fileUrl: form.fileUrl.trim(),
+          uploadToken: form.uploadToken || undefined,
           fileSize: uploadMode === "link" ? "Web Link" : form.fileSize,
           subjectId: form.subjectId || undefined,
         });
@@ -165,6 +172,7 @@ export function MaterialsManager({ initialMaterials, subjects, userRole }: Mater
             description: "",
             fileType: "LINK",
             fileUrl: "",
+            uploadToken: "",
             fileSize: "Web Link",
             subjectId: "",
           });
@@ -468,7 +476,7 @@ export function MaterialsManager({ initialMaterials, subjects, userRole }: Mater
                     type="url"
                     placeholder="https://drive.google.com/file/d/..."
                     value={form.fileUrl}
-                    onChange={(e) => setForm({ ...form, fileUrl: e.target.value, fileType: "LINK" })}
+                    onChange={(e) => setForm({ ...form, fileUrl: e.target.value, uploadToken: "", fileType: "LINK" })}
                   />
                   <p className="text-[11px] text-muted-foreground mt-1">
                     Paste Google Drive, Dropbox, Notion, YouTube, or web PDF URL link.
