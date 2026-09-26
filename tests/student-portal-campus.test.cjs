@@ -123,6 +123,7 @@ test('student portal lists its campus and global test series', async () => {
     },
     '@/lib/redact-related-data': { redactRelatedData: (value) => value },
     '@/server/actions/portal': { resolveCurrentStudent: async () => ({ student }) },
+    './audit': { logAudit: async () => {} },
     'next/cache': { revalidatePath() {} },
     '@/lib/campus-scope': { authorizedCampusId: (_session, campusId) => campusId },
     '@/server/actions/campus': { getActiveCampusId: async () => 'campus-two' },

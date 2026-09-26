@@ -8,6 +8,7 @@ import { db } from "@/lib/db";
 import { redactRelatedData } from "@/lib/redact-related-data";
 import { requireAuth, getEffectivePermissions } from "@/lib/auth";
 import { resolveCurrentStudent } from "@/server/actions/portal";
+import { logAudit } from "./audit";
 import { revalidatePath } from "next/cache";
 import type { SessionUser } from "@/lib/permissions";
 
@@ -282,7 +283,7 @@ export async function deleteTestSeries(id: string) {
   try {
     const existing = await db.testSeries.findUnique({
       where: { id },
-      select: { title: true, instituteId: true },
+      select: { title: true, code: true, instituteId: true },
     });
 
     if (!existing) {
@@ -291,6 +292,13 @@ export async function deleteTestSeries(id: string) {
     assertTestSeriesManageAccess(session, existing.instituteId);
 
     await db.testSeries.delete({ where: { id } });
+
+    await logAudit({
+      action: "TEST_SERIES_DELETED",
+      entity: "TestSeries",
+      entityId: id,
+      details: `Test Series deleted: ${existing.title} (${existing.code})`,
+    });
 
     revalidateTestSeriesPaths();
     return { success: true };
@@ -976,6 +984,45 @@ export async function getExternalCandidateProfile(candidateId: string) {
   });
   if (!candidate) throw new Error("External candidate profile not found.");
   return candidate;
+}
+
+export async function deleteExternalCandidate(candidateId: string) {
+  const session = await requireStaffPermission("test-series.manage");
+  if (!candidateId) return { success: false, error: "External candidate ID is required." };
+
+  try {
+    const candidate = await db.externalCandidate.findUnique({
+      where: { id: candidateId },
+      select: { id: true, instituteId: true, name: true, candidateNo: true },
+    });
+    if (!candidate) return { success: false, error: "External candidate not found." };
+    assertCampusAccess(session, candidate.instituteId);
+
+    await db.$transaction(async (tx) => {
+      // Results cascade from registrations. Removing both ensures the person no
+      // longer remains in any Test Series candidate or result list.
+      await tx.testSeriesRegistration.deleteMany({
+        where: { externalCandidateId: candidate.id },
+      });
+      await tx.externalCandidate.delete({ where: { id: candidate.id } });
+    });
+
+    await logAudit({
+      action: "EXTERNAL_CANDIDATE_DELETED",
+      entity: "ExternalCandidate",
+      entityId: candidate.id,
+      details: `External candidate deleted: ${candidate.name} (${candidate.candidateNo}) with linked Test Series registrations and results.`,
+    });
+
+    revalidateTestSeriesPaths();
+    revalidatePath(`/test-series/external/${candidate.id}`);
+    return { success: true };
+  } catch (err: unknown) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to delete external candidate.",
+    };
+  }
 }
 
 export async function refundTestSeriesPayment(data: {

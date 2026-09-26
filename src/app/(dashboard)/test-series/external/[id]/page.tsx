@@ -2,11 +2,15 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Award, Calendar, CreditCard, MapPin, Phone, UserRound } from "lucide-react";
 import { getExternalCandidateProfile } from "@/server/actions/test-series";
+import { getEffectivePermissions, requireStaffPermission } from "@/lib/auth";
+import { ExternalCandidateDeleteButton } from "./external-candidate-delete-button";
 
 export const dynamic = "force-dynamic";
 
 export default async function ExternalCandidateProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  const actor = await requireStaffPermission("test-series.view");
+  const permissions = await getEffectivePermissions(actor);
   let candidate: Awaited<ReturnType<typeof getExternalCandidateProfile>>;
   try {
     candidate = await getExternalCandidateProfile(id);
@@ -38,6 +42,15 @@ export default async function ExternalCandidateProfilePage({ params }: { params:
             <div className="rounded-xl border bg-muted/30 p-3"><span className="block text-xs text-muted-foreground">Registrations</span><strong>{candidate.registrations.length}</strong></div>
             <div className="rounded-xl border bg-muted/30 p-3"><span className="block text-xs text-muted-foreground">Results</span><strong>{candidate.registrations.reduce((sum, item) => sum + item.results.length, 0)}</strong></div>
             <div className="rounded-xl border bg-muted/30 p-3"><span className="block text-xs text-muted-foreground">Location</span><strong>{candidate.institute.code}</strong></div>
+            {permissions.includes("test-series.manage") && (
+              <div className="col-span-2 sm:col-span-3 flex justify-end pt-1">
+                <ExternalCandidateDeleteButton
+                  candidateId={candidate.id}
+                  candidateName={candidate.name}
+                  registrationCount={candidate.registrations.length}
+                />
+              </div>
+            )}
           </div>
         </div>
 

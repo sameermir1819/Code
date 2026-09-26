@@ -50,6 +50,7 @@ export default async function TestSeriesPage() {
         stats={testSeriesData.stats}
         enrolledStudents={enrolledStudents}
         availableCampuses={campuses}
+        canManageSeries={permissions.includes("test-series.manage")}
         canViewResults={permissions.includes("results.view")}
         canManageResults={permissions.includes("results.view") && permissions.includes("results.manage")}
       />

@@ -24,7 +24,10 @@ function loadTestSeriesActions(db) {
     console,
     require(id) {
       if (id === "@/lib/db") return { db };
-      if (id === "@/lib/campus-scope") return { authorizedCampusId: () => "campus-a" };
+      if (id === "@/lib/campus-scope") return {
+        authorizedCampusId: () => "campus-a",
+        assertCampusAccess: (_session, campusId) => campusId,
+      };
       if (id === "@/server/actions/campus") return { getActiveCampusId: async () => "campus-a" };
       if (id === "@/lib/auth") return {
         requirePermission: async () => ({ id: "admin-1", name: "Admin", role: "ADMIN", instituteId: "campus-a" }),
@@ -34,6 +37,7 @@ function loadTestSeriesActions(db) {
       };
       if (id === "@/lib/redact-related-data") return { redactRelatedData: (value) => value };
       if (id === "@/server/actions/portal") return { resolveCurrentStudent: async () => null };
+      if (id === "./audit") return { logAudit: async () => {} };
       if (id === "next/cache") return { revalidatePath() {} };
       throw new Error(`Unexpected dependency: ${id}`);
     },
@@ -205,4 +209,41 @@ test("the exam maximum is authoritative and out-of-range late scores are rejecte
   assert.equal(result.success, false);
   assert.match(result.error, /between 0 and 50/i);
   assert.equal(transactions, 0);
+});
+
+test("external candidate deletion removes linked registrations and profile atomically", async () => {
+  const committed = [];
+  const candidate = {
+    id: "external-1", instituteId: "campus-a", name: "External Student", candidateNo: "EXT-1",
+  };
+  const db = {
+    externalCandidate: { findUnique: async () => candidate },
+    $transaction: async (callback) => {
+      const pending = [];
+      const result = await callback({
+        testSeriesRegistration: {
+          deleteMany: async (args) => pending.push(["registrations", args]),
+        },
+        externalCandidate: {
+          delete: async (args) => pending.push(["candidate", args]),
+        },
+      });
+      committed.push(...pending);
+      return result;
+    },
+  };
+  const actions = loadTestSeriesActions(db);
+  const result = await actions.deleteExternalCandidate(candidate.id);
+  assert.equal(result.success, true);
+  assert.deepEqual(JSON.parse(JSON.stringify(committed)), [
+    ["registrations", { where: { externalCandidateId: candidate.id } }],
+    ["candidate", { where: { id: candidate.id } }],
+  ]);
+});
+
+test("test series cards expose labeled edit and delete controls to managers", () => {
+  const source = fs.readFileSync(path.join(root, "src/app/(dashboard)/test-series/test-series-client.tsx"), "utf8");
+  assert.match(source, /canManageSeries/);
+  assert.match(source, />Delete<\/span>/);
+  assert.match(source, /setSeriesToDelete\(series\)/);
 });

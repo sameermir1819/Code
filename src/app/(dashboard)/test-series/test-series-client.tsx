@@ -111,6 +111,7 @@ interface Props {
   };
   enrolledStudents: EnrolledStudent[];
   availableCampuses?: Array<{ id: string; name: string; code: string; city?: string | null }>;
+  canManageSeries: boolean;
   canViewResults: boolean;
   canManageResults: boolean;
 }
@@ -137,7 +138,7 @@ const getDefaultSeriesData = (instituteId = "") => ({
   status: "ACTIVE",
 });
 
-export function TestSeriesClient({ seriesList, stats, enrolledStudents, availableCampuses = [], canViewResults, canManageResults }: Props) {
+export function TestSeriesClient({ seriesList, stats, enrolledStudents, availableCampuses = [], canManageSeries, canViewResults, canManageResults }: Props) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<"programs" | "registrations" | "schedule" | "results">("programs");
   const [searchTerm, setSearchTerm] = useState("");
@@ -639,7 +640,7 @@ export function TestSeriesClient({ seriesList, stats, enrolledStudents, availabl
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5 self-start md:self-center shrink-0">
+        {canManageSeries && <div className="flex items-center gap-2.5 self-start md:self-center shrink-0">
           <Button
             onClick={() => setShowRegisterModal(true)}
             className="h-9 px-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-xs transition-all active:scale-95 gap-1.5"
@@ -655,7 +656,7 @@ export function TestSeriesClient({ seriesList, stats, enrolledStudents, availabl
             <Plus className="h-3.5 w-3.5" />
             <span>+ New Test Series</span>
           </Button>
-        </div>
+        </div>}
       </div>
 
       {/* ── Status Alerts ── */}
@@ -847,22 +848,24 @@ export function TestSeriesClient({ seriesList, stats, enrolledStudents, availabl
                     </Badge>
                     <div className="flex items-center gap-1.5">
                       <span className="text-xs font-mono font-semibold text-muted-foreground">{series.code}</span>
-                      <button
+                      {canManageSeries && <button
                         type="button"
                         onClick={() => handleOpenEditSeries(series)}
                         title="Edit test series"
-                        className="h-7 w-7 inline-flex items-center justify-center rounded-lg border bg-background text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                        className="h-7 px-2 inline-flex items-center justify-center gap-1 rounded-lg border bg-background text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
                       >
                         <Pencil className="h-3.5 w-3.5" />
-                      </button>
-                      <button
+                        <span className="text-[10px] font-semibold">Edit</span>
+                      </button>}
+                      {canManageSeries && <button
                         type="button"
                         onClick={() => setSeriesToDelete(series)}
                         title="Delete test series"
-                        className="h-7 w-7 inline-flex items-center justify-center rounded-lg border bg-background text-destructive hover:bg-destructive/10 transition-colors"
+                        className="h-7 px-2 inline-flex items-center justify-center gap-1 rounded-lg border border-destructive/40 bg-background text-destructive hover:bg-destructive/10 transition-colors"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
-                      </button>
+                        <span className="text-[10px] font-semibold">Delete</span>
+                      </button>}
                     </div>
                   </div>
                   <CardTitle className="text-base font-bold text-foreground leading-snug">{series.title}</CardTitle>

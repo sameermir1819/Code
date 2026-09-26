@@ -439,6 +439,7 @@ test('student self-enrollment never marks an unverified payment paid', async () 
       testSeriesRegistration: { findFirst: async () => null, count: async () => 0, create: async ({ data }) => { created = data; return data; } },
     } },
     '@/server/actions/portal': { resolveCurrentStudent: async () => ({ student }) },
+    './audit': { logAudit: async () => {} },
     'next/cache': { revalidatePath() {} },
   });
   assert.equal((await api.enrollStudentSelf('series-a', 'UPI')).success, true);
