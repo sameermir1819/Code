@@ -458,10 +458,10 @@ export async function createBatchSubject(data: {
   const instituteId = batch.instituteId;
   if (data.teacherId) {
     const teacher = await db.teacher.findFirst({
-      where: { id: data.teacherId, instituteId, status: "ACTIVE" },
+      where: { id: data.teacherId, status: "ACTIVE" },
       select: { id: true },
     });
-    if (!teacher) throw new Error("Teacher does not belong to the active campus");
+    if (!teacher) throw new Error("Select an active faculty member.");
   }
 
   // Create or find subject by code
@@ -584,9 +584,9 @@ export async function createBatch(data: {
       if (await tx.batch.findUnique({ where: { code }, select: { id: true } })) {
         return { success: false as const, error: "This batch code already exists. Use a different code." };
       }
-      const teacherCount = await tx.teacher.count({ where: { id: { in: teacherIds }, instituteId: campusId, status: "ACTIVE" } });
+      const teacherCount = await tx.teacher.count({ where: { id: { in: teacherIds }, status: "ACTIVE" } });
       if (teacherCount !== teacherIds.length) {
-        return { success: false as const, error: "One or more instructors are unavailable in this campus. Refresh and select them again." };
+        return { success: false as const, error: "One or more instructors are unavailable. Refresh and select them again." };
       }
       let course = await tx.course.findFirst({
         where: { instituteId: campusId, status: "ACTIVE", ...(data.courseId ? { id: data.courseId } : {}) },
@@ -669,11 +669,11 @@ export async function updateBatch(
   if (data.teacherIds?.length) {
     const teacherIds = [...new Set(data.teacherIds)];
     const teachers = await db.teacher.findMany({
-      where: { id: { in: teacherIds }, instituteId, status: "ACTIVE" },
+      where: { id: { in: teacherIds }, status: "ACTIVE" },
       select: { id: true },
     });
     if (teachers.length !== teacherIds.length) {
-      throw new Error("All teachers must belong to the active campus and be active");
+      throw new Error("All selected faculty members must be active.");
     }
   }
 
@@ -917,9 +917,9 @@ export async function createTimetableSlot(data: {
   const instituteId = authorizedCampusId(actor, await getActiveCampusId());
   const [batch, teacher] = await Promise.all([
     db.batch.findFirst({ where: { id: data.batchId, instituteId }, select: { id: true } }),
-    db.teacher.findFirst({ where: { id: data.teacherId, instituteId, status: "ACTIVE" }, select: { id: true } }),
+    db.teacher.findFirst({ where: { id: data.teacherId, status: "ACTIVE" }, select: { id: true } }),
   ]);
-  if (!batch || !teacher) throw new Error("Batch and active teacher must belong to your selected campus.");
+  if (!batch || !teacher) throw new Error("Select a valid batch and an active faculty member.");
 
   // 1. Check Teacher conflict
   const teacherConflict = await db.timetableSlot.findFirst({

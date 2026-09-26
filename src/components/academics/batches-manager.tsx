@@ -84,7 +84,7 @@ export function BatchesManager({
   useEffect(() => {
     if (teachers) {
       setTeacherList(teachers);
-      if (initialCampusId !== "GLOBAL") setCreateTeacherList(teachers);
+      setCreateTeacherList(teachers);
     }
   }, [teachers, initialCampusId]);
 
@@ -98,10 +98,13 @@ export function BatchesManager({
       try {
         const [fresh, freshTeachers] = await Promise.all([
           getBatches({ campusId: campusFilter }),
-          canViewTeachers ? getTeachers({ campusId: campusFilter }) : Promise.resolve([]),
+          canViewTeachers ? getTeachers() : Promise.resolve([]),
         ]);
         setBatches(fresh);
-        if (freshTeachers) setTeacherList(freshTeachers);
+        if (freshTeachers) {
+          setTeacherList(freshTeachers);
+          setCreateTeacherList(freshTeachers);
+        }
       } catch (err) {
         console.error("Failed to auto-refresh batches:", err);
       }
@@ -402,18 +405,7 @@ export function BatchesManager({
     setFormData((previous) => ({
       ...previous,
       instituteId,
-      selectedTeacherIds: [],
     }));
-    if (!canViewTeachers) {
-      setCreateTeacherList([]);
-      return;
-    }
-    try {
-      setCreateTeacherList(await getTeachers({ campusId: instituteId }));
-    } catch (err: any) {
-      setCreateTeacherList([]);
-      setErrorMsg(err.message || "Failed to load faculty for this location.");
-    }
   };
 
   // Create Batch Submission
@@ -557,19 +549,18 @@ export function BatchesManager({
       try {
         const [fresh, freshTeachers] = await Promise.all([
           getBatches({ campusId: nextCampusId }),
-          canViewTeachers ? getTeachers({ campusId: nextCampusId }) : Promise.resolve([]),
+          canViewTeachers ? getTeachers() : Promise.resolve([]),
         ]);
         setBatches(fresh);
         setTeacherList(freshTeachers);
+        setCreateTeacherList(freshTeachers);
       } catch (err: any) {
         setErrorMsg(err.message || "Failed to filter batches by campus.");
       }
     });
   };
 
-  const editTeacherList = editFormData.instituteId
-    ? teacherList.filter((teacher) => teacher.instituteId === editFormData.instituteId)
-    : [];
+  const editTeacherList = teacherList;
 
   const selectedLocationLabel = campusFilter === "GLOBAL"
     ? "All Locations"
@@ -1534,6 +1525,9 @@ export function BatchesManager({
                             />
                             <div className="flex flex-col min-w-0">
                               <span className="truncate text-xs font-semibold text-foreground">{t.name}</span>
+                              <span className="truncate text-[10px] text-muted-foreground">
+                                {t.institute?.name || "Location not assigned"}
+                              </span>
                               <div className="flex items-center gap-1 flex-wrap mt-0.5">
                                 {t.subjects && t.subjects.length > 0 ? (
                                   t.subjects.map((ts: any) => (
@@ -1752,6 +1746,9 @@ export function BatchesManager({
                             />
                             <div className="flex flex-col min-w-0">
                               <span className="truncate text-xs font-semibold text-foreground">{t.name}</span>
+                              <span className="truncate text-[10px] text-muted-foreground">
+                                {t.institute?.name || "Location not assigned"}
+                              </span>
                               <div className="flex items-center gap-1 flex-wrap mt-0.5">
                                 {t.subjects && t.subjects.length > 0 ? (
                                   t.subjects.map((ts: any) => (

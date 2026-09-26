@@ -1147,6 +1147,9 @@ export function BatchDetailView({
                           />
                           <div>
                             <div className="font-semibold text-foreground text-xs">{teacher.name}</div>
+                            <div className="text-[10px] text-muted-foreground">
+                              {teacher.institute?.name || "Location not assigned"}
+                            </div>
                             <div className="text-[11px] text-muted-foreground flex items-center gap-1.5 mt-0.5">
                               {teacherSubjects.length > 0 ? (
                                 <span className="text-indigo-600 dark:text-indigo-400 font-medium">
