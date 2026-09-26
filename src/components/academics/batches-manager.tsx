@@ -13,6 +13,7 @@ import {
   assignTeacherSubjects,
   createSubject,
   deleteSubject,
+  updateSubject,
 } from "@/server/actions/academics";
 import { formatDate } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -136,6 +137,7 @@ export function BatchesManager({
   const [subjectError, setSubjectError] = useState("");
   const [subjectSuccess, setSubjectSuccess] = useState("");
   const [isQuickAddSubjectOpen, setIsQuickAddSubjectOpen] = useState(false);
+  const [editingSubject, setEditingSubject] = useState<any | null>(null);
 
   // Modals & Drawers state
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -299,8 +301,26 @@ export function BatchesManager({
     }
   };
 
-  // Create Subject Handler
-  const handleCreateSubject = async (e: React.FormEvent) => {
+  const resetSubjectForm = () => {
+    setEditingSubject(null);
+    setNewSubjectName("");
+    setNewSubjectCode("");
+    setNewSubjectDesc("");
+    setNewSubjectInstituteId(
+      initialCampusId !== "GLOBAL" ? initialCampusId : availableCampuses[0]?.id || ""
+    );
+  };
+
+  const handleEditSubject = (subject: any) => {
+    setEditingSubject(subject);
+    setNewSubjectName(subject.name || "");
+    setNewSubjectCode(subject.code || "");
+    setNewSubjectDesc(subject.description || "");
+    setNewSubjectInstituteId(subject.instituteId || "");
+  };
+
+  // Create or edit Subject Handler
+  const handleSaveSubject = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newSubjectName.trim() || !newSubjectCode.trim()) {
       setSubjectError("Please provide both Subject Name and Subject Code.");
@@ -310,18 +330,27 @@ export function BatchesManager({
     setSubjectError("");
     setSubjectSuccess("");
     try {
-      const res = await createSubject({
-        name: newSubjectName.trim(),
-        code: newSubjectCode.trim().toUpperCase(),
-        description: newSubjectDesc.trim() || undefined,
-        instituteId: newSubjectInstituteId,
-      });
+      const res = editingSubject
+        ? await updateSubject({
+            id: editingSubject.id,
+            name: newSubjectName.trim(),
+            code: newSubjectCode.trim().toUpperCase(),
+            description: newSubjectDesc.trim() || undefined,
+            instituteId: newSubjectInstituteId,
+          })
+        : await createSubject({
+            name: newSubjectName.trim(),
+            code: newSubjectCode.trim().toUpperCase(),
+            description: newSubjectDesc.trim() || undefined,
+            instituteId: newSubjectInstituteId,
+          });
       if (res?.success && res.subject) {
-        setSubjectsList((prev) => [...prev, res.subject]);
-        setNewSubjectName("");
-        setNewSubjectCode("");
-        setNewSubjectDesc("");
-        setSubjectSuccess(`Subject "${res.subject.name}" (${res.subject.code}) created successfully!`);
+        setSubjectsList((prev) => editingSubject
+          ? prev.map((subject: any) => subject.id === res.subject.id ? res.subject : subject)
+          : [...prev, res.subject]
+        );
+        setSubjectSuccess(`Subject "${res.subject.name}" (${res.subject.code}) ${editingSubject ? "updated" : "created"} successfully!`);
+        resetSubjectForm();
         setIsQuickAddSubjectOpen(false);
       }
     } catch (err: any) {
@@ -578,7 +607,7 @@ export function BatchesManager({
           </div>
         </div>
 
-        {isAdmin && (
+        {(isAdmin || canManageSubjects) && (
           <div className="flex items-center gap-2">
             {canManageSubjects && (
               <Button
@@ -595,13 +624,15 @@ export function BatchesManager({
                 <span>Manage Subjects</span>
               </Button>
             )}
-            <Button
-              onClick={openCreateBatchModal}
-              className="inline-flex items-center gap-2 text-xs font-semibold h-10 rounded-xl shadow-sm"
-            >
-              <Plus className="h-4 w-4" />
-              <span>Create New Batch</span>
-            </Button>
+            {isAdmin && (
+              <Button
+                onClick={openCreateBatchModal}
+                className="inline-flex items-center gap-2 text-xs font-semibold h-10 rounded-xl shadow-sm"
+              >
+                <Plus className="h-4 w-4" />
+                <span>Create New Batch</span>
+              </Button>
+            )}
           </div>
         )}
         </div>
@@ -1254,7 +1285,12 @@ export function BatchesManager({
               <p className="rounded-lg border border-emerald-300 bg-emerald-50 p-3 text-xs text-emerald-700">{subjectSuccess}</p>
             )}
 
-            <form onSubmit={handleCreateSubject} className="space-y-3">
+            <form onSubmit={handleSaveSubject} className="space-y-3">
+              {editingSubject && (
+                <div className="rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-semibold text-indigo-700 dark:border-indigo-800 dark:bg-indigo-950/40 dark:text-indigo-300">
+                  Editing: {editingSubject.name}
+                </div>
+              )}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs font-semibold block mb-1">Subject Name *</label>
@@ -1283,10 +1319,15 @@ export function BatchesManager({
                 <label className="text-xs font-semibold block mb-1">Description</label>
                 <Input value={newSubjectDesc} onChange={(event) => setNewSubjectDesc(event.target.value)} placeholder="Optional description" />
               </div>
-              <div className="flex justify-end">
+              <div className="flex justify-end gap-2">
+                {editingSubject && (
+                  <Button type="button" variant="outline" size="sm" disabled={isCreatingSubject} onClick={resetSubjectForm} className="text-xs">
+                    Cancel
+                  </Button>
+                )}
                 <Button type="submit" size="sm" disabled={isCreatingSubject} className="gap-2 text-xs">
-                  <Plus className="h-3.5 w-3.5" />
-                  {isCreatingSubject ? "Saving..." : "Add Subject"}
+                  {editingSubject ? <Edit3 className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
+                  {isCreatingSubject ? "Saving..." : editingSubject ? "Update Subject" : "Add Subject"}
                 </Button>
               </div>
             </form>
@@ -1319,9 +1360,14 @@ export function BatchesManager({
                           <p className="text-[10px] font-mono text-muted-foreground">{subject.code}</p>
                           <p className="text-[10px] text-primary mt-0.5">{subject.institute?.name || "Location not set"}</p>
                         </div>
-                        <Button type="button" variant="ghost" size="sm" disabled={isCreatingSubject} onClick={() => void handleDeleteSubject(subject.id, subject.name)} className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50" title="Delete subject">
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
+                        <div className="flex items-center gap-1">
+                          <Button type="button" variant="ghost" size="sm" disabled={isCreatingSubject} onClick={() => handleEditSubject(subject)} className="h-8 w-8 p-0 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50" title="Edit subject">
+                            <Edit3 className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button type="button" variant="ghost" size="sm" disabled={isCreatingSubject} onClick={() => void handleDeleteSubject(subject.id, subject.name)} className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50" title="Delete subject">
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
                       </div>
                     ))}
                 </div>

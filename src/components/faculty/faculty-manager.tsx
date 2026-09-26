@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { assignTeacherSubjects, createSubject, deleteSubject } from "@/server/actions/academics";
+import { assignTeacherSubjects, createSubject, deleteSubject, updateSubject } from "@/server/actions/academics";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -27,6 +27,7 @@ import {
   Settings2,
   Users,
   Trash2,
+  Edit3,
 } from "lucide-react";
 
 interface SubjectItem {
@@ -34,6 +35,7 @@ interface SubjectItem {
   instituteId?: string;
   name: string;
   code: string;
+  description?: string | null;
   institute?: { id: string; name: string; code?: string; city?: string | null };
 }
 
@@ -104,6 +106,7 @@ export function FacultyManager({
   const [newSubjectDescription, setNewSubjectDescription] = useState("");
   const [newSubjectInstituteId, setNewSubjectInstituteId] = useState(availableCampuses[0]?.id || "");
   const [subjectLocationFilter, setSubjectLocationFilter] = useState("GLOBAL");
+  const [editingSubject, setEditingSubject] = useState<SubjectItem | null>(null);
 
   useEffect(() => {
     setTeachers(initialTeachers);
@@ -146,28 +149,56 @@ export function FacultyManager({
     });
   };
 
-  const handleCreateSubject = (e: React.FormEvent) => {
+  const resetSubjectForm = () => {
+    setEditingSubject(null);
+    setNewSubjectName("");
+    setNewSubjectCode("");
+    setNewSubjectDescription("");
+    setNewSubjectInstituteId(availableCampuses[0]?.id || "");
+  };
+
+  const handleEditSubject = (subject: SubjectItem) => {
+    setEditingSubject(subject);
+    setNewSubjectName(subject.name);
+    setNewSubjectCode(subject.code);
+    setNewSubjectDescription(subject.description || "");
+    setNewSubjectInstituteId(subject.instituteId || "");
+  };
+
+  const handleSaveSubject = (e: React.FormEvent) => {
     e.preventDefault();
     startTransition(async () => {
       try {
-        const result = await createSubject({
-          name: newSubjectName,
-          code: newSubjectCode,
-          description: newSubjectDescription || undefined,
-          instituteId: newSubjectInstituteId,
+        const result = editingSubject
+          ? await updateSubject({
+              id: editingSubject.id,
+              name: newSubjectName,
+              code: newSubjectCode,
+              description: newSubjectDescription || undefined,
+              instituteId: newSubjectInstituteId,
+            })
+          : await createSubject({
+              name: newSubjectName,
+              code: newSubjectCode,
+              description: newSubjectDescription || undefined,
+              instituteId: newSubjectInstituteId,
+            });
+        setSubjects((current) => {
+          const next = editingSubject
+            ? current.map((item) => item.id === result.subject.id ? result.subject : item)
+            : [...current, result.subject];
+          return next.sort((a, b) => a.name.localeCompare(b.name));
         });
-        setSubjects((current) =>
-          [...current, result.subject].sort((a, b) => a.name.localeCompare(b.name))
-        );
-        setNewSubjectName("");
-        setNewSubjectCode("");
-        setNewSubjectDescription("");
-        setFeedback({ type: "success", message: `Subject ${result.subject.name} created.` });
+        setFeedback({
+          type: "success",
+          message: `Subject ${result.subject.name} ${editingSubject ? "updated" : "created"}.`,
+        });
+        resetSubjectForm();
         router.refresh();
       } catch (err: unknown) {
         setFeedback({
           type: "error",
-          message: err instanceof Error ? err.message : "Failed to create subject.",
+          message: err instanceof Error ? err.message : "Failed to save subject.",
         });
       }
     });
@@ -642,7 +673,12 @@ export function FacultyManager({
               </button>
             </div>
 
-            <form onSubmit={handleCreateSubject} className="space-y-3">
+            <form onSubmit={handleSaveSubject} className="space-y-3">
+              {editingSubject && (
+                <div className="rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-semibold text-indigo-700 dark:border-indigo-800 dark:bg-indigo-950/40 dark:text-indigo-300">
+                  Editing: {editingSubject.name}
+                </div>
+              )}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs font-semibold text-foreground block mb-1">Subject Name *</label>
@@ -673,10 +709,15 @@ export function FacultyManager({
                   ))}
                 </select>
               </div>
-              <div className="flex justify-end">
+              <div className="flex justify-end gap-2">
+                {editingSubject && (
+                  <Button type="button" variant="outline" size="sm" disabled={isPending} onClick={resetSubjectForm} className="text-xs">
+                    Cancel
+                  </Button>
+                )}
                 <Button type="submit" size="sm" disabled={isPending} className="gap-2 text-xs">
-                  <Plus className="h-3.5 w-3.5" />
-                  {isPending ? "Saving..." : "Add Subject"}
+                  {editingSubject ? <Edit3 className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
+                  {isPending ? "Saving..." : editingSubject ? "Update Subject" : "Add Subject"}
                 </Button>
               </div>
             </form>
@@ -707,9 +748,14 @@ export function FacultyManager({
                         <p className="text-[10px] font-mono text-muted-foreground">{subject.code}</p>
                         <p className="text-[10px] text-primary mt-0.5">{subject.institute?.name || "Location not set"}</p>
                       </div>
-                      <Button type="button" variant="ghost" size="sm" disabled={isPending} onClick={() => handleDeleteSubject(subject)} className="h-8 w-8 p-0 text-red-600 hover:bg-red-50 hover:text-red-700" title="Delete subject">
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
+                      <div className="flex items-center gap-1">
+                        <Button type="button" variant="ghost" size="sm" disabled={isPending} onClick={() => handleEditSubject(subject)} className="h-8 w-8 p-0 text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700" title="Edit subject">
+                          <Edit3 className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button type="button" variant="ghost" size="sm" disabled={isPending} onClick={() => handleDeleteSubject(subject)} className="h-8 w-8 p-0 text-red-600 hover:bg-red-50 hover:text-red-700" title="Delete subject">
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
                     </div>
                   ))}
                 </div>

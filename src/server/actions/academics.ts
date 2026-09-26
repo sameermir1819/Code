@@ -139,6 +139,54 @@ export async function createSubject(data: {
   };
 }
 
+export async function updateSubject(data: {
+  id: string;
+  name: string;
+  code: string;
+  description?: string;
+  instituteId: string;
+}) {
+  await requireStaffPermission("courses.manage");
+
+  const name = data.name.trim();
+  const code = data.code.trim().toUpperCase();
+  if (!name || !code) throw new Error("Subject name and code are required.");
+
+  const [subject, duplicate, institute] = await Promise.all([
+    db.subject.findUnique({ where: { id: data.id }, select: { id: true, name: true, code: true } }),
+    db.subject.findFirst({ where: { code, id: { not: data.id } }, select: { id: true } }),
+    db.institute.findUnique({ where: { id: data.instituteId }, select: { id: true } }),
+  ]);
+
+  if (!subject) throw new Error("Subject not found.");
+  if (duplicate) throw new Error(`Subject code "${code}" already exists.`);
+  if (!institute) throw new Error("Select a valid location for this subject.");
+
+  const updated = await db.subject.update({
+    where: { id: data.id },
+    data: {
+      instituteId: data.instituteId,
+      name,
+      code,
+      description: data.description?.trim() || null,
+    },
+    include: { institute: { select: { id: true, name: true, code: true, city: true } } },
+  });
+
+  await logAudit({
+    action: "SUBJECT_UPDATED",
+    entity: "Subject",
+    entityId: updated.id,
+    details: `Subject updated: ${subject.name} (${subject.code}) to ${updated.name} (${updated.code})`,
+  });
+
+  revalidatePath("/faculty");
+  revalidatePath("/dashboard/batches");
+  revalidatePath("/dashboard/users");
+
+  return { success: true, subject: updated };
+}
+
 export async function deleteSubject(id: string) {
   await requireStaffPermission("courses.manage");
 
