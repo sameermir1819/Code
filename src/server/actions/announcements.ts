@@ -1,12 +1,9 @@
 "use server";
 import { requirePermission, requireStaffPermission } from "@/lib/auth";
-
 import { authorizedCampusId } from "@/lib/campus-scope";
-import { getActiveCampusId } from "./campus";
-import { requirePermission, requireStaffPermission } from "@/lib/auth";
-
 import { db } from "@/lib/db";
 import { requireAuth, getSession } from "@/lib/auth";
+import { getActiveCampusId } from "./campus";
 import { logAudit } from "./audit";
 
 // ==========================================
@@ -60,8 +57,6 @@ export async function markAllNotificationsRead() {
 // ==========================================
 // ANNOUNCEMENTS
 // ==========================================
-import { authorizedCampusId } from "@/lib/campus-scope";
-import { getActiveCampusId } from "./campus";
 
 export async function getAnnouncements() {
   const session = await requirePermission("announcements.view");

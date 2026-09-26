@@ -13,15 +13,72 @@ export interface CampusItem {
   name: string;
   code: string;
   city: string | null;
+  state?: string | null;
   address: string | null;
   phone: string | null;
   email: string | null;
+  website?: string | null;
   logoUrl: string | null;
   tagline: string | null;
   _count?: {
     students: number;
     batches: number;
   };
+}
+
+export async function updateCampus(
+  campusId: string,
+  data: {
+    name?: string;
+    code?: string;
+    city?: string;
+    state?: string;
+    address?: string;
+    phone?: string;
+    email?: string;
+  }
+) {
+  await requireStaffPermission("settings.manage");
+
+  const session = await getSession();
+  if (session?.role !== "SUPER_ADMIN" && session?.role !== "ADMIN") {
+    return { success: false, error: "Unauthorized: Administrator privileges required to update a campus." };
+  }
+
+  const cleanCode = data.code?.trim().toUpperCase();
+  const campus = await db.institute.findUnique({ where: { id: campusId } });
+  if (!campus) {
+    return { success: false, error: "Campus not found." };
+  }
+
+  if (cleanCode && cleanCode !== campus.code) {
+    const existing = await db.institute.findUnique({ where: { code: cleanCode } });
+    if (existing && existing.id !== campusId) {
+      return { success: false, error: `Campus code "${cleanCode}" is already in use.` };
+    }
+  }
+
+  try {
+    const updatedCampus = await db.institute.update({
+      where: { id: campusId },
+      data: {
+        name: data.name?.trim() || campus.name,
+        code: cleanCode || campus.code,
+        city: data.city?.trim() || campus.city,
+        state: data.state?.trim() || campus.state,
+        address: data.address?.trim() || campus.address,
+        phone: data.phone?.trim() || campus.phone,
+        email: data.email?.trim() || campus.email,
+      },
+    });
+
+    revalidatePath("/settings");
+    revalidatePath("/", "layout");
+
+    return { success: true, campus: updatedCampus };
+  } catch (err: any) {
+    return { success: false, error: err.message || "Failed to update campus." };
+  }
 }
 
 /**
