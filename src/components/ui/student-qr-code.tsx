@@ -47,6 +47,7 @@ export function StudentQrCode({
   }
 
   return (
+    // eslint-disable-next-line @next/next/no-img-element -- generated QR codes are data URLs
     <img
       src={dataUrl}
       alt={`QR Code for ${value}`}

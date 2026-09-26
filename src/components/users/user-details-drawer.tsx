@@ -32,7 +32,7 @@ interface UserDetailsDrawerProps {
   onEdit: (user: any) => void;
   onStatusChange: (user: any) => void;
   onRoleChange: (user: any) => void;
-  onArchive: (user: any) => void;
+  onDelete: (user: any) => void;
   actorRole: Role;
   availableSubjects?: any[];
 }
@@ -43,7 +43,7 @@ export function UserDetailsDrawer({
   onEdit,
   onStatusChange,
   onRoleChange,
-  onArchive,
+  onDelete,
   actorRole,
 }: UserDetailsDrawerProps) {
   const [userDetails, setUserDetails] = useState<any>(null);
@@ -475,8 +475,8 @@ export function UserDetailsDrawer({
                       {userDetails.status === "ACTIVE" ? "Deactivate Account" : "Activate Account"}
                     </Button>
                     {userDetails.role !== "SUPER_ADMIN" && (
-                      <Button size="sm" variant="outline" className="text-red-600 hover:bg-red-50" onClick={() => onArchive(userDetails)}>
-                        Archive Account
+                      <Button size="sm" variant="outline" className="text-red-600 hover:bg-red-50" onClick={() => onDelete(userDetails)}>
+                        Delete Account
                       </Button>
                     )}
                   </div>

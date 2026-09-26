@@ -362,6 +362,7 @@ export function OfficialReceiptView({ payment, institute }: OfficialReceiptViewP
           {/* Logo & Legal Header */}
           <div className="flex items-center gap-3.5">
             <div className={`h-16 w-16 sm:h-20 sm:w-20 rounded-2xl overflow-hidden bg-white p-1 border-2 ${currentCopy.borderColor} shadow-sm shrink-0 flex items-center justify-center`}>
+              {/* eslint-disable-next-line @next/next/no-img-element -- receipt printing needs the unmodified logo source */}
               <img
                 src={logoUrl}
                 alt="Institute Logo"

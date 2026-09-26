@@ -14,6 +14,7 @@ import {
   getActiveCampus,
   switchActiveCampus,
   createNewCampus,
+  updateCampus,
   deleteCampus,
   CampusItem,
 } from "@/server/actions/campus";
@@ -42,6 +43,7 @@ import {
   Trash2,
   AlertTriangle,
   X,
+  Pencil,
 } from "lucide-react";
 
 export default function SettingsAndProfilePage() {
@@ -81,6 +83,7 @@ export default function SettingsAndProfilePage() {
   const [activeCampus, setActiveCampus] = useState<CampusItem | null>(null);
   const [showAddCampus, setShowAddCampus] = useState(false);
   const [deletingCampus, setDeletingCampus] = useState<CampusItem | null>(null);
+  const [editingCampus, setEditingCampus] = useState<CampusItem | null>(null);
   const [newCampusForm, setNewCampusForm] = useState({
     name: "",
     code: "",
@@ -88,7 +91,7 @@ export default function SettingsAndProfilePage() {
     address: "",
     phone: "",
     email: "",
-    tagline: "Academic Coaching & Test Prep Campus",
+    state: "",
   });
 
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(
@@ -123,7 +126,7 @@ export default function SettingsAndProfilePage() {
         setActiveCampus(activeC);
       }
 
-      const activeInst = activeC || inst;
+      const activeInst = inst;
       if (activeInst) {
         setInstForm({
           name: activeInst.name || "Futurex Learning",
@@ -141,35 +144,31 @@ export default function SettingsAndProfilePage() {
         });
       }
     }
-    loadProfiles();
+    const reloadProfiles = () => {
+      void loadProfiles().catch((err: Error) => {
+        setFeedback({ type: "error", message: err.message || "Failed to load campus profile." });
+      });
+    };
+    reloadProfiles();
+    window.addEventListener("erp-campus-changed", reloadProfiles);
+    return () => window.removeEventListener("erp-campus-changed", reloadProfiles);
   }, []);
 
   const handleSwitchCampus = (campusId: string) => {
     startTransition(async () => {
-      const res = await switchActiveCampus(campusId);
-      if (res.success) {
-        setFeedback({ type: "success", message: "Active campus switched successfully!" });
-        const [updatedActive, allC] = await Promise.all([getActiveCampus(), getAllCampuses()]);
-        setActiveCampus(updatedActive);
-        setCampuses(allC);
-        if (updatedActive) {
-          setInstForm((prev) => ({
-            ...prev,
-            name: updatedActive.name,
-            tagline: updatedActive.tagline || "",
-            code: updatedActive.code,
-            phone: updatedActive.phone || "",
-            email: updatedActive.email || "",
-            website: (updatedActive as any).website || "",
-            address: updatedActive.address || "",
-            city: updatedActive.city || "",
-            state: (updatedActive as any).state || "",
-            currency: (updatedActive as any).currency || "INR",
-            currencySymbol: (updatedActive as any).currencySymbol || "₹",
-            logoUrl: updatedActive.logoUrl || "/logo.png",
-          }));
+      try {
+        const res = await switchActiveCampus(campusId);
+        if (res.success) {
+          setFeedback({ type: "success", message: "Active campus switched successfully!" });
+          const [updatedActive, allC] = await Promise.all([getActiveCampus(), getAllCampuses()]);
+          setActiveCampus(updatedActive);
+          setCampuses(allC);
+          router.refresh();
+        } else {
+          setFeedback({ type: "error", message: res.error || "Failed to switch campus." });
         }
-        router.refresh();
+      } catch (err: any) {
+        setFeedback({ type: "error", message: err.message || "Failed to switch campus." });
       }
     });
   };
@@ -197,7 +196,7 @@ export default function SettingsAndProfilePage() {
           address: "",
           phone: "",
           email: "",
-          tagline: "Academic Coaching & Test Prep Campus",
+          state: "",
         });
         const updatedList = await getAllCampuses();
         setCampuses(updatedList);
@@ -232,6 +231,36 @@ export default function SettingsAndProfilePage() {
         setFeedback({ type: "error", message: err.message || "Error deleting campus." });
         setDeletingCampus(null);
       }
+    });
+  };
+
+  const handleUpdateCampus = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingCampus) return;
+    startTransition(async () => {
+      const res = await updateCampus(editingCampus.id, {
+        name: editingCampus.name,
+        code: editingCampus.code,
+        city: editingCampus.city || undefined,
+        state: editingCampus.state || undefined,
+        address: editingCampus.address || undefined,
+        phone: editingCampus.phone || undefined,
+        email: editingCampus.email || undefined,
+      });
+      if (!res.success || !res.campus) {
+        setFeedback({ type: "error", message: res.error || "Failed to update campus." });
+        return;
+      }
+      const updated = res.campus;
+      setCampuses((items) => items.map((item) => item.id === updated.id ? { ...item, ...updated } : item));
+      if (activeCampus?.id === updated.id) {
+        const active = { ...activeCampus, ...updated };
+        setActiveCampus(active);
+        window.dispatchEvent(new CustomEvent("erp-campus-changed", { detail: { campusId: active.id, campus: active } }));
+      }
+      setEditingCampus(null);
+      setFeedback({ type: "success", message: "Campus details updated successfully!" });
+      router.refresh();
     });
   };
 
@@ -582,13 +611,13 @@ export default function SettingsAndProfilePage() {
                       />
                     </div>
                     <div>
-                      <label className="font-semibold block mb-1">Tagline</label>
+                      <label className="font-semibold block mb-1">State / Region</label>
                       <Input
-                        value={newCampusForm.tagline}
+                        value={newCampusForm.state}
                         onChange={(e) =>
-                          setNewCampusForm({ ...newCampusForm, tagline: e.target.value })
+                          setNewCampusForm({ ...newCampusForm, state: e.target.value })
                         }
-                        placeholder="Academic Coaching Center"
+                        placeholder="e.g. Jammu & Kashmir"
                       />
                     </div>
                   </div>
@@ -676,6 +705,20 @@ export default function SettingsAndProfilePage() {
                             </Button>
                           )}
 
+                          {permissions.includes("settings.manage") && (
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => setEditingCampus(c)}
+                              disabled={isPending}
+                              title={`Edit ${c.name}`}
+                              className="h-7 w-7 p-0 shrink-0"
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
+
                           {campuses.length > 1 && (
                             <Button
                               type="button"
@@ -718,6 +761,7 @@ export default function SettingsAndProfilePage() {
               <CardContent className="p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
                   {instForm.logoUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element -- live preview accepts uploaded and data URLs
                     <img
                       src={instForm.logoUrl}
                       alt={instForm.name}
@@ -767,6 +811,7 @@ export default function SettingsAndProfilePage() {
               <CardContent className="space-y-4 text-xs">
                 <div className="flex flex-col sm:flex-row items-center gap-4 p-4 rounded-lg bg-muted/20 border">
                   {instForm.logoUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element -- live preview accepts uploaded and data URLs
                     <img
                       src={instForm.logoUrl}
                       alt="Institute Logo Preview"
@@ -816,6 +861,7 @@ export default function SettingsAndProfilePage() {
                                   type: "success",
                                   message: "Logo uploaded and saved successfully across all pages!",
                                 });
+                                window.dispatchEvent(new CustomEvent("erp-campus-changed"));
                                 router.refresh();
                               } else {
                                 setFeedback({
@@ -949,7 +995,7 @@ export default function SettingsAndProfilePage() {
             </Card>
 
             <div className="flex justify-end">
-              <Button type="submit" disabled={isPending} className="text-xs flex items-center gap-2 px-6">
+              <Button type="submit" disabled={isPending || !permissions.includes("settings.manage")} className="text-xs flex items-center gap-2 px-6">
                 <Save className="h-4 w-4" />
                 <span>{isPending ? "Updating Academy Profile..." : "Save Academy Profile"}</span>
               </Button>
@@ -959,6 +1005,46 @@ export default function SettingsAndProfilePage() {
       </Tabs>
 
       {/* Delete Campus Confirmation Modal */}
+      {editingCampus && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <form onSubmit={handleUpdateCampus} className="bg-card border rounded-2xl shadow-2xl max-w-lg w-full p-6 space-y-4">
+            <div className="flex items-center justify-between border-b pb-3">
+              <div>
+                <h3 className="text-base font-bold">Edit Campus</h3>
+                <p className="text-xs text-muted-foreground">This changes the campus used in filters and dropdowns.</p>
+              </div>
+              <button type="button" onClick={() => setEditingCampus(null)} className="p-1 rounded-md hover:bg-muted">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+              {([
+                ["name", "Campus Name *"], ["code", "Campus Code *"], ["city", "City"],
+                ["state", "State / Region"], ["phone", "Phone"], ["email", "Email"],
+              ] as const).map(([field, label]) => (
+                <div key={field}>
+                  <label className="font-semibold block mb-1">{label}</label>
+                  <Input
+                    required={field === "name" || field === "code"}
+                    type={field === "email" ? "email" : "text"}
+                    value={editingCampus[field] || ""}
+                    onChange={(e) => setEditingCampus({ ...editingCampus, [field]: e.target.value })}
+                  />
+                </div>
+              ))}
+              <div className="sm:col-span-2">
+                <label className="font-semibold block mb-1">Address</label>
+                <Input value={editingCampus.address || ""} onChange={(e) => setEditingCampus({ ...editingCampus, address: e.target.value })} />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 border-t pt-3">
+              <Button type="button" variant="outline" onClick={() => setEditingCampus(null)}>Cancel</Button>
+              <Button type="submit" disabled={isPending}>{isPending ? "Saving..." : "Save Campus"}</Button>
+            </div>
+          </form>
+        </div>
+      )}
+
       {deletingCampus && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150">
           <div className="bg-card border border-destructive/30 rounded-2xl shadow-2xl max-w-md w-full p-6 space-y-4 animate-in zoom-in-95 duration-150">

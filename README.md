@@ -125,7 +125,8 @@ npm install
 ### 2. Configure Environment
 Create a `.env` file (copied from `.env.example`):
 ```env
-DATABASE_URL="file:./dev.db"
+DATABASE_URL="postgresql://USER:PASSWORD@HOST:6543/postgres?pgbouncer=true"
+DIRECT_URL="postgresql://USER:PASSWORD@HOST:5432/postgres"
 JWT_SECRET="coaching-erp-super-secure-jwt-secret-key-2026-production-grade"
 NEXT_PUBLIC_APP_NAME="Apex Academy Coaching ERP"
 NEXT_PUBLIC_APP_CURRENCY="INR"
@@ -135,8 +136,13 @@ NEXT_PUBLIC_APP_TIMEZONE="Asia/Kolkata"
 
 ### 3. Initialize Database
 ```bash
+# Fresh local database only: create the current schema, then baseline it.
 npx prisma db push
+npx prisma migrate resolve --applied 20260926040000_preserve_student_relations
+npx prisma generate
 ```
+
+Existing deployed databases should use `npm run prisma:migrate:deploy` instead.
 
 ### 4. Seed Realistic Indian Institute Data
 ```bash

@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { hashPassword, verifyPassword, createSessionToken, setSessionCookie, clearSessionCookie, getSession } from "@/lib/auth";
 import { logAudit } from "./audit";
 import { Role } from "@/lib/permissions";
+import { revalidatePath } from "next/cache";
 
 export async function loginUser(formData: {
   email?: string;
@@ -323,13 +324,15 @@ export async function updateInstituteProfile(data: {
 }) {
   await requireStaffPermission("settings.manage");
   const institute = await getInstituteProfile();
+  if (!data.name.trim()) throw new Error("Institute name is required.");
+  const code = (data.code?.trim() || institute.code).toUpperCase();
 
   const updated = await db.institute.update({
     where: { id: institute.id },
     data: {
       name: data.name.trim(),
       tagline: data.tagline?.trim() || null,
-      code: (data.code?.trim() || "FL-CAMPUS-01").toUpperCase(),
+      code,
       address: data.address?.trim() || null,
       city: data.city?.trim() || null,
       state: data.state?.trim() || null,
@@ -349,5 +352,6 @@ export async function updateInstituteProfile(data: {
     details: `Institute profile updated: ${updated.name} (${updated.code})`,
   });
 
+  revalidatePath("/", "layout");
   return { success: true, institute: updated };
 }

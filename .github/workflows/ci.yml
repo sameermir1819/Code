@@ -5,6 +5,10 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   build-and-test:
@@ -21,6 +25,7 @@ jobs:
         with:
           node-version: 20.x
           cache: "npm"
+          cache-dependency-path: package-lock.json
 
       - name: Install Dependencies
         run: npm ci
@@ -30,7 +35,9 @@ jobs:
 
       - name: Lint Check
         run: npm run lint
-        continue-on-error: true
+
+      - name: Security and Finance Regression Tests
+        run: npm test
 
       - name: Security and Finance Regression Tests
         run: npm test

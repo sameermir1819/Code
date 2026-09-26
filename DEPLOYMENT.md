@@ -82,15 +82,18 @@ Expected JSON response:
 
 ## 3. Database Migration & Schema Syncing
 
-When rolling out updates with schema modifications, run:
+Schema changes are versioned in `prisma/migrations`. During deployment, run:
 
 ```bash
-# Push schema changes to Supabase PostgreSQL without downtime
-npx prisma db push
+# Apply committed migrations without prompts
+npx prisma migrate deploy
 
 # Generate fresh type-safe Prisma client
 npx prisma generate
 ```
+
+Do not use `prisma db push` in production. It bypasses migration history and can
+leave application instances running against different database constraints.
 
 ---
 

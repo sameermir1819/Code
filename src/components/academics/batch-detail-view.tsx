@@ -100,10 +100,10 @@ export function BatchDetailView({
         console.error("Failed to load teachers in BatchDetailView:", err);
       }
     };
-    if (!teacherList || teacherList.length === 0) {
+    if (!allTeachers || allTeachers.length === 0) {
       loadFreshTeachers();
     }
-  }, []);
+  }, [allTeachers]);
 
   const openAssignModal = async () => {
     try {

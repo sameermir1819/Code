@@ -50,6 +50,7 @@ export function InstituteLogo({
       style={{ width: size, height: size }}
       className={`rounded-xl overflow-hidden shrink-0 flex items-center justify-center bg-white border border-border/40 shadow-xs select-none ${className}`}
     >
+      {/* eslint-disable-next-line @next/next/no-img-element -- supports dynamic uploaded URLs and an onError fallback */}
       <img
         src={src}
         alt={`${name} logo`}

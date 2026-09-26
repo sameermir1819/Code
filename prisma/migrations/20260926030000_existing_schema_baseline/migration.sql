@@ -1,0 +1,2 @@
+-- Baseline marker for the existing production schema.
+-- The database predates Prisma migration history; no DDL is required here.

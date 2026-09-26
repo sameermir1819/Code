@@ -4,6 +4,8 @@
 
 @layer base {
   :root {
+    /* Keep production builds independent of Google Fonts availability. */
+    --font-poppins: "Poppins", "Segoe UI", Arial, sans-serif;
     --background: 210 20% 98%;
     --foreground: 222.2 84% 4.9%;
 

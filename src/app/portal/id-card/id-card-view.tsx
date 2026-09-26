@@ -112,6 +112,7 @@ export function StudentIDCardView({ student, institute }: StudentIDProps) {
               <div className="relative shrink-0">
                 <div className="w-24 h-28 rounded-2xl overflow-hidden bg-white/10 border-2 border-white/20 flex items-center justify-center shadow-inner">
                   {student.photoUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element -- printable cards must preserve the original image URL
                     <img
                       src={student.photoUrl}
                       alt={student.name}

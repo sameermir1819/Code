@@ -3,7 +3,7 @@
   "framework": "nextjs",
   "regions": ["bom1"],
   "cleanUrls": true,
-  "buildCommand": "prisma generate && next build",
+  "buildCommand": "npm run deploy:build",
   "installCommand": "npm ci",
   "headers": [
     {

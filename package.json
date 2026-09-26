@@ -13,6 +13,8 @@
     "prisma:attendance-checkout": "prisma db execute --file prisma/patches/attendance-checkout.sql --schema prisma/schema.prisma",
     "prisma:push": "prisma db push",
     "prisma:migrate": "prisma migrate dev",
+    "prisma:migrate:deploy": "prisma migrate deploy",
+    "deploy:build": "prisma migrate deploy && prisma generate && next build",
     "prisma:studio": "prisma studio",
     "seed": "node prisma/seed.js"
   },

@@ -512,7 +512,7 @@ export async function getPublicAdmissionData() {
         logoUrl: true,
       },
     }),
-    db.institute.findMany({
+    db.campus.findMany({
       select: {
         id: true,
         name: true,
@@ -568,7 +568,7 @@ export async function submitPublicAdmissionEnquiry(data: {
   let targetInstituteId = data.campusId || data.instituteId;
 
   if (!targetInstituteId) {
-    const defaultInstitute = await db.institute.findFirst({
+    const defaultInstitute = await db.campus.findFirst({
       orderBy: { createdAt: "asc" },
       select: { id: true },
     });
@@ -577,7 +577,7 @@ export async function submitPublicAdmissionEnquiry(data: {
 
   // Lookup campus name if available
   const selectedCampus = targetInstituteId
-    ? await db.institute.findUnique({
+    ? await db.campus.findUnique({
         where: { id: targetInstituteId },
         select: { name: true, city: true, code: true },
       })

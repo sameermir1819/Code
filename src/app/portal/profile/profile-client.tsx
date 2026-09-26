@@ -166,6 +166,7 @@ export function StudentProfileClient({ student }: ProfileProps) {
           <div className="w-24 h-24 rounded-full bg-gradient-to-tr from-indigo-600 via-purple-600 to-pink-500 p-0.5 shadow-xl shadow-indigo-600/30">
             <div className="w-full h-full rounded-full bg-[#0d121f] flex items-center justify-center text-white font-extrabold text-2xl tracking-wider">
               {student.photoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element -- user uploads may be data or private URLs
                 <img
                   src={student.photoUrl}
                   alt={student.name}

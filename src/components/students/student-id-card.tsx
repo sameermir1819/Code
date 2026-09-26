@@ -237,6 +237,7 @@ export function StudentIdCard({
               {/* ── Portrait Header ── */}
               <div className="bg-gradient-to-br from-[#0a192f] via-[#0f2b5c] to-[#1e3a8a] text-white pt-4 pb-2.5 px-3 flex flex-col items-center text-center relative z-10 border-b border-amber-400/40">
                 <div className="h-10 w-10 rounded-xl overflow-hidden bg-white p-0.5 shadow-sm border border-white/40 mb-1">
+                  {/* eslint-disable-next-line @next/next/no-img-element -- printable cards need unmodified image sources */}
                   <img src={logoUrl} alt="Logo" className="w-full h-full object-contain" />
                 </div>
                 <h3 className="font-black text-xs tracking-wider uppercase text-white font-serif leading-tight">
@@ -253,6 +254,7 @@ export function StudentIdCard({
                 <div className="relative">
                   <div className="h-[96px] w-[86px] rounded-2xl bg-gradient-to-br from-zinc-100 to-zinc-200 border-2 border-[#0f2b5c] shadow-md flex items-center justify-center font-black text-3xl text-[#0f2b5c] overflow-hidden">
                     {student.avatarUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element -- printable cards need unmodified image sources
                       <img src={student.avatarUrl} alt={student.name} className="w-full h-full object-cover" />
                     ) : (
                       <span>{student.name.charAt(0).toUpperCase()}</span>
@@ -376,6 +378,7 @@ export function StudentIdCard({
               <div className="bg-gradient-to-r from-[#0a192f] via-[#0f2b5c] to-[#1e3a8a] text-white px-3.5 py-2 flex items-center justify-between shrink-0 border-b border-amber-400/40">
                 <div className="flex items-center gap-2">
                   <div className="h-8 w-8 rounded-lg overflow-hidden bg-white p-0.5 shadow-sm border border-white/40 shrink-0">
+                    {/* eslint-disable-next-line @next/next/no-img-element -- printable cards need unmodified image sources */}
                     <img src={logoUrl} alt="Logo" className="w-full h-full object-contain" />
                   </div>
                   <div>
@@ -399,6 +402,7 @@ export function StudentIdCard({
                 <div className="flex flex-col items-center shrink-0">
                   <div className="h-[84px] w-[74px] rounded-xl bg-gradient-to-br from-zinc-100 to-zinc-200 border-2 border-[#0f2b5c] shadow-md flex items-center justify-center font-black text-2xl text-[#0f2b5c] relative overflow-hidden">
                     {student.avatarUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element -- printable cards need unmodified image sources
                       <img src={student.avatarUrl} alt={student.name} className="w-full h-full object-cover" />
                     ) : (
                       <span>{student.name.charAt(0).toUpperCase()}</span>

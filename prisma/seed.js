@@ -45,6 +45,7 @@ async function main() {
     await prisma.teacher.deleteMany();
     await prisma.user.deleteMany();
     await prisma.academicSession.deleteMany();
+    await prisma.campus.deleteMany();
     await prisma.institute.deleteMany();
     console.log("✨ Existing records cleaned!");
   } catch (e) {
@@ -54,8 +55,8 @@ async function main() {
   // 1. Institute
   const institute = await prisma.institute.create({
     data: {
-      name: "Futurex_Learning",
-      code: "FL-CAMPUS-01",
+      name: "Futurex Learning",
+      code: "FUTUREX",
       tagline: "Premier Coaching for IIT-JEE, NEET-UG & Competitive Exams",
       address: "Plot 42, Knowledge Park, Central Avenue",
       city: "New Delhi",
@@ -69,10 +70,23 @@ async function main() {
     },
   });
 
+  const campus = await prisma.campus.create({
+    data: {
+      instituteId: institute.id,
+      name: "Futurex Learning - Main Campus",
+      code: "FL-CAMPUS-01",
+      city: "New Delhi",
+      state: "Delhi",
+      address: "Plot 42, Knowledge Park, Central Avenue",
+      phone: "+91 98765 43210",
+      email: "admissions@futurexlearning.com",
+    },
+  });
+
   // 2. Academic Session
   const session = await prisma.academicSession.create({
     data: {
-      instituteId: institute.id,
+      instituteId: campus.id,
       name: "2025-2026",
       startDate: new Date("2025-04-01"),
       endDate: new Date("2026-03-31"),
@@ -86,7 +100,7 @@ async function main() {
   // 3. Super Admin & Admin & Accountant Users
   const superAdminUser = await prisma.user.create({
     data: {
-      instituteId: institute.id,
+      instituteId: campus.id,
       name: "Director Dr. S. K. Mehta",
       email: "superadmin@futurexlearning.com",
       passwordHash: defaultPasswordHash,
@@ -97,7 +111,7 @@ async function main() {
 
   const adminUser = await prisma.user.create({
     data: {
-      instituteId: institute.id,
+      instituteId: campus.id,
       name: "Academic Coordinator Ritu Sharma",
       email: "admin@futurexlearning.com",
       passwordHash: defaultPasswordHash,
@@ -108,7 +122,7 @@ async function main() {
 
   const accountantUser = await prisma.user.create({
     data: {
-      instituteId: institute.id,
+      instituteId: campus.id,
       name: "Senior Accountant Rashid Ali",
       email: "accounts@futurexlearning.com",
       passwordHash: defaultPasswordHash,
@@ -161,7 +175,7 @@ async function main() {
   for (const t of teacherData) {
     const user = await prisma.user.create({
       data: {
-        instituteId: institute.id,
+        instituteId: campus.id,
         name: t.name,
         email: t.email,
         phone: t.phone,
@@ -173,7 +187,7 @@ async function main() {
 
     const teacher = await prisma.teacher.create({
       data: {
-        instituteId: institute.id,
+        instituteId: campus.id,
         userId: user.id,
         teacherId: t.teacherId,
         name: t.name,
@@ -258,7 +272,7 @@ async function main() {
   for (const c of coursesData) {
     const course = await prisma.course.create({
       data: {
-        instituteId: institute.id,
+        instituteId: campus.id,
         ...c,
         status: "ACTIVE",
       },
@@ -328,7 +342,7 @@ async function main() {
   for (const b of batchesData) {
     const batch = await prisma.batch.create({
       data: {
-        instituteId: institute.id,
+        instituteId: campus.id,
         ...b,
         status: "ACTIVE",
       },
@@ -487,7 +501,7 @@ async function main() {
     // User for student portal
     const stuUser = await prisma.user.create({
       data: {
-        instituteId: institute.id,
+        instituteId: campus.id,
         name: s.name,
         email: s.email,
         phone: s.phone,
@@ -510,7 +524,7 @@ async function main() {
 
     const student = await prisma.student.create({
       data: {
-        instituteId: institute.id,
+        instituteId: campus.id,
         userId: stuUser.id,
         parentId: parent.id,
         sessionId: session.id,
@@ -704,7 +718,7 @@ async function main() {
   // 12. Initial Audit Log
   await prisma.auditLog.create({
     data: {
-      instituteId: institute.id,
+      instituteId: campus.id,
       userId: superAdminUser.id,
       userName: superAdminUser.name,
       userRole: superAdminUser.role,
@@ -721,7 +735,7 @@ async function main() {
     where: { code: "TS-2026-NEET-MAJOR" },
     update: {},
     create: {
-      instituteId: institute.id,
+      instituteId: campus.id,
       title: "All India NEET 2026 Major Mock Drill Series",
       code: "TS-2026-NEET-MAJOR",
       description: "Comprehensive full-syllabus offline pen-paper mock tests with nationwide ranking, OMR evaluation, and video/PDF solutions.",
@@ -739,7 +753,7 @@ async function main() {
     where: { code: "TS-2026-JEE-ADV" },
     update: {},
     create: {
-      instituteId: institute.id,
+      instituteId: campus.id,
       title: "JEE Advanced 2026 Benchmark Offline Mock Series",
       code: "TS-2026-JEE-ADV",
       description: "Rigorous paper 1 and paper 2 offline simulation strictly on actual JEE Advanced pattern with detailed diagnostic reports.",
