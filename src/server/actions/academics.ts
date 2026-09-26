@@ -648,6 +648,23 @@ export async function updateBatch(
   }
 ) {
   const actor = await requireStaffPermission("batches.manage");
+  const name = data.name?.trim();
+  const code = data.code?.trim().toUpperCase();
+  if (data.name !== undefined && !name) throw new Error("Enter a batch name.");
+  if (data.code !== undefined && !code) throw new Error("Enter a batch code.");
+  if (data.capacity !== undefined) {
+    const capacity = Number(data.capacity);
+    if (!Number.isInteger(capacity) || capacity < 1 || capacity > 200) {
+      throw new Error("Seat capacity must be a whole number from 1 to 200.");
+    }
+  }
+  if (data.startDate !== undefined || data.endDate !== undefined) {
+    const startDate = new Date(data.startDate || "");
+    const endDate = new Date(data.endDate || "");
+    if (!Number.isFinite(startDate.getTime()) || !Number.isFinite(endDate.getTime()) || endDate < startDate) {
+      throw new Error("Choose valid dates. End date must be on or after start date.");
+    }
+  }
   const existing = await db.batch.findUnique({
     where: { id },
   });
@@ -695,8 +712,8 @@ export async function updateBatch(
     });
     if (!course) throw new Error("Course does not belong to the selected location");
   }
-  if (data.teacherIds?.length) {
-    const teacherIds = [...new Set(data.teacherIds)];
+  const teacherIds = data.teacherIds === undefined ? undefined : [...new Set(data.teacherIds)];
+  if (teacherIds?.length) {
     const teachers = await db.teacher.findMany({
       where: { id: { in: teacherIds }, status: "ACTIVE" },
       select: { id: true },
@@ -708,8 +725,8 @@ export async function updateBatch(
 
   const updateData: any = {};
   if (isMovingLocation) updateData.instituteId = instituteId;
-  if (data.name !== undefined) updateData.name = data.name.trim();
-  if (data.code !== undefined) updateData.code = data.code.trim().toUpperCase();
+  if (name !== undefined) updateData.name = name;
+  if (code !== undefined) updateData.code = code;
   if (courseId !== undefined) updateData.courseId = courseId;
   if (data.startDate !== undefined) updateData.startDate = new Date(data.startDate);
   if (data.endDate !== undefined) updateData.endDate = new Date(data.endDate);
@@ -717,40 +734,51 @@ export async function updateBatch(
   if (data.room !== undefined) updateData.room = data.room.trim();
   if (data.status !== undefined) updateData.status = data.status;
 
-  if (data.teacherIds !== undefined) {
-    await db.teacherBatch.deleteMany({ where: { batchId: id } });
-    if (data.teacherIds.length > 0) {
-      for (const tId of data.teacherIds) {
-        await db.teacherBatch.create({
-          data: { batchId: id, teacherId: tId },
-        });
+  let updatedBatch;
+  try {
+    updatedBatch = await db.$transaction(async (tx) => {
+      if (teacherIds !== undefined) {
+        await tx.teacherBatch.deleteMany({ where: { batchId: id } });
+        if (teacherIds.length > 0) {
+          await tx.teacherBatch.createMany({
+            data: teacherIds.map((teacherId) => ({ batchId: id, teacherId })),
+          });
+        }
       }
-    }
-  }
 
-  const updatedBatch = await db.batch.update({
-    where: { id },
-    data: updateData,
-    include: {
-      institute: { select: { id: true, name: true, city: true } },
-      course: true,
-      teachers: {
-        where: { teacher: { is: { status: "ACTIVE" } } },
+      return tx.batch.update({
+        where: { id },
+        data: updateData,
         include: {
-          teacher: {
+          institute: { select: { id: true, name: true, city: true } },
+          course: true,
+          teachers: {
+            where: { teacher: { is: { status: "ACTIVE" } } },
             include: {
-              subjects: { include: { subject: true } },
+              teacher: {
+                include: {
+                  subjects: { include: { subject: true } },
+                },
+              },
+            },
+          },
+          _count: {
+            select: {
+              enrollments: { where: { status: "ACTIVE" } },
+              exams: true,
+              timetableSlots: true,
+              studyMaterials: true,
             },
           },
         },
-      },
-      _count: {
-        select: {
-          enrollments: { where: { status: "ACTIVE" } },
-        },
-      },
-    },
-  });
+      });
+    });
+  } catch (error) {
+    if ((error as { code?: string }).code === "P2002") {
+      throw new Error("This batch code is already in use. Choose a different code.");
+    }
+    throw error;
+  }
 
   await logAudit({
     action: "BATCH_UPDATED",

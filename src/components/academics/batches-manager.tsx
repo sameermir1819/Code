@@ -145,6 +145,8 @@ export function BatchesManager({
   // Modals & Drawers state
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [editingBatch, setEditingBatch] = useState<any | null>(null);
+  const [editError, setEditError] = useState("");
+  const [isUpdatingBatch, setIsUpdatingBatch] = useState(false);
   const [selectedBatchForDrawer, setSelectedBatchForDrawer] = useState<any | null>(null);
   const [deletingBatch, setDeletingBatch] = useState<any | null>(null);
 
@@ -385,6 +387,7 @@ export function BatchesManager({
 
   // Open Edit Modal with prefilled data
   const handleOpenEdit = (batch: any) => {
+    setEditError("");
     setEditingBatch(batch);
     setEditFormData({
       instituteId: batch.instituteId,
@@ -471,56 +474,45 @@ export function BatchesManager({
   // Update Batch Submission
   const handleUpdateBatch = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingBatch) return;
+    if (!editingBatch || isUpdatingBatch) return;
     setErrorMsg("");
     setSuccessMsg("");
+    setEditError("");
 
-    startTransition(async () => {
-      try {
-        const res = await updateBatch(editingBatch.id, {
+    if (!editFormData.name.trim() || !editFormData.code.trim()) {
+      setEditError("Batch name aur code required hain.");
+      return;
+    }
+
+    setIsUpdatingBatch(true);
+    try {
+      const res = await updateBatch(editingBatch.id, {
           instituteId: editFormData.instituteId,
-          name: editFormData.name,
-          code: editFormData.code,
+          name: editFormData.name.trim(),
+          code: editFormData.code.trim(),
           startDate: editFormData.startDate,
           endDate: editFormData.endDate,
           capacity: editFormData.capacity,
           room: editFormData.room,
           status: editFormData.status,
           teacherIds: editFormData.selectedTeacherIds,
-        });
+      });
 
-        if (res?.success && res.batch) {
-          setSuccessMsg(`Batch "${editFormData.name}" updated successfully!`);
-          const assignedTeachers = teacherList
-            .filter((t) => editFormData.selectedTeacherIds.includes(t.id))
-            .map((t) => ({ teacher: t }));
-
-          setBatches((prev) =>
-            prev.map((b) =>
-              b.id === editingBatch.id
-                ? {
-                    ...res.batch,
-                    teachers: assignedTeachers,
-                    _count: b._count,
-                  }
-                : b
-            )
-          );
-
-          if (selectedBatchForDrawer?.id === editingBatch.id) {
-            setSelectedBatchForDrawer({
-              ...res.batch,
-              teachers: assignedTeachers,
-              _count: selectedBatchForDrawer._count,
-            });
-          }
-
-          setEditingBatch(null);
+      if (res?.success && res.batch) {
+        const freshBatches = await getBatches({ campusId: campusFilter });
+        setBatches(freshBatches);
+        const freshBatch = freshBatches.find((batch) => batch.id === editingBatch.id);
+        if (selectedBatchForDrawer?.id === editingBatch.id && freshBatch) {
+          setSelectedBatchForDrawer(freshBatch);
         }
-      } catch (err: any) {
-        setErrorMsg(err.message || "Failed to update batch.");
+        setSuccessMsg(`Batch "${res.batch.name}" updated successfully!`);
+        setEditingBatch(null);
       }
-    });
+    } catch (err: any) {
+      setEditError(err.message || "Failed to update batch.");
+    } finally {
+      setIsUpdatingBatch(false);
+    }
   };
 
   // Delete Batch Submission
@@ -1606,6 +1598,11 @@ export function BatchesManager({
             </div>
 
             <form onSubmit={handleUpdateBatch} className="space-y-4 text-xs">
+              {editError && (
+                <p role="alert" className="rounded-lg border border-red-300 bg-red-50 p-3 text-red-700 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-300">
+                  {editError}
+                </p>
+              )}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="sm:col-span-2">
                   <label className="font-semibold block mb-1 text-foreground">
@@ -1794,12 +1791,12 @@ export function BatchesManager({
                   type="button"
                   variant="outline"
                   onClick={() => setEditingBatch(null)}
-                  disabled={isPending}
+                  disabled={isUpdatingBatch}
                 >
                   Cancel
                 </Button>
-                <Button type="submit" disabled={isPending}>
-                  {isPending ? "Saving..." : "Save Changes"}
+                <Button type="submit" disabled={isUpdatingBatch}>
+                  {isUpdatingBatch ? "Saving..." : "Save Changes"}
                 </Button>
               </div>
             </form>

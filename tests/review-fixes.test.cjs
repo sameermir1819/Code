@@ -525,3 +525,73 @@ test('failed batch insert rolls back default course creation', async () => {
   assert.equal((await f.api.createBatch(validBatch)).success, false);
   assert.equal(f.writes.length, 0);
 });
+
+function batchUpdateFixture({ failUpdate = false } = {}) {
+  const committed = [];
+  const existing = {
+    id: 'batch-a', instituteId: 'campus-a', courseId: 'course-a',
+    name: 'Old Batch', code: 'OLD', room: 'Old Hall', status: 'ACTIVE',
+  };
+  const db = {
+    batch: { findUnique: async () => existing },
+    teacher: { findMany: async ({ where }) => where.id.in.map((id) => ({ id })) },
+    $transaction: async (callback) => {
+      const pending = [];
+      const result = await callback({
+        teacherBatch: {
+          deleteMany: async (args) => pending.push(['delete-teachers', args]),
+          createMany: async (args) => pending.push(['create-teachers', args]),
+        },
+        batch: {
+          update: async (args) => {
+            if (failUpdate) throw new Error('batch write failed');
+            pending.push(['update-batch', args]);
+            return { ...existing, ...args.data, teachers: [], _count: {} };
+          },
+        },
+      });
+      committed.push(...pending);
+      return result;
+    },
+  };
+  const api = load('src/server/actions/academics.ts', {
+    '@/lib/db': { db },
+    '@/lib/auth': {
+      requireStaffPermission: async () => ({ id: 'actor', role: 'SUPER_ADMIN', instituteId: null }),
+      getEffectivePermissions: async () => [],
+    },
+    '@/lib/campus-scope': scope,
+    './campus': { getActiveCampusId: async () => 'campus-a' },
+    './audit': { logAudit: async () => {} },
+    '@/lib/redact-related-data': { redactRelatedData: (value) => value },
+    'next/cache': { revalidatePath() {} },
+  });
+  return { api, committed };
+}
+
+test('batch edit persists room and details together with faculty assignments', async () => {
+  const f = batchUpdateFixture();
+  const result = await f.api.updateBatch('batch-a', {
+    name: 'Updated Batch', code: 'new-code', room: 'Lecture Hall 7',
+    startDate: '2026-09-01', endDate: '2027-08-31', capacity: 55,
+    status: 'UPCOMING', teacherIds: ['teacher-a'],
+  });
+  assert.equal(result.success, true);
+  assert.equal(result.batch.room, 'Lecture Hall 7');
+  const update = f.committed.find(([name]) => name === 'update-batch')[1];
+  assert.equal(update.data.name, 'Updated Batch');
+  assert.equal(update.data.code, 'NEW-CODE');
+  assert.equal(update.data.capacity, 55);
+  assert.deepEqual(clean(f.committed.map(([name]) => name)), [
+    'delete-teachers', 'create-teachers', 'update-batch',
+  ]);
+});
+
+test('failed batch detail update rolls back faculty assignment changes', async () => {
+  const f = batchUpdateFixture({ failUpdate: true });
+  await assert.rejects(
+    f.api.updateBatch('batch-a', { room: 'Lecture Hall 9', teacherIds: ['teacher-a'] }),
+    /batch write failed/
+  );
+  assert.equal(f.committed.length, 0);
+});
