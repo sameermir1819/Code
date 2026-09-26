@@ -133,7 +133,7 @@ export function BatchesManager({
   const [newSubjectCode, setNewSubjectCode] = useState("");
   const [newSubjectDesc, setNewSubjectDesc] = useState("");
   const [newSubjectInstituteId, setNewSubjectInstituteId] = useState(
-    initialCampusId !== "GLOBAL" ? initialCampusId : availableCampuses[0]?.id || ""
+    initialCampusId !== "GLOBAL" ? initialCampusId : "GLOBAL"
   );
   const [subjectLocationFilter, setSubjectLocationFilter] = useState("ALL");
   const [isCreatingSubject, setIsCreatingSubject] = useState(false);
@@ -310,7 +310,7 @@ export function BatchesManager({
     setNewSubjectCode("");
     setNewSubjectDesc("");
     setNewSubjectInstituteId(
-      initialCampusId !== "GLOBAL" ? initialCampusId : availableCampuses[0]?.id || ""
+      initialCampusId !== "GLOBAL" ? initialCampusId : "GLOBAL"
     );
   };
 

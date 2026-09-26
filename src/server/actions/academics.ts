@@ -304,7 +304,9 @@ export async function getTeachers({ campusId: explicitCampusId }: { campusId?: s
   let teachers = await db.teacher.findMany({
     where: {
       status: "ACTIVE",
-      ...(campusId ? { instituteId: campusId } : {}),
+      ...(campusId
+        ? { OR: [{ instituteId: campusId }, { instituteId: null }] }
+        : {}),
     },
     orderBy: { name: "asc" },
     include: {

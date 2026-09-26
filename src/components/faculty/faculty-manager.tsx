@@ -41,8 +41,8 @@ interface SubjectItem {
 
 interface TeacherItem {
   id: string;
-  instituteId?: string;
-  institute?: { id: string; name: string; code?: string; city?: string | null };
+  instituteId?: string | null;
+  institute?: { id: string; name: string; code?: string; city?: string | null } | null;
   teacherId: string;
   name: string;
   email: string;
@@ -104,7 +104,7 @@ export function FacultyManager({
   const [newSubjectName, setNewSubjectName] = useState("");
   const [newSubjectCode, setNewSubjectCode] = useState("");
   const [newSubjectDescription, setNewSubjectDescription] = useState("");
-  const [newSubjectInstituteId, setNewSubjectInstituteId] = useState(availableCampuses[0]?.id || "");
+  const [newSubjectInstituteId, setNewSubjectInstituteId] = useState("GLOBAL");
   const [subjectLocationFilter, setSubjectLocationFilter] = useState("ALL");
   const [editingSubject, setEditingSubject] = useState<SubjectItem | null>(null);
 
@@ -154,7 +154,7 @@ export function FacultyManager({
     setNewSubjectName("");
     setNewSubjectCode("");
     setNewSubjectDescription("");
-    setNewSubjectInstituteId(availableCampuses[0]?.id || "");
+    setNewSubjectInstituteId("GLOBAL");
   };
 
   const handleEditSubject = (subject: SubjectItem) => {
@@ -241,7 +241,8 @@ export function FacultyManager({
 
     const matchesSubject =
       subjectFilter === "ALL" || t.subjects.some((s) => s.subjectId === subjectFilter);
-    const matchesLocation = locationFilter === "GLOBAL" || t.instituteId === locationFilter;
+    const matchesLocation =
+      locationFilter === "GLOBAL" || !t.instituteId || t.instituteId === locationFilter;
 
     return matchesSearch && matchesStatus && matchesSubject && matchesLocation;
   });

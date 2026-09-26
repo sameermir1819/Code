@@ -336,19 +336,17 @@ async function syncTeacherProfile(
 ) {
   const existingTeacher = await tx.teacher.findFirst({ where: { userId: user.id } });
   if (user.role === "TEACHER") {
-    if (!user.instituteId) {
-      throw new Error("Faculty accounts must be assigned to a campus.");
-    }
-
-    const institute = await tx.institute.findUnique({ where: { id: user.instituteId } });
-    if (!institute) throw new Error("The selected campus could not be found.");
+    const institute = user.instituteId
+      ? await tx.institute.findUnique({ where: { id: user.instituteId } })
+      : null;
+    if (user.instituteId && !institute) throw new Error("The selected campus could not be found.");
 
     let teacherRecord = existingTeacher;
     if (existingTeacher) {
       teacherRecord = await tx.teacher.update({
         where: { id: existingTeacher.id },
         data: {
-          instituteId: institute.id,
+          instituteId: institute?.id || null,
           name: user.name,
           email: user.email,
           phone: user.phone || "0000000000",
@@ -361,7 +359,7 @@ async function syncTeacherProfile(
       const teacherId = `TCH-${String(teacherCount + 1).padStart(3, "0")}`;
       teacherRecord = await tx.teacher.create({
         data: {
-          instituteId: institute.id,
+          instituteId: institute?.id || null,
           userId: user.id,
           teacherId,
           name: user.name,
