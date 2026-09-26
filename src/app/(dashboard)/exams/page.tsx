@@ -100,6 +100,14 @@ function CreateExamModal({
     instructions: "",
   });
 
+  const selectedBatch = batches.find((batch) => batch.id === form.batchId);
+  const availableSubjects = selectedBatch
+    ? subjects.filter(
+        (subject) =>
+          !subject.instituteId || subject.instituteId === selectedBatch.instituteId
+      )
+    : subjects.filter((subject) => !subject.instituteId);
+
   function set<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
   }
@@ -191,7 +199,13 @@ function CreateExamModal({
               <select
                 required
                 value={form.batchId}
-                onChange={(e) => set("batchId", e.target.value)}
+                onChange={(e) => {
+                  setForm((previous) => ({
+                    ...previous,
+                    batchId: e.target.value,
+                    subjectId: "",
+                  }));
+                }}
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
               >
                 <option value="">Select batch...</option>
@@ -216,9 +230,9 @@ function CreateExamModal({
               className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
             >
               <option value="">Select subject...</option>
-              {subjects.map((s) => (
+              {availableSubjects.map((s) => (
                 <option key={s.id} value={s.id}>
-                  {s.name} ({s.code})
+                  {s.name} ({s.code}){!s.instituteId ? " — Global" : ""}
                 </option>
               ))}
             </select>

@@ -2014,7 +2014,9 @@ export function BatchesManager({
                       >
                         <div className="flex flex-col min-w-0 pr-1">
                           <span className="text-xs truncate font-medium text-foreground">{s.name}</span>
-                          <span className="text-[10px] opacity-75 font-mono">{s.code}</span>
+                          <span className="text-[10px] opacity-75 font-mono">
+                            {s.code}{!s.instituteId ? " — Global" : ""}
+                          </span>
                         </div>
                         <div
                           className={`h-4 w-4 rounded flex items-center justify-center shrink-0 border ${

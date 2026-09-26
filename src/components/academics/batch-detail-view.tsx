@@ -176,9 +176,10 @@ export function BatchDetailView({
     return batch.teachers?.map((bt: any) => bt.teacher).filter(Boolean) || [];
   }, [batch.teachers]);
 
-  // Extract subjects related to this batch:
+  // Extract subjects available to this batch:
   // 1. From course subjects
   // 2. From assigned faculty's subjects
+  // 3. Every global subject, plus subjects assigned to this batch's location
   const batchSubjects = useMemo(() => {
     const list: any[] = [];
     const seen = new Set<string>();
@@ -203,9 +204,13 @@ export function BatchDetailView({
       }
     }
 
-    // Fallback: if still empty, include allSubjects so scheduling is never blocked
-    if (list.length === 0 && allSubjects.length > 0) {
-      return allSubjects;
+    for (const subject of allSubjects) {
+      const isAvailableForBatch =
+        !subject.instituteId || subject.instituteId === batch.instituteId;
+      if (isAvailableForBatch && !seen.has(subject.id)) {
+        seen.add(subject.id);
+        list.push(subject);
+      }
     }
 
     return list;
@@ -1224,7 +1229,7 @@ export function BatchDetailView({
                   >
                     {batchSubjects.map((sub: any) => (
                       <option key={sub.id} value={sub.id}>
-                        {sub.name}
+                        {sub.name}{!sub.instituteId ? " — Global" : ""}
                       </option>
                     ))}
                   </select>
@@ -1316,7 +1321,7 @@ export function BatchDetailView({
                 >
                   {batchSubjects.map((sub: any) => (
                     <option key={sub.id} value={sub.id}>
-                      {sub.name} ({sub.code})
+                      {sub.name} ({sub.code}){!sub.instituteId ? " — Global" : ""}
                     </option>
                   ))}
                 </select>

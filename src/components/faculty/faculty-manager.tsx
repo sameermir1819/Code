@@ -822,7 +822,9 @@ export function FacultyManager({
                           />
                           <div>
                             <span className="font-semibold text-foreground text-xs block">{sub.name}</span>
-                            <span className="text-[10px] text-muted-foreground font-mono">{sub.code}</span>
+                            <span className="text-[10px] text-muted-foreground font-mono">
+                              {sub.code}{!sub.instituteId ? " — Global" : ""}
+                            </span>
                           </div>
                         </div>
 
