@@ -1,0 +1,1 @@
+ALTER TABLE "Subject" ALTER COLUMN "instituteId" DROP NOT NULL;

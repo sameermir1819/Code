@@ -32,11 +32,11 @@ import {
 
 interface SubjectItem {
   id: string;
-  instituteId?: string;
+  instituteId?: string | null;
   name: string;
   code: string;
   description?: string | null;
-  institute?: { id: string; name: string; code?: string; city?: string | null };
+  institute?: { id: string; name: string; code?: string; city?: string | null } | null;
 }
 
 interface TeacherItem {
@@ -105,7 +105,7 @@ export function FacultyManager({
   const [newSubjectCode, setNewSubjectCode] = useState("");
   const [newSubjectDescription, setNewSubjectDescription] = useState("");
   const [newSubjectInstituteId, setNewSubjectInstituteId] = useState(availableCampuses[0]?.id || "");
-  const [subjectLocationFilter, setSubjectLocationFilter] = useState("GLOBAL");
+  const [subjectLocationFilter, setSubjectLocationFilter] = useState("ALL");
   const [editingSubject, setEditingSubject] = useState<SubjectItem | null>(null);
 
   useEffect(() => {
@@ -162,7 +162,7 @@ export function FacultyManager({
     setNewSubjectName(subject.name);
     setNewSubjectCode(subject.code);
     setNewSubjectDescription(subject.description || "");
-    setNewSubjectInstituteId(subject.instituteId || "");
+    setNewSubjectInstituteId(subject.instituteId || "GLOBAL");
   };
 
   const handleSaveSubject = (e: React.FormEvent) => {
@@ -221,6 +221,12 @@ export function FacultyManager({
       }
     });
   };
+
+  const matchesSubjectLocation = (subject: SubjectItem) =>
+    subjectLocationFilter === "ALL" ||
+    (subjectLocationFilter === "GLOBAL" && !subject.instituteId) ||
+    (subjectLocationFilter !== "GLOBAL" &&
+      (!subject.instituteId || subject.instituteId === subjectLocationFilter));
 
   // Filter teachers
   const filteredTeachers = teachers.filter((t) => {
@@ -701,7 +707,7 @@ export function FacultyManager({
                   onChange={(event) => setNewSubjectInstituteId(event.target.value)}
                   className="w-full h-9 px-3 rounded-md border border-input bg-background text-foreground text-xs"
                 >
-                  <option value="">Select location</option>
+                  <option value="GLOBAL">Global — All Locations</option>
                   {availableCampuses.map((campus) => (
                     <option key={campus.id} value={campus.id}>
                       {campus.name}{campus.city ? ` — ${campus.city}` : ""}
@@ -731,22 +737,23 @@ export function FacultyManager({
                   className="h-8 rounded-md border border-input bg-background px-2 text-[11px] text-foreground"
                   aria-label="Filter subjects by location"
                 >
-                  <option value="GLOBAL">All Locations ({subjects.length})</option>
+                  <option value="ALL">All Subjects ({subjects.length})</option>
+                  <option value="GLOBAL">Global — All Locations</option>
                   {availableCampuses.map((campus) => (
                     <option key={campus.id} value={campus.id}>{campus.name}</option>
                   ))}
                 </select>
               </div>
-              {subjects.filter((subject) => subjectLocationFilter === "GLOBAL" || subject.instituteId === subjectLocationFilter).length === 0 ? (
+              {subjects.filter(matchesSubjectLocation).length === 0 ? (
                 <p className="rounded-xl border border-dashed p-5 text-center text-xs text-muted-foreground">No subjects configured yet.</p>
               ) : (
                 <div className="max-h-64 overflow-y-auto space-y-2 pr-1">
-                  {subjects.filter((subject) => subjectLocationFilter === "GLOBAL" || subject.instituteId === subjectLocationFilter).map((subject) => (
+                  {subjects.filter(matchesSubjectLocation).map((subject) => (
                     <div key={subject.id} className="flex items-center justify-between gap-3 rounded-xl border p-3">
                       <div className="min-w-0">
                         <p className="text-xs font-semibold text-foreground truncate">{subject.name}</p>
                         <p className="text-[10px] font-mono text-muted-foreground">{subject.code}</p>
-                        <p className="text-[10px] text-primary mt-0.5">{subject.institute?.name || "Location not set"}</p>
+                        <p className="text-[10px] text-primary mt-0.5">{subject.institute?.name || "Global — All Locations"}</p>
                       </div>
                       <div className="flex items-center gap-1">
                         <Button type="button" variant="ghost" size="sm" disabled={isPending} onClick={() => handleEditSubject(subject)} className="h-8 w-8 p-0 text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700" title="Edit subject">

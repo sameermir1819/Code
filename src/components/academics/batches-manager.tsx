@@ -132,7 +132,7 @@ export function BatchesManager({
   const [newSubjectInstituteId, setNewSubjectInstituteId] = useState(
     initialCampusId !== "GLOBAL" ? initialCampusId : availableCampuses[0]?.id || ""
   );
-  const [subjectLocationFilter, setSubjectLocationFilter] = useState("GLOBAL");
+  const [subjectLocationFilter, setSubjectLocationFilter] = useState("ALL");
   const [isCreatingSubject, setIsCreatingSubject] = useState(false);
   const [subjectError, setSubjectError] = useState("");
   const [subjectSuccess, setSubjectSuccess] = useState("");
@@ -316,8 +316,14 @@ export function BatchesManager({
     setNewSubjectName(subject.name || "");
     setNewSubjectCode(subject.code || "");
     setNewSubjectDesc(subject.description || "");
-    setNewSubjectInstituteId(subject.instituteId || "");
+    setNewSubjectInstituteId(subject.instituteId || "GLOBAL");
   };
+
+  const matchesSubjectLocation = (subject: any) =>
+    subjectLocationFilter === "ALL" ||
+    (subjectLocationFilter === "GLOBAL" && !subject.instituteId) ||
+    (subjectLocationFilter !== "GLOBAL" &&
+      (!subject.instituteId || subject.instituteId === subjectLocationFilter));
 
   // Create or edit Subject Handler
   const handleSaveSubject = async (e: React.FormEvent) => {
@@ -1309,7 +1315,7 @@ export function BatchesManager({
                   onChange={(event) => setNewSubjectInstituteId(event.target.value)}
                   className="w-full h-9 px-3 rounded-md border border-input bg-background text-foreground text-xs"
                 >
-                  <option value="">Select location</option>
+                  <option value="GLOBAL">Global — All Locations</option>
                   {availableCampuses.map((campus) => (
                     <option key={campus.id} value={campus.id}>{getCampusDisplayName(campus)}</option>
                   ))}
@@ -1341,24 +1347,25 @@ export function BatchesManager({
                   className="h-8 rounded-md border border-input bg-background px-2 text-[11px] text-foreground"
                   aria-label="Filter subjects by location"
                 >
-                  <option value="GLOBAL">All Locations ({subjectsList.length})</option>
+                  <option value="ALL">All Subjects ({subjectsList.length})</option>
+                  <option value="GLOBAL">Global — All Locations</option>
                   {availableCampuses.map((campus) => (
                     <option key={campus.id} value={campus.id}>{campus.name}</option>
                   ))}
                 </select>
               </div>
-              {subjectsList.filter((subject: any) => subjectLocationFilter === "GLOBAL" || subject.instituteId === subjectLocationFilter).length === 0 ? (
+              {subjectsList.filter(matchesSubjectLocation).length === 0 ? (
                 <p className="rounded-lg border border-dashed p-4 text-center text-xs text-muted-foreground">No subjects found for this location.</p>
               ) : (
                 <div className="max-h-64 overflow-y-auto space-y-2 pr-1">
                   {subjectsList
-                    .filter((subject: any) => subjectLocationFilter === "GLOBAL" || subject.instituteId === subjectLocationFilter)
+                    .filter(matchesSubjectLocation)
                     .map((subject: any) => (
                       <div key={subject.id} className="flex items-center justify-between gap-3 rounded-lg border p-3">
                         <div className="min-w-0">
                           <p className="text-xs font-semibold truncate">{subject.name}</p>
                           <p className="text-[10px] font-mono text-muted-foreground">{subject.code}</p>
-                          <p className="text-[10px] text-primary mt-0.5">{subject.institute?.name || "Location not set"}</p>
+                          <p className="text-[10px] text-primary mt-0.5">{subject.institute?.name || "Global — All Locations"}</p>
                         </div>
                         <div className="flex items-center gap-1">
                           <Button type="button" variant="ghost" size="sm" disabled={isCreatingSubject} onClick={() => handleEditSubject(subject)} className="h-8 w-8 p-0 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50" title="Edit subject">

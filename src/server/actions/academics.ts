@@ -106,9 +106,12 @@ export async function createSubject(data: {
   const existing = await db.subject.findUnique({ where: { code } });
   if (existing) throw new Error(`Subject code "${code}" already exists.`);
 
-  const instituteId = data.instituteId || authorizedCampusId(actor, await getActiveCampusId());
-  const institute = await db.institute.findUnique({ where: { id: instituteId }, select: { id: true } });
-  if (!institute) throw new Error("Select a valid location for this subject.");
+  const requestedInstituteId = data.instituteId || authorizedCampusId(actor, await getActiveCampusId());
+  const instituteId = requestedInstituteId === "GLOBAL" ? null : requestedInstituteId;
+  const institute = instituteId
+    ? await db.institute.findUnique({ where: { id: instituteId }, select: { id: true } })
+    : null;
+  if (instituteId && !institute) throw new Error("Select a valid location for this subject.");
 
   const subject = await db.subject.create({
     data: {
@@ -152,20 +155,23 @@ export async function updateSubject(data: {
   const code = data.code.trim().toUpperCase();
   if (!name || !code) throw new Error("Subject name and code are required.");
 
+  const instituteId = data.instituteId === "GLOBAL" ? null : data.instituteId;
   const [subject, duplicate, institute] = await Promise.all([
     db.subject.findUnique({ where: { id: data.id }, select: { id: true, name: true, code: true } }),
     db.subject.findFirst({ where: { code, id: { not: data.id } }, select: { id: true } }),
-    db.institute.findUnique({ where: { id: data.instituteId }, select: { id: true } }),
+    instituteId
+      ? db.institute.findUnique({ where: { id: instituteId }, select: { id: true } })
+      : Promise.resolve(null),
   ]);
 
   if (!subject) throw new Error("Subject not found.");
   if (duplicate) throw new Error(`Subject code "${code}" already exists.`);
-  if (!institute) throw new Error("Select a valid location for this subject.");
+  if (instituteId && !institute) throw new Error("Select a valid location for this subject.");
 
   const updated = await db.subject.update({
     where: { id: data.id },
     data: {
-      instituteId: data.instituteId,
+      instituteId,
       name,
       code,
       description: data.description?.trim() || null,
