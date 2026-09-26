@@ -15,12 +15,7 @@ export async function getExams({
   status,
 }: { batchId?: string; subjectId?: string; status?: string } = {}) {
   await requireStaffPermission("exams.view");
-  const campusId = await getActiveCampusId();
   const where: Record<string, unknown> = {};
-
-  if (campusId) {
-    where.batch = { instituteId: campusId };
-  }
 
   if (batchId) where.batchId = batchId;
   if (subjectId) where.subjectId = subjectId;
@@ -40,10 +35,9 @@ export async function getExams({
 export async function getExamById(id: string) {
   await requireStaffPermission("results.view");
   await requireStaffPermission("students.view");
-  const session = await requireStaffPermission("exams.view");
-  const instituteId = authorizedCampusId(session, await getActiveCampusId());
+  await requireStaffPermission("exams.view");
   const exam = await db.exam.findFirst({
-    where: { id, batch: { instituteId } },
+    where: { id },
     include: {
       batch: {
         include: {

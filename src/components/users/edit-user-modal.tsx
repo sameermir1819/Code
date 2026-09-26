@@ -16,6 +16,8 @@ interface EditUserModalProps {
   availableSubjects?: any[];
   availableRoles?: any[];
   availableCampuses?: any[];
+  canManageRoles?: boolean;
+  canChangeStatus?: boolean;
 }
 
 export function EditUserModal({
@@ -27,6 +29,8 @@ export function EditUserModal({
   availableSubjects = [],
   availableRoles = [],
   availableCampuses = [],
+  canManageRoles = false,
+  canChangeStatus = false,
 }: EditUserModalProps) {
   const [isPending, startTransition] = useTransition();
   const [errorMsg, setErrorMsg] = useState("");
@@ -224,7 +228,7 @@ export function EditUserModal({
                   <label className="font-semibold block mb-1">Role Assignment</label>
                   <select
                     value={formData.role}
-                    disabled={(isTargetSuperAdmin && !canEditSuperAdmin) || user.role === "STUDENT"}
+                    disabled={!canManageRoles || (isTargetSuperAdmin && !canEditSuperAdmin) || user.role === "STUDENT"}
                     onChange={(e) => setFormData({ ...formData, role: e.target.value as Role })}
                     className="w-full h-9 px-3 rounded-md border border-input bg-background text-foreground"
                   >
@@ -245,6 +249,7 @@ export function EditUserModal({
                   <label className="font-semibold block mb-1">Account Status</label>
                   <select
                     value={formData.status}
+                    disabled={!canChangeStatus}
                     onChange={(e) =>
                       setFormData({ ...formData, status: e.target.value as "ACTIVE" | "INACTIVE" | "SUSPENDED" })
                     }

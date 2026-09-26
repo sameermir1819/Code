@@ -7,7 +7,7 @@ import { ROLE_PERMISSIONS, NEW_PERMISSION_CODES } from "./permissions";
 export async function syncPermissionCatalog() {
   await db.$transaction(async (tx) => {
     if (!process.env.DATABASE_URL?.startsWith("file:")) {
-      await tx.$queryRaw`SELECT pg_advisory_xact_lock(73190421)`;
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(73190421)`;
     }
     const existing = new Set((await tx.permission.findMany({ select: { code: true } })).map((p) => p.code));
     for (const permission of STANDARD_PERMISSIONS) {

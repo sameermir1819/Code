@@ -39,9 +39,6 @@ jobs:
       - name: Security and Finance Regression Tests
         run: npm test
 
-      - name: Security and Finance Regression Tests
-        run: npm test
-
       - name: Production Build
         run: npm run build
         env:

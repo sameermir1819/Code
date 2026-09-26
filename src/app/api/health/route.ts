@@ -43,7 +43,7 @@ export async function GET() {
         database: {
           status: dbStatus,
           latencyMs: dbLatencyMs,
-          ...(dbError ? { error: dbError } : {}),
+          ...(dbError && process.env.NODE_ENV !== "production" ? { error: dbError } : {}),
         },
       },
     },

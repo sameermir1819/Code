@@ -11,6 +11,7 @@ import {
   LayoutDashboard,
   Users,
   Layers,
+  CalendarClock,
   CheckSquare,
   ClipboardList,
   ClipboardCheck,
@@ -79,6 +80,11 @@ const NAV_GROUPS: NavGroup[] = [
         href: "/dashboard/batches",
         icon: Layers,
         altHrefs: ["/batches"],
+      },
+      {
+        label: "Classes & Timetable",
+        href: "/timetable",
+        icon: CalendarClock,
       },
       {
         label: "Faculty",
@@ -208,10 +214,12 @@ export function Sidebar({ userRole, userName, logoUrl, permissions, instituteNam
   };
 
   const content = (
-    <aside className="w-full bg-[#090d16] border-r border-white/[0.08] flex flex-col h-full text-zinc-300 select-none shrink-0 font-sans">
+    <aside className="relative w-full bg-[radial-gradient(circle_at_20%_0%,rgba(79,70,229,0.18),transparent_30%),linear-gradient(180deg,#0b1020_0%,#070a12_100%)] border-r border-white/[0.08] flex flex-col h-full text-zinc-300 select-none shrink-0 font-sans shadow-2xl shadow-black/20">
       {/* ── Brand Header ────────────────────────────── */}
-      <div className="h-16 flex items-center px-5 border-b border-white/[0.08] gap-3 shrink-0 bg-[#070a12]">
-        <InstituteLogo logoUrl={logoUrl ?? null} name={instituteName} size={36} />
+      <div className="h-[4.5rem] flex items-center px-5 border-b border-white/[0.08] gap-3 shrink-0 bg-black/10 backdrop-blur-xl">
+        <div className="rounded-xl ring-1 ring-white/10 shadow-lg shadow-indigo-950/30">
+          <InstituteLogo logoUrl={logoUrl ?? null} name={instituteName} size={38} />
+        </div>
         <div className="flex flex-col min-w-0">
           <span className="font-extrabold text-sm tracking-tight text-white truncate">
             {instituteName.toUpperCase()}
@@ -227,7 +235,7 @@ export function Sidebar({ userRole, userName, logoUrl, permissions, instituteNam
       </div>
 
       {/* ── Navigation ──────────────────────────────── */}
-      <nav className="flex-1 overflow-y-auto px-3 py-3 space-y-0.5 text-xs">
+      <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1 text-xs">
         {NAV_GROUPS.map((group) => {
 
           const visibleItems = group.items.filter((item) =>
@@ -236,9 +244,9 @@ export function Sidebar({ userRole, userName, logoUrl, permissions, instituteNam
           if (visibleItems.length === 0) return null;
 
           return (
-            <div key={group.title} className="mb-3">
+            <div key={group.title} className="mb-4">
               {/* Section Label */}
-              <p className="px-3 mb-1.5 text-[10px] font-bold tracking-widest text-zinc-500 uppercase">
+              <p className="px-3 mb-2 text-[9px] font-extrabold tracking-[0.18em] text-zinc-500 uppercase">
                 {group.title}
               </p>
 
@@ -253,16 +261,16 @@ export function Sidebar({ userRole, userName, logoUrl, permissions, instituteNam
                       href={item.href}
                       aria-current={active ? "page" : undefined}
                       className={cn(
-                        "flex items-center gap-3 px-3 py-2 rounded-xl font-medium transition-all relative group",
+                        "flex items-center gap-3 px-3 py-2.5 rounded-xl font-medium transition-all duration-200 relative group overflow-hidden",
                         active
-                          ? "bg-indigo-600 text-white font-semibold shadow-sm shadow-indigo-600/30"
-                          : "text-zinc-400 hover:text-zinc-100 hover:bg-white/[0.04]"
+                          ? "bg-gradient-to-r from-indigo-600 to-blue-600 text-white font-semibold shadow-lg shadow-indigo-950/30 ring-1 ring-white/10"
+                          : "text-zinc-400 hover:text-zinc-100 hover:bg-white/[0.06] hover:translate-x-0.5"
                       )}
                     >
                       <Icon className={cn("h-4 w-4 shrink-0 transition-transform group-hover:scale-105", active ? "text-white" : "text-zinc-400 group-hover:text-zinc-200")} />
                       <span className="truncate">{item.label}</span>
                       {active && (
-                        <span className="ml-auto h-1.5 w-1.5 rounded-full bg-white shadow-xs shrink-0" />
+                        <span className="ml-auto h-1.5 w-1.5 rounded-full bg-white shadow-[0_0_8px_rgba(255,255,255,0.8)] shrink-0" />
                       )}
                     </Link>
                   );
@@ -276,7 +284,7 @@ export function Sidebar({ userRole, userName, logoUrl, permissions, instituteNam
       {/* ── User Footer ─────────────────────────────── */}
       <Link
         href="/profile"
-        className="p-3.5 border-t border-white/[0.08] bg-[#070a12] flex items-center gap-2.5 hover:bg-white/[0.03] transition-colors group cursor-pointer shrink-0"
+        className="m-3 mt-0 rounded-2xl border border-white/[0.08] bg-white/[0.035] p-3 flex items-center gap-2.5 hover:bg-white/[0.07] hover:border-white/[0.13] transition-all group cursor-pointer shrink-0"
         title="Customize My Profile & Settings"
       >
         <div className="relative shrink-0">
@@ -300,13 +308,13 @@ export function Sidebar({ userRole, userName, logoUrl, permissions, instituteNam
 
   return (
     <>
-      <div className="hidden lg:block w-64 h-screen shrink-0 print:hidden">{content}</div>
+      <div className="hidden lg:block w-[17rem] h-screen shrink-0 print:hidden">{content}</div>
       <button
         type="button"
         aria-label="Open navigation menu"
         aria-haspopup="dialog"
         onClick={() => mobileMenu.current?.showModal()}
-        className="fixed top-3.5 left-3 z-40 flex h-9 w-9 items-center justify-center rounded-lg border bg-background lg:hidden print:hidden"
+        className="fixed top-[1.1rem] left-3 z-40 flex h-9 w-9 items-center justify-center rounded-xl border bg-card/90 shadow-sm backdrop-blur-lg lg:hidden print:hidden"
       >
         <Menu className="h-5 w-5" />
       </button>

@@ -4,7 +4,7 @@ import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 import { RouteProgressBar } from "@/components/layout/route-progress-bar";
 import { RealtimeListener } from "@/components/layout/realtime-listener";
-import { getActiveCampus, getAllCampuses } from "@/server/actions/campus";
+import { getActiveCampus } from "@/server/actions/campus";
 import { db } from "@/lib/db";
 import { Role } from "@/lib/permissions";
 import { PermissionProvider } from "@/components/layout/permission-provider";
@@ -30,12 +30,11 @@ export default async function DashboardLayout({
   const permissions = await getEffectivePermissions(session);
 
   // Fetch unread count and active campus in parallel
-  const [unreadCount, activeCampus, campuses] = await Promise.all([
+  const [unreadCount, activeCampus] = await Promise.all([
     db.notification.count({
       where: { userId: session.id, isRead: false },
     }),
     getActiveCampus(),
-    getAllCampuses(),
   ]);
 
   return (
@@ -57,13 +56,10 @@ export default async function DashboardLayout({
           currentRole={userRole}
           userName={userName}
           unreadCount={unreadCount}
-          campuses={campuses.filter(
-            (campus) => !session.instituteId || session.role === "SUPER_ADMIN" || campus.id === session.instituteId
-          )}
-          activeCampus={activeCampus}
         />
-        <main className="flex-1 overflow-auto p-4 md:p-8 bg-muted/20 print:p-0 print:overflow-visible print:bg-white print:block">
-          <PermissionProvider permissions={permissions}><div key={activeCampus?.id || "campus-root"} className="max-w-7xl mx-auto space-y-6 print:max-w-full print:m-0 print:p-0 print:space-y-0">{children}</div></PermissionProvider>
+        <main className="relative flex-1 overflow-auto bg-muted/15 p-4 sm:p-5 md:p-7 xl:p-8 print:p-0 print:overflow-visible print:bg-white print:block">
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-primary/[0.035] to-transparent" />
+          <PermissionProvider permissions={permissions}><div key={activeCampus?.id || "campus-root"} className="relative max-w-[1600px] mx-auto space-y-6 print:max-w-full print:m-0 print:p-0 print:space-y-0">{children}</div></PermissionProvider>
         </main>
       </div>
     </div>

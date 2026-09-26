@@ -5,8 +5,11 @@ export const postedPaymentStatuses = ["SUCCESS", "ADJUSTED", "REFUNDED"];
 const money = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
 
 // Cash flow: collections use paymentDate; refunds use their own refundDate.
-export async function collectionTotals(instituteId: string, dates?: Prisma.DateTimeFilter) {
-  const payment = { student: { instituteId }, status: { in: postedPaymentStatuses } };
+export async function collectionTotals(instituteId?: string, dates?: Prisma.DateTimeFilter) {
+  const payment = {
+    ...(instituteId ? { student: { instituteId } } : {}),
+    status: { in: postedPaymentStatuses },
+  };
   const [collected, refunded] = await Promise.all([
     db.payment.aggregate({ where: { ...payment, ...(dates ? { paymentDate: dates } : {}) }, _sum: { amount: true }, _count: true }),
     db.refundAdjustment.aggregate({ where: { payment, ...(dates ? { refundDate: dates } : {}) }, _sum: { amount: true } }),
@@ -28,11 +31,14 @@ export function indiaMonthStart(now = new Date()) {
   return indiaDateRange(now, "month").start;
 }
 
-export async function financeMetrics(instituteId: string) {
+export async function financeMetrics(instituteId?: string) {
   const [all, month, plans] = await Promise.all([
     collectionTotals(instituteId),
     collectionTotals(instituteId, { gte: indiaMonthStart() }),
-    db.feePlan.aggregate({ where: { student: { instituteId } }, _sum: { finalAmount: true, balanceAmount: true } }),
+    db.feePlan.aggregate({
+      where: instituteId ? { student: { instituteId } } : {},
+      _sum: { finalAmount: true, balanceAmount: true },
+    }),
   ]);
   return {
     totalCollected: all.net, thisMonthCollected: month.net,

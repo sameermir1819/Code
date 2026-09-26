@@ -61,7 +61,7 @@ test('permission catalog synchronization never restores a removed existing grant
   const existingGrants = new Set();
   let advisoryLocks = 0;
   const tx = {
-    $queryRaw: async () => { advisoryLocks++; },
+    $executeRaw: async () => { advisoryLocks++; },
     permission: { findMany: async () => [...catalog.values()], upsert: async ({ create }) => { if (!catalog.has(create.code)) catalog.set(create.code, { ...create, id: create.code }); } },
     role: { findUnique: async ({ where }) => ({ id: where.name, name: where.name }) },
     rolePermission: {

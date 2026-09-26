@@ -5,7 +5,7 @@ export async function allocateStudentIdentifiers(
   instituteId: string,
   date = new Date(),
 ) {
-  const institute = await tx.campus.findUnique({
+  const institute = await tx.institute.findUnique({
     where: { id: instituteId },
     select: { code: true },
   });

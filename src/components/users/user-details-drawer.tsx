@@ -35,6 +35,11 @@ interface UserDetailsDrawerProps {
   onDelete: (user: any) => void;
   actorRole: Role;
   availableSubjects?: any[];
+  canUpdateUsers?: boolean;
+  canManageRoles?: boolean;
+  canChangeStatus?: boolean;
+  canDeleteUsers?: boolean;
+  canManagePermissions?: boolean;
 }
 
 export function UserDetailsDrawer({
@@ -45,6 +50,11 @@ export function UserDetailsDrawer({
   onRoleChange,
   onDelete,
   actorRole,
+  canUpdateUsers = false,
+  canManageRoles = false,
+  canChangeStatus = false,
+  canDeleteUsers = false,
+  canManagePermissions = false,
 }: UserDetailsDrawerProps) {
   const [userDetails, setUserDetails] = useState<any>(null);
   const [permissionsData, setPermissionsData] = useState<any>(null);
@@ -67,7 +77,7 @@ export function UserDetailsDrawer({
       try {
         const [resUser, resPerms] = await Promise.all([
           getUser(userId!),
-          actorRole === "SUPER_ADMIN" ? getUserPermissions(userId!) : Promise.resolve(null),
+          canManagePermissions ? getUserPermissions(userId!) : Promise.resolve(null),
         ]);
 
         if (isMounted) {
@@ -94,7 +104,7 @@ export function UserDetailsDrawer({
     return () => {
       isMounted = false;
     };
-  }, [userId, actorRole]);
+  }, [userId, actorRole, canManagePermissions]);
 
   if (!userId) return null;
 
@@ -336,7 +346,7 @@ export function UserDetailsDrawer({
                       <Shield className="h-4 w-4 text-primary" />
                       <h4 className="font-bold text-foreground">Assigned Role: {userDetails.role}</h4>
                     </div>
-                    {actorRole === "SUPER_ADMIN" && (
+                    {canManageRoles && (
                       <Button size="sm" variant="outline" onClick={() => onRoleChange(userDetails)}>
                         Change Role
                       </Button>
@@ -348,7 +358,7 @@ export function UserDetailsDrawer({
                   </p>
                 </div>
 
-                {actorRole === "SUPER_ADMIN" && permissionsData ? (
+                {canManagePermissions && permissionsData ? (
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <h4 className="font-semibold text-foreground uppercase tracking-wider text-[11px]">
@@ -461,20 +471,20 @@ export function UserDetailsDrawer({
                   </p>
 
                   <div className="flex flex-wrap gap-2 pt-2 border-t">
-                    <Button size="sm" variant="outline" onClick={() => onEdit(userDetails)}>
+                    {canUpdateUsers && <Button size="sm" variant="outline" onClick={() => onEdit(userDetails)}>
                       Edit Profile Details
-                    </Button>
-                    <Button size="sm" variant="outline" onClick={() => onRoleChange(userDetails)}>
+                    </Button>}
+                    {canManageRoles && <Button size="sm" variant="outline" onClick={() => onRoleChange(userDetails)}>
                       Change Role
-                    </Button>
-                    <Button
+                    </Button>}
+                    {canChangeStatus && <Button
                       size="sm"
                       variant={userDetails.status === "ACTIVE" ? "destructive" : "default"}
                       onClick={() => onStatusChange(userDetails)}
                     >
                       {userDetails.status === "ACTIVE" ? "Deactivate Account" : "Activate Account"}
-                    </Button>
-                    {userDetails.role !== "SUPER_ADMIN" && (
+                    </Button>}
+                    {canDeleteUsers && userDetails.role !== "SUPER_ADMIN" && (
                       <Button size="sm" variant="outline" className="text-red-600 hover:bg-red-50" onClick={() => onDelete(userDetails)}>
                         Delete Account
                       </Button>

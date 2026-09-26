@@ -45,7 +45,7 @@ for (const role of [null, 'STUDENT', 'PARENT', 'UNKNOWN', 'TEACHER', 'ACCOUNTANT
     });
     await api.globalQuickSearch('test');
     if ([null, 'STUDENT', 'PARENT', 'UNKNOWN'].includes(role)) return assert.equal(calls.length, 0);
-    for (const { model, query } of calls) assert.equal(model === 'payment' ? query.where.student.instituteId : query.where.instituteId, 'own');
+    for (const { query } of calls) assert.equal(query.where.instituteId, undefined);
     assert.equal(calls.some(c => c.model === 'payment'), ['ADMIN', 'ACCOUNTANT'].includes(role));
     assert.equal(calls.some(c => c.model === 'teacher'), role === 'ADMIN');
     if (role === 'ADMIN') assert.equal(calls.find(c => c.model === 'teacher').query.where.status, 'ACTIVE');

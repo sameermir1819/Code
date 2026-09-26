@@ -7,6 +7,7 @@ import { logAudit } from "./audit";
 import { getActiveCampusId } from "./campus";
 import { createStudentUser } from "@/lib/student-user";
 import { authorizedCampusId } from "@/lib/campus-scope";
+import { allocateStudentIdentifiers } from "@/lib/student-identifiers";
 
 export interface AdmissionPayload {
   // Student
@@ -30,7 +31,6 @@ export interface AdmissionPayload {
   parentOccupation?: string;
   // Academic
   campusId?: string;
-  courseId: string;
   batchId: string;
   // Fees
   admissionFee: number;
@@ -66,22 +66,16 @@ export async function processAdmission(payload: AdmissionPayload) {
     payload.campusId || (await getActiveCampusId())
   );
 
-  const course = await db.course.findFirst({
-    where: { id: payload.courseId, instituteId: campusId },
-  });
-  if (!course) throw new Error("Selected course does not belong to the selected campus.");
-
   const batch = await db.batch.findFirst({
-    where: { id: payload.batchId, instituteId: campusId, courseId: course.id },
+    where: { id: payload.batchId, instituteId: campusId, status: "ACTIVE" },
+    include: { course: true },
   });
-  if (!batch) throw new Error("Selected batch does not belong to the selected campus and course.");
+  if (!batch) throw new Error("Selected batch does not belong to the selected location.");
+  const course = batch.course;
 
   const year = new Date().getFullYear();
-  const studentCount = await db.student.count();
   const paymentCount = await db.payment.count();
 
-  const studentIdStr = `STU-${year}-${String(studentCount + 1).padStart(4, "0")}`;
-  const admissionNoStr = `ADM-${year}-${String(studentCount + 1).padStart(4, "0")}`;
   const receiptNoStr = `REC-${year}-${String(paymentCount + 1).padStart(4, "0")}`;
 
   // Calculate fee sums
@@ -93,6 +87,7 @@ export async function processAdmission(payload: AdmissionPayload) {
 
   // Execute in an atomic transaction
   const result = await db.$transaction(async (tx) => {
+    const { studentId: studentIdStr, admissionNo: admissionNoStr } = await allocateStudentIdentifiers(tx, campusId);
     // 1. Parent
     let parent = await tx.parent.findFirst({
       where: { phone: payload.parentPhone },
@@ -157,7 +152,7 @@ export async function processAdmission(payload: AdmissionPayload) {
       data: {
         studentId: student.id,
         enrollmentId: enrollment.id,
-        title: `${course.name} - Annual Plan`,
+        title: `${batch.name} Fee Plan`,
         admissionFee: payload.admissionFee,
         tuitionFee: payload.tuitionFee,
         materialFee: payload.materialFee,

@@ -48,7 +48,7 @@ export default async function DashboardPage() {
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
                 </span>
-                <span>Campus Active</span>
+                <span>Global View</span>
               </div>
             </div>
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Executive ERP Hub</h1>

@@ -1,4 +1,5 @@
 import React from "react";
+import Link from "next/link";
 import { getStudentFeeLedger } from "@/server/actions/portal";
 import {
   Receipt,
@@ -53,7 +54,7 @@ export default async function StudentFeesPage() {
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div className="p-5 rounded-2xl bg-white/[0.03] border border-white/10">
-          <span className="text-[11px] text-zinc-400 block font-medium">Total Course Fee</span>
+          <span className="text-[11px] text-zinc-400 block font-medium">Total Academic Fee</span>
           <span className="text-2xl sm:text-3xl font-black text-white block mt-0.5">
             ₹{totalFee.toLocaleString("en-IN")}
           </span>
@@ -104,7 +105,7 @@ export default async function StudentFeesPage() {
                 </span>
               </div>
               <p className="text-xs text-zinc-400 mt-0.5">
-                {plan.enrollment?.course?.name} • {plan.enrollment?.batch?.name}
+                {plan.enrollment?.batch?.name || "Academic fee plan"}
               </p>
             </div>
 
@@ -209,6 +210,7 @@ export default async function StudentFeesPage() {
                   <th className="py-3 px-4">Refunded / Net Paid</th>
                   <th className="py-3 px-4">Reference No</th>
                   <th className="py-3 px-4 text-right">Status</th>
+                  <th className="py-3 px-4 text-right">Receipt</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5">
@@ -243,6 +245,15 @@ export default async function StudentFeesPage() {
                         <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
                           {p.status === "SUCCESS" ? "ACKNOWLEDGED" : p.status === "ADJUSTED" ? "PARTIALLY REFUNDED" : "REFUNDED"}
                         </span>
+                      </td>
+                      <td className="py-3 px-4 text-right">
+                        <Link
+                          href={`/portal/fees/receipts/${encodeURIComponent(p.receiptNo)}`}
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-500/30 bg-indigo-500/10 px-2.5 py-1.5 text-[10px] font-bold text-indigo-300 transition-colors hover:bg-indigo-500 hover:text-white"
+                        >
+                          <Download className="h-3 w-3" />
+                          View / Print
+                        </Link>
                       </td>
                     </tr>
                   );

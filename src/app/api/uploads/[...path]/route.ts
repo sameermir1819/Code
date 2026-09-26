@@ -6,12 +6,13 @@ import { materialAccessWhere } from "@/lib/material-access";
 import { existingUploadPath, uploadOwner, uploadRoot, legacyUploadRoot, validateUpload, uploadPath } from "@/lib/private-uploads";
 
 export const dynamic = "force-dynamic";
-export async function GET(_req: NextRequest, { params }: { params: { path: string[] } }) {
+export async function GET(_req: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
   const session = await getSession();
   if (!session) return new NextResponse("Login required", { status: 401 });
   const permissions = await getEffectivePermissions(session);
   if (!permissions.includes("materials.view") && !permissions.includes("materials.manage")) return new NextResponse("Forbidden", { status: 403 });
-  const parts = params.path || [];
+  const { path } = await params;
+  const parts = path || [];
   try {
     uploadPath(uploadRoot, parts);
     if (parts.length !== 2 || parts[0] !== "materials" || parts[1].endsWith(".json")) return new NextResponse("Not found", { status: 404 });

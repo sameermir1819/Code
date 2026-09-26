@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useTransition, useMemo, useRef } from "react";
+import { getCampusDisplayName } from "@/lib/campus-label";
 import {
   getUsers,
   changeUserStatus,
@@ -11,7 +12,6 @@ import {
   provisionStudentUserAccounts,
   deleteStudentUser,
 } from "@/server/actions/users";
-import { switchActiveCampus } from "@/server/actions/campus";
 import { Role } from "@/lib/permissions";
 import { formatDate } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -58,6 +58,7 @@ interface UsersTableProps {
   allPermissions?: any[];
   availableCampuses?: any[];
   initialCampusId?: string;
+  effectivePermissions?: string[];
 }
 
 export function UsersTable({
@@ -68,6 +69,7 @@ export function UsersTable({
   allPermissions = [],
   availableCampuses = [],
   initialCampusId = "ALL",
+  effectivePermissions = [],
 }: UsersTableProps) {
   const [data, setData] = useState(initialData);
   const [isPending, startTransition] = useTransition();
@@ -159,7 +161,13 @@ export function UsersTable({
     action: async () => {},
   });
 
-  const canCreateUsers = ["SUPER_ADMIN", "ADMIN"].includes(actorRole);
+  const canCreateUsers = effectivePermissions.includes("users.create");
+  const canUpdateUsers = effectivePermissions.includes("users.update");
+  const canChangeStatus = effectivePermissions.includes("users.status");
+  const canDeleteUsers = effectivePermissions.includes("users.delete");
+  const canDeleteStudents = effectivePermissions.includes("students.delete");
+  const canManageRoles = effectivePermissions.includes("users.role");
+  const canExportUsers = effectivePermissions.includes("exports.view");
 
   // Fetch updated users list
   const refreshUsers = (newPage = page, selectedCampusId = campusFilter) => {
@@ -405,7 +413,7 @@ export function UsersTable({
 
         {activeTab === "directory" && (
           <div className="flex items-center gap-2">
-            <Button
+            {canExportUsers && <Button
               variant="outline"
               size="sm"
               onClick={handleExportCSV}
@@ -413,7 +421,7 @@ export function UsersTable({
             >
               <Download className="h-3.5 w-3.5" />
               <span>Export CSV</span>
-            </Button>
+            </Button>}
 
             {canCreateUsers && (
               <Button
@@ -473,6 +481,7 @@ export function UsersTable({
           initialRoles={rolesList}
           allPermissions={allPermissions}
           actorRole={actorRole}
+          canManageRoles={canManageRoles}
           onRoleChanged={handleRolesChanged}
         />
       ) : (
@@ -538,6 +547,23 @@ export function UsersTable({
           </div>
 
           <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+            {/* Role Filter */}
+            <select
+              value={campusFilter}
+              onChange={(e) => {
+                const nextCampusId = e.target.value;
+                setCampusFilter(nextCampusId);
+                setPage(1);
+                refreshUsers(1, nextCampusId);
+              }}
+              className="h-9 px-2.5 rounded-md border border-input bg-background text-xs text-foreground"
+            >
+              <option value="GLOBAL">Global</option>
+              {availableCampuses.map((campus) => (
+                <option key={campus.id} value={campus.id}>{getCampusDisplayName(campus)}</option>
+              ))}
+            </select>
+
             {/* Role Filter */}
             <select
               value={roleFilter}
@@ -617,7 +643,7 @@ export function UsersTable({
         </form>
 
         {/* Bulk Action Bar */}
-        {selectedIds.length > 0 && canCreateUsers && (
+        {selectedIds.length > 0 && canChangeStatus && (
           <div className="mt-3 pt-3 border-t flex flex-wrap items-center justify-between gap-3 text-xs bg-muted/40 p-2.5 rounded-lg animate-in fade-in">
             <span className="font-semibold text-primary">
               {selectedIds.length} user{selectedIds.length > 1 ? "s" : ""} selected
@@ -728,8 +754,7 @@ export function UsersTable({
                   const isSuperAdmin = u.role === "SUPER_ADMIN";
                   const isAdmin = u.role === "ADMIN";
                   const canEditThisUser =
-                    actorRole === "SUPER_ADMIN" ||
-                    (actorRole === "ADMIN" && !isSuperAdmin);
+                    canUpdateUsers && (actorRole === "SUPER_ADMIN" || !isSuperAdmin);
 
                   return (
                     <tr
@@ -801,7 +826,7 @@ export function UsersTable({
                           </div>
                           <div className="flex flex-col">
                             <span className="font-semibold text-foreground text-xs">
-                              {u.institute?.name || u.branch || "All Campuses"}
+                              {u.institute ? getCampusDisplayName(u.institute) : u.branch || "Global"}
                             </span>
                             {u.institute?.code ? (
                               <span className="text-[10px] font-mono text-muted-foreground">
@@ -845,7 +870,7 @@ export function UsersTable({
                             </button>
                           )}
 
-                          {canEditThisUser && !isSuperAdmin && (
+                          {canChangeStatus && !isSuperAdmin && (
                             <button
                               onClick={() => promptDeactivate(u)}
                               title={u.status === "ACTIVE" ? "Deactivate User" : "Activate User"}
@@ -859,9 +884,9 @@ export function UsersTable({
                             </button>
                           )}
 
-                          {canEditThisUser &&
+                          {canDeleteUsers &&
                             !isSuperAdmin &&
-                            (u.role !== "STUDENT" || actorRole === "SUPER_ADMIN") && (
+                            (u.role !== "STUDENT" || canDeleteStudents) && (
                             <button
                               onClick={() => promptArchive(u)}
                               title={
@@ -906,6 +931,7 @@ export function UsersTable({
                       role: roleFilter,
                       status: statusFilter,
                       branch: branchFilter,
+                      campusId: campusFilter,
                       page: 1,
                       limit: newLimit,
                       sortBy,
@@ -987,6 +1013,8 @@ export function UsersTable({
         availableSubjects={availableSubjects}
         availableRoles={rolesList}
         availableCampuses={availableCampuses}
+        canManageRoles={canManageRoles}
+        canChangeStatus={canChangeStatus}
       />
 
       <UserDetailsDrawer
@@ -1001,9 +1029,14 @@ export function UsersTable({
           setViewingUserId(null);
           setEditingUser(u);
         }}
-        onArchive={(u) => promptArchive(u)}
+        onDelete={(u) => promptArchive(u)}
         actorRole={actorRole}
         availableSubjects={availableSubjects}
+        canUpdateUsers={canUpdateUsers}
+        canManageRoles={canManageRoles}
+        canChangeStatus={canChangeStatus}
+        canDeleteUsers={canDeleteUsers}
+        canManagePermissions={effectivePermissions.includes("users.permissions")}
       />
 
       <ConfirmModal

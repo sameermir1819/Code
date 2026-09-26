@@ -8,11 +8,13 @@ import { logAudit } from "./audit";
 import { getActiveCampusId } from "./campus";
 import { createStudentUser } from "@/lib/student-user";
 import { authorizedCampusId } from "@/lib/campus-scope";
+import { allocateStudentIdentifiers } from "@/lib/student-identifiers";
 
 export async function getStudents({
   search = "",
   status = "",
   gradeClass = "",
+  batchId = "",
   campusId,
   page = 1,
   limit = 10,
@@ -20,17 +22,18 @@ export async function getStudents({
   search?: string;
   status?: string;
   gradeClass?: string;
+  batchId?: string;
   campusId?: string;
   page?: number;
   limit?: number;
 } = {}) {
-  await requireStaffPermission("students.view");
+  const actor = await requireStaffPermission("students.view");
 
-  const selectedCampusId = campusId === undefined ? await getActiveCampusId() : campusId;
+  const scopedCampusId = campusId && !["ALL", "GLOBAL"].includes(campusId) ? campusId : undefined;
   const where: Record<string, unknown> = {};
 
-  if (selectedCampusId && selectedCampusId !== "ALL") {
-    where.instituteId = selectedCampusId;
+  if (scopedCampusId) {
+    where.instituteId = scopedCampusId;
   }
 
   if (search) {
@@ -49,6 +52,12 @@ export async function getStudents({
 
   if (gradeClass && gradeClass !== "ALL") {
     where.gradeClass = gradeClass;
+  }
+
+  if (batchId && batchId !== "ALL") {
+    where.enrollments = {
+      some: { batchId, status: "ACTIVE" },
+    };
   }
 
   const skip = (page - 1) * limit;
@@ -91,12 +100,13 @@ export async function getStudents({
 /**
  * Fast aggregate KPI statistics for Students Directory (runs in <15ms)
  */
-export async function getStudentStats(campusId?: string) {
-  await requireStaffPermission("students.view");
-  const selectedCampusId = campusId === undefined ? await getActiveCampusId() : campusId;
-  const campusFilter = selectedCampusId && selectedCampusId !== "ALL"
-    ? { instituteId: selectedCampusId }
-    : {};
+export async function getStudentStats(campusId?: string, batchId?: string) {
+  const actor = await requireStaffPermission("students.view");
+  const scopedCampusId = campusId && !["ALL", "GLOBAL"].includes(campusId) ? campusId : undefined;
+  const campusFilter: Record<string, unknown> = scopedCampusId ? { instituteId: scopedCampusId } : {};
+  if (batchId && batchId !== "ALL") {
+    campusFilter.enrollments = { some: { batchId, status: "ACTIVE" } };
+  }
 
   const now = new Date();
   const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -121,17 +131,36 @@ export async function getStudentStats(campusId?: string) {
   };
 }
 
+export async function getStudentFilterBatches(campusId?: string) {
+  const actor = await requireStaffPermission("students.view");
+  const scopedCampusId = campusId && !["ALL", "GLOBAL"].includes(campusId) ? campusId : undefined;
+
+  return db.batch.findMany({
+    where: {
+      status: "ACTIVE",
+      ...(scopedCampusId ? { instituteId: scopedCampusId } : {}),
+    },
+    select: {
+      id: true,
+      name: true,
+      code: true,
+      instituteId: true,
+      institute: { select: { name: true, city: true } },
+    },
+    orderBy: { name: "asc" },
+  });
+}
+
 export async function getStudentById(id: string) {
   const session = await requireStaffPermission("students.view");
-  const instituteId = authorizedCampusId(session, await getActiveCampusId());
 
   // Security check: if student, can only view own profile
   if (session.role === "STUDENT" && session.studentId !== id) {
     throw new Error("FORBIDDEN: You can only view your own student profile");
   }
 
-  const student = await db.student.findUnique({
-    where: { id, instituteId },
+  const student = await db.student.findFirst({
+    where: { id },
     include: {
       parent: true,
       session: true,
@@ -191,9 +220,10 @@ export async function getStudentById(id: string) {
   const presentCount = student.attendances.filter((a) => a.status === "PRESENT").length;
   const attendanceRate = totalAttendance > 0 ? Math.round((presentCount / totalAttendance) * 100) : 100;
 
+  const permissions = await getEffectivePermissions(session);
   return {
-    ...redactRelatedData(student, await getEffectivePermissions(session)),
-    attendanceRate: (await getEffectivePermissions(session)).includes("attendance.view") ? attendanceRate : 0,
+    ...redactRelatedData(student, permissions),
+    attendanceRate: permissions.includes("attendance.view") ? attendanceRate : 0,
   };
 }
 
@@ -216,19 +246,14 @@ export async function createStudent(data: {
   status?: string;
   notes?: string;
 }) {
-  await requireStaffPermission("students.create");
+  const actor = await requireStaffPermission("students.create");
 
   // Get active campus
-  const campusId = await getActiveCampusId();
+  const campusId = authorizedCampusId(actor, await getActiveCampusId());
   if (!campusId) throw new Error("No active campus found.");
 
-  // Generate unique Student ID & Admission No
-  const count = await db.student.count();
-  const year = new Date().getFullYear();
-  const studentId = `STU-${year}-${String(count + 1).padStart(4, "0")}`;
-  const admissionNo = `ADM-${year}-${String(count + 1).padStart(4, "0")}`;
-
   const student = await db.$transaction(async (tx) => {
+    const { studentId, admissionNo } = await allocateStudentIdentifiers(tx, campusId);
     let parentId: string | null = null;
     if (data.parentName && data.parentPhone) {
       const existingParent = await tx.parent.findFirst({
@@ -307,12 +332,16 @@ export async function updateStudent(
   }>
 ) {
   const actor = await requireStaffPermission("students.update");
-  const currentCampusId = authorizedCampusId(actor, await getActiveCampusId());
 
   const updated = await db.$transaction(async (tx) => {
     const { instituteId: requestedInstituteId, batchId, ...studentData } = data;
-    const existing = await tx.student.findUnique({
-      where: { id, instituteId: currentCampusId },
+    const existing = await tx.student.findFirst({
+      where: {
+        id,
+        ...(actor.role !== "SUPER_ADMIN" && actor.instituteId
+          ? { instituteId: actor.instituteId }
+          : {}),
+      },
       select: { instituteId: true, userId: true },
     });
     if (!existing) throw new Error("Student not found");
@@ -408,9 +437,8 @@ export async function updateStudent(
 export async function deleteStudent(id: string) {
   const session = await requireStaffPermission("students.delete");
   await requireAuth(["SUPER_ADMIN"]);
-  const instituteId = authorizedCampusId(session, await getActiveCampusId());
   const existingStudent = await db.student.findFirst({
-    where: { id, instituteId },
+    where: { id },
     select: { id: true },
   });
   if (!existingStudent) throw new Error("Student not found");
@@ -448,17 +476,26 @@ export async function enrollStudentInBatch(
   courseId: string
 ) {
   const session = await requireStaffPermission("students.update");
-  const instituteId = authorizedCampusId(session, await getActiveCampusId());
-  const [student, batch, course] = await Promise.all([
-    db.student.findFirst({ where: { id: studentId, instituteId }, select: { id: true } }),
+  const student = await db.student.findFirst({
+    where: {
+      id: studentId,
+      ...(session.role !== "SUPER_ADMIN" && session.instituteId
+        ? { instituteId: session.instituteId }
+        : {}),
+    },
+    select: { id: true, instituteId: true },
+  });
+  if (!student) throw new Error("Student not found in an authorized campus.");
+  const instituteId = student.instituteId;
+  const [batch, course] = await Promise.all([
     db.batch.findFirst({
       where: { id: batchId, instituteId, courseId },
       select: { id: true },
     }),
     db.course.findFirst({ where: { id: courseId, instituteId }, select: { id: true } }),
   ]);
-  if (!student || !batch || !course) {
-    throw new Error("Student, batch, or course does not belong to the active campus.");
+  if (!batch || !course) {
+    throw new Error("Student, batch, and course must belong to the same campus.");
   }
 
   // Close any previous active enrollment
@@ -500,10 +537,14 @@ export async function updateStudentParent(
   }
 ) {
   const session = await requireStaffPermission("students.update");
-  const instituteId = authorizedCampusId(session, await getActiveCampusId());
 
   const student = await db.student.findFirst({
-    where: { id: studentId, instituteId },
+    where: {
+      id: studentId,
+      ...(session.role !== "SUPER_ADMIN" && session.instituteId
+        ? { instituteId: session.instituteId }
+        : {}),
+    },
     select: { parentId: true },
   });
   if (!student) throw new Error("Student not found");

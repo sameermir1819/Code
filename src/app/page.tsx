@@ -24,7 +24,7 @@ export default async function HomePage() {
         address: true,
       },
     }),
-    db.campus.findMany({
+    db.institute.findMany({
       select: {
         id: true,
         name: true,

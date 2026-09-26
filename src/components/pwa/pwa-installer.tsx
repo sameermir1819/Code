@@ -41,29 +41,17 @@ export function PwaInstaller() {
     // 3. Detect device & OS
     const userAgent = window.navigator.userAgent.toLowerCase();
     const isIosDevice = /iphone|ipad|ipod/.test(userAgent);
-    const isMobileDevice = /android|iphone|ipad|ipod|mobile/.test(userAgent);
     setIsIOS(isIosDevice);
 
     // 4. Capture native beforeinstallprompt (Android / Chrome / Edge)
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e as BeforeInstallPromptEvent);
-      setShowBanner(true);
     };
 
     window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
 
-    // 5. Always display the install banner on mobile after 2.5 seconds
-    const dismissKey = "futurex_pwa_banner_closed_session";
-    const dismissedInSession = sessionStorage.getItem(dismissKey);
-
-    const timer = setTimeout(() => {
-      if (!dismissedInSession && !isRunningStandalone && isMobileDevice) {
-        setShowBanner(true);
-      }
-    }, 2500);
-
-    // 6. Listen for custom install event (from mobile navbar or buttons)
+    // 5. Only show install UI when the user explicitly clicks an install button.
     const handleCustomOpen = () => {
       setShowBanner(true);
       if (!deferredPrompt) {
@@ -72,7 +60,7 @@ export function PwaInstaller() {
     };
     window.addEventListener("futurex:open-install-modal", handleCustomOpen);
 
-    // 7. Hide when installed
+    // 6. Hide when installed
     const handleAppInstalled = () => {
       setShowBanner(false);
       setShowGuideModal(false);
@@ -86,7 +74,6 @@ export function PwaInstaller() {
       window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
       window.removeEventListener("futurex:open-install-modal", handleCustomOpen);
       window.removeEventListener("appinstalled", handleAppInstalled);
-      clearTimeout(timer);
     };
   }, [deferredPrompt]);
 

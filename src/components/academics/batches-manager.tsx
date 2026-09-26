@@ -1,5 +1,7 @@
 "use client";
 import { usePermissions } from "@/components/layout/permission-provider";
+import type { CampusItem } from "@/server/actions/campus";
+import { getCampusDisplayName } from "@/lib/campus-label";
 
 import { useState, useTransition, useMemo, useEffect, useRef } from "react";
 import {
@@ -43,6 +45,7 @@ import {
   FileText,
   Sparkles,
   Filter,
+  Building2,
 } from "lucide-react";
 
 interface BatchesManagerProps {
@@ -51,6 +54,9 @@ interface BatchesManagerProps {
   teachers?: any[];
   allSubjects?: any[];
   userRole?: string;
+  availableCampuses?: CampusItem[];
+  initialCampusId?: string;
+  canViewTeachers?: boolean;
 }
 
 export function BatchesManager({
@@ -59,9 +65,14 @@ export function BatchesManager({
   teachers = [],
   allSubjects = [],
   userRole = "ADMIN",
+  availableCampuses = [],
+  initialCampusId = "GLOBAL",
+  canViewTeachers = false,
 }: BatchesManagerProps) {
   const [batches, setBatches] = useState(initialBatches);
   const [teacherList, setTeacherList] = useState(teachers);
+  const [createTeacherList, setCreateTeacherList] = useState(teachers);
+  const [campusFilter, setCampusFilter] = useState(initialCampusId);
   const [isPending, startTransition] = useTransition();
 
   // Sync state when initialBatches or teachers prop changes
@@ -70,14 +81,24 @@ export function BatchesManager({
   }, [initialBatches]);
 
   useEffect(() => {
-    if (teachers) setTeacherList(teachers);
-  }, [teachers]);
+    if (teachers) {
+      setTeacherList(teachers);
+      if (initialCampusId !== "GLOBAL") setCreateTeacherList(teachers);
+    }
+  }, [teachers, initialCampusId]);
+
+  useEffect(() => {
+    setSubjectsList(allSubjects);
+  }, [allSubjects]);
 
   // Reactive auto-refresh when campus or data changes globally
   useEffect(() => {
     const handleReactiveRefresh = async () => {
       try {
-        const [fresh, freshTeachers] = await Promise.all([getBatches(), getTeachers()]);
+        const [fresh, freshTeachers] = await Promise.all([
+          getBatches({ campusId: campusFilter }),
+          canViewTeachers ? getTeachers({ campusId: campusFilter }) : Promise.resolve([]),
+        ]);
         setBatches(fresh);
         if (freshTeachers) setTeacherList(freshTeachers);
       } catch (err) {
@@ -90,7 +111,7 @@ export function BatchesManager({
       window.removeEventListener("erp-campus-changed", handleReactiveRefresh);
       window.removeEventListener("erp-data-refresh", handleReactiveRefresh);
     };
-  }, []);
+  }, [campusFilter, canViewTeachers]);
   const creatingBatch = useRef(false);
   const [isCreatingBatch, setIsCreatingBatch] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
@@ -107,6 +128,10 @@ export function BatchesManager({
   const [newSubjectName, setNewSubjectName] = useState("");
   const [newSubjectCode, setNewSubjectCode] = useState("");
   const [newSubjectDesc, setNewSubjectDesc] = useState("");
+  const [newSubjectInstituteId, setNewSubjectInstituteId] = useState(
+    initialCampusId !== "GLOBAL" ? initialCampusId : availableCampuses[0]?.id || ""
+  );
+  const [subjectLocationFilter, setSubjectLocationFilter] = useState("GLOBAL");
   const [isCreatingSubject, setIsCreatingSubject] = useState(false);
   const [subjectError, setSubjectError] = useState("");
   const [subjectSuccess, setSubjectSuccess] = useState("");
@@ -124,10 +149,13 @@ export function BatchesManager({
   const [sortBy, setSortBy] = useState<"RECENT" | "NAME" | "CAPACITY" | "STUDENTS">("RECENT");
   const [viewMode, setViewMode] = useState<"GRID" | "TABLE">("GRID");
 
-  const isAdmin = usePermissions().includes("batches.manage");
+  const permissions = usePermissions();
+  const isAdmin = permissions.includes("batches.manage");
+  const canManageSubjects = permissions.includes("courses.manage");
 
   // Create Form State (No Target Course / Program)
   const [formData, setFormData] = useState({
+    instituteId: initialCampusId !== "GLOBAL" ? initialCampusId : availableCampuses[0]?.id || "",
     name: "",
     code: "",
     startDate: new Date().toISOString().split("T")[0],
@@ -139,6 +167,7 @@ export function BatchesManager({
 
   // Edit Form State (No Target Course / Program)
   const [editFormData, setEditFormData] = useState({
+    instituteId: "",
     name: "",
     code: "",
     startDate: "",
@@ -158,7 +187,8 @@ export function BatchesManager({
         b.name?.toLowerCase().includes(q) ||
         b.code?.toLowerCase().includes(q) ||
         b.room?.toLowerCase().includes(q) ||
-        b.teachers?.some((t: any) => t.teacher?.name?.toLowerCase().includes(q));
+        b.teachers?.some((t: any) => t.teacher?.name?.toLowerCase().includes(q)) ||
+        getCampusDisplayName(b.institute || { name: "" }).toLowerCase().includes(q);
 
       const matchesStatus = statusFilter === "ALL" || b.status === statusFilter;
 
@@ -242,7 +272,7 @@ export function BatchesManager({
       });
 
       if (res.success) {
-        const assignedObjs = allSubjects.filter((s) => tempSubjectIds.includes(s.id));
+        const assignedObjs = subjectsList.filter((s) => tempSubjectIds.includes(s.id));
         setTeacherList((prev) =>
           prev.map((t) => {
             if (t.id === assigningTeacherModal.id) {
@@ -284,6 +314,7 @@ export function BatchesManager({
         name: newSubjectName.trim(),
         code: newSubjectCode.trim().toUpperCase(),
         description: newSubjectDesc.trim() || undefined,
+        instituteId: newSubjectInstituteId,
       });
       if (res?.success && res.subject) {
         setSubjectsList((prev) => [...prev, res.subject]);
@@ -318,6 +349,7 @@ export function BatchesManager({
   const handleOpenEdit = (batch: any) => {
     setEditingBatch(batch);
     setEditFormData({
+      instituteId: batch.instituteId,
       name: batch.name,
       code: batch.code,
       startDate: batch.startDate ? new Date(batch.startDate).toISOString().split("T")[0] : "",
@@ -331,6 +363,24 @@ export function BatchesManager({
     });
   };
 
+  const handleCreateLocationChange = async (instituteId: string) => {
+    setFormData((previous) => ({
+      ...previous,
+      instituteId,
+      selectedTeacherIds: [],
+    }));
+    if (!canViewTeachers) {
+      setCreateTeacherList([]);
+      return;
+    }
+    try {
+      setCreateTeacherList(await getTeachers({ campusId: instituteId }));
+    } catch (err: any) {
+      setCreateTeacherList([]);
+      setErrorMsg(err.message || "Failed to load faculty for this location.");
+    }
+  };
+
   // Create Batch Submission
   const handleCreateBatch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -342,11 +392,16 @@ export function BatchesManager({
       setErrorMsg("Please provide a Class/Batch name.");
       return;
     }
+    if (!formData.instituteId) {
+      setErrorMsg("Please select a location for this batch.");
+      return;
+    }
 
     creatingBatch.current = true;
     setIsCreatingBatch(true);
     try {
       const res = await createBatch({
+        instituteId: formData.instituteId,
         name: formData.name.trim(),
         code: formData.code.trim() || `BAT-${Date.now().toString().slice(-4)}`,
         startDate: formData.startDate,
@@ -368,6 +423,7 @@ export function BatchesManager({
 
         // Reset form
         setFormData({
+          instituteId: campusFilter !== "GLOBAL" ? campusFilter : availableCampuses[0]?.id || "",
           name: "",
           code: "",
           startDate: new Date().toISOString().split("T")[0],
@@ -407,7 +463,7 @@ export function BatchesManager({
 
         if (res?.success && res.batch) {
           setSuccessMsg(`Batch "${editFormData.name}" updated successfully!`);
-          const assignedTeachers = teachers
+          const assignedTeachers = teacherList
             .filter((t) => editFormData.selectedTeacherIds.includes(t.id))
             .map((t) => ({ teacher: t }));
 
@@ -459,11 +515,50 @@ export function BatchesManager({
     });
   };
 
+  const handleCampusFilterChange = (nextCampusId: string) => {
+    setCampusFilter(nextCampusId);
+    setErrorMsg("");
+    startTransition(async () => {
+      try {
+        const [fresh, freshTeachers] = await Promise.all([
+          getBatches({ campusId: nextCampusId }),
+          canViewTeachers ? getTeachers({ campusId: nextCampusId }) : Promise.resolve([]),
+        ]);
+        setBatches(fresh);
+        setTeacherList(freshTeachers);
+      } catch (err: any) {
+        setErrorMsg(err.message || "Failed to filter batches by campus.");
+      }
+    });
+  };
+
+  const editTeacherList = editFormData.instituteId
+    ? teacherList.filter((teacher) => teacher.instituteId === editFormData.instituteId)
+    : [];
+
+  const selectedLocationLabel = campusFilter === "GLOBAL"
+    ? "All Locations"
+    : getCampusDisplayName(
+        availableCampuses.find((campus) => campus.id === campusFilter) || { name: "Location" }
+      );
+
+  const openCreateBatchModal = () => {
+    setErrorMsg("");
+    setSuccessMsg("");
+    const locationId = campusFilter !== "GLOBAL"
+      ? campusFilter
+      : availableCampuses[0]?.id || "";
+    void handleCreateLocationChange(locationId);
+    setIsCreateModalOpen(true);
+  };
+
   return (
     <div className="space-y-6">
       {/* ── Executive Header Bar ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b">
-        <div>
+      <div className="relative overflow-hidden rounded-2xl border bg-gradient-to-br from-primary/10 via-background to-blue-500/5 p-5 sm:p-6 shadow-xs">
+        <div className="absolute -right-16 -top-16 h-44 w-44 rounded-full bg-primary/10 blur-3xl" />
+        <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
           <div className="flex items-center gap-2.5">
             <h1 className="text-2xl font-bold tracking-tight text-foreground">Classrooms & Batches</h1>
             <Badge variant="outline" className="font-mono text-xs px-2.5 py-0.5 bg-muted/60">
@@ -475,25 +570,41 @@ export function BatchesManager({
             </span>
           </div>
           <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-            Enterprise management of classroom cohorts, seat capacity, room allocations, and faculty assignments.
+            Manage classroom cohorts, capacity, rooms, and faculty by location.
           </p>
+          <div className="mt-3 inline-flex items-center gap-2 rounded-full border bg-background/80 px-3 py-1.5 text-xs font-semibold text-foreground shadow-xs">
+            <Building2 className="h-3.5 w-3.5 text-primary" />
+            <span>Viewing: {selectedLocationLabel}</span>
+          </div>
         </div>
 
         {isAdmin && (
           <div className="flex items-center gap-2">
+            {canManageSubjects && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setSubjectError("");
+                  setSubjectSuccess("");
+                  setIsSubjectsModalOpen(true);
+                }}
+                className="inline-flex items-center gap-2 text-xs font-semibold h-10 rounded-xl"
+              >
+                <BookOpen className="h-4 w-4" />
+                <span>Manage Subjects</span>
+              </Button>
+            )}
             <Button
-              onClick={() => {
-                setErrorMsg("");
-                setSuccessMsg("");
-                setIsCreateModalOpen(true);
-              }}
-              className="inline-flex items-center gap-2 text-xs font-semibold h-9 rounded-xl shadow-sm"
+              onClick={openCreateBatchModal}
+              className="inline-flex items-center gap-2 text-xs font-semibold h-10 rounded-xl shadow-sm"
             >
               <Plus className="h-4 w-4" />
               <span>Create New Batch</span>
             </Button>
           </div>
         )}
+        </div>
       </div>
 
       {/* Notifications */}
@@ -611,9 +722,31 @@ export function BatchesManager({
         </div>
 
         {/* Search, Sort, View Controls */}
-        <Card className="p-3 rounded-2xl border shadow-xs">
+        <Card className="p-4 rounded-2xl border shadow-xs">
+          <div className="mb-3 flex items-center gap-2 text-xs font-bold text-foreground">
+            <Filter className="h-4 w-4 text-primary" />
+            <span>Filter &amp; organise batches</span>
+          </div>
           <div className="flex flex-col sm:flex-row gap-3 items-center justify-between">
             <div className="flex flex-1 flex-col sm:flex-row gap-3 w-full">
+              <label className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
+                <span>Location</span>
+                <select
+                  aria-label="Filter batches by location"
+                  value={campusFilter}
+                  onChange={(event) => handleCampusFilterChange(event.target.value)}
+                  disabled={isPending}
+                  className="h-9 min-w-40 rounded-xl border border-input bg-background px-3 text-xs font-medium text-foreground"
+                >
+                  <option value="GLOBAL">Global</option>
+                  {availableCampuses.map((campus) => (
+                    <option key={campus.id} value={campus.id}>
+                      {getCampusDisplayName(campus)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
               {/* Search */}
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -651,6 +784,18 @@ export function BatchesManager({
 
             {/* View Toggle */}
             <div className="flex items-center gap-1 border p-1 rounded-xl bg-muted/40 shrink-0">
+              {(searchQuery || statusFilter !== "ALL") && (
+                <button
+                  onClick={() => {
+                    setSearchQuery("");
+                    setStatusFilter("ALL");
+                    setSortBy("RECENT");
+                  }}
+                  className="px-2 text-[11px] font-semibold text-muted-foreground hover:text-foreground"
+                >
+                  Reset
+                </button>
+              )}
               <button
                 onClick={() => setViewMode("GRID")}
                 className={`p-1.5 rounded-lg text-xs transition-colors ${
@@ -692,11 +837,7 @@ export function BatchesManager({
           </p>
           {isAdmin && (
             <Button
-              onClick={() => {
-                setErrorMsg("");
-                setSuccessMsg("");
-                setIsCreateModalOpen(true);
-              }}
+              onClick={openCreateBatchModal}
               className="inline-flex items-center gap-2 rounded-xl"
             >
               <Plus className="h-4 w-4" />
@@ -752,6 +893,10 @@ export function BatchesManager({
                           }`}
                         />
                         <span>{b.status}</span>
+                      </span>
+                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-0.5 rounded-full border bg-background text-foreground">
+                        <MapPin className="h-3 w-3 text-primary" />
+                        {getCampusDisplayName(b.institute || { name: "Location" })}
                       </span>
                     </div>
 
@@ -916,6 +1061,7 @@ export function BatchesManager({
               <thead>
                 <tr className="border-b bg-muted/40 font-semibold text-muted-foreground">
                   <th className="p-3.5 pl-5">Batch & Code</th>
+                  <th className="p-3.5">Location</th>
                   <th className="p-3.5">Schedule & Room</th>
                   <th className="p-3.5">Occupancy / Capacity</th>
                   <th className="p-3.5">Assigned Faculty</th>
@@ -940,6 +1086,12 @@ export function BatchesManager({
                         </Link>
                         <span className="font-mono text-[11px] text-muted-foreground">
                           {b.code}
+                        </span>
+                      </td>
+                      <td className="p-3.5">
+                        <span className="inline-flex items-center gap-1.5 rounded-lg border bg-primary/5 px-2.5 py-1 font-semibold text-foreground">
+                          <MapPin className="h-3.5 w-3.5 text-primary" />
+                          {getCampusDisplayName(b.institute || { name: "Location" })}
                         </span>
                       </td>
                       <td className="p-3.5">
@@ -1080,6 +1232,105 @@ export function BatchesManager({
       )}
 
       {/* CREATE BATCH MODAL (NO TARGET COURSE / PROGRAM) */}
+      {isSubjectsModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto animate-in fade-in">
+          <div className="bg-card border rounded-xl shadow-2xl max-w-lg w-full p-6 space-y-5 animate-in zoom-in-95 duration-150">
+            <div className="flex items-start justify-between pb-3 border-b">
+              <div>
+                <h3 className="text-lg font-bold text-foreground">Manage Subjects</h3>
+                <p className="text-xs text-muted-foreground">
+                  Subjects are globally visible and assigned to a location.
+                </p>
+              </div>
+              <button type="button" onClick={() => setIsSubjectsModalOpen(false)} className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted" aria-label="Close subjects manager">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {subjectError && (
+              <p role="alert" className="rounded-lg border border-red-300 bg-red-50 p-3 text-xs text-red-700">{subjectError}</p>
+            )}
+            {subjectSuccess && (
+              <p className="rounded-lg border border-emerald-300 bg-emerald-50 p-3 text-xs text-emerald-700">{subjectSuccess}</p>
+            )}
+
+            <form onSubmit={handleCreateSubject} className="space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-semibold block mb-1">Subject Name *</label>
+                  <Input required value={newSubjectName} onChange={(event) => setNewSubjectName(event.target.value)} placeholder="e.g. Physics" />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold block mb-1">Subject Code *</label>
+                  <Input required value={newSubjectCode} onChange={(event) => setNewSubjectCode(event.target.value.toUpperCase())} placeholder="e.g. PHY-101" />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-semibold block mb-1">Assigned Location *</label>
+                <select
+                  required
+                  value={newSubjectInstituteId}
+                  onChange={(event) => setNewSubjectInstituteId(event.target.value)}
+                  className="w-full h-9 px-3 rounded-md border border-input bg-background text-foreground text-xs"
+                >
+                  <option value="">Select location</option>
+                  {availableCampuses.map((campus) => (
+                    <option key={campus.id} value={campus.id}>{getCampusDisplayName(campus)}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-semibold block mb-1">Description</label>
+                <Input value={newSubjectDesc} onChange={(event) => setNewSubjectDesc(event.target.value)} placeholder="Optional description" />
+              </div>
+              <div className="flex justify-end">
+                <Button type="submit" size="sm" disabled={isCreatingSubject} className="gap-2 text-xs">
+                  <Plus className="h-3.5 w-3.5" />
+                  {isCreatingSubject ? "Saving..." : "Add Subject"}
+                </Button>
+              </div>
+            </form>
+
+            <div className="border-t pt-4 space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <h4 className="text-xs font-bold text-foreground">Configured Subjects</h4>
+                <select
+                  value={subjectLocationFilter}
+                  onChange={(event) => setSubjectLocationFilter(event.target.value)}
+                  className="h-8 rounded-md border border-input bg-background px-2 text-[11px] text-foreground"
+                  aria-label="Filter subjects by location"
+                >
+                  <option value="GLOBAL">All Locations ({subjectsList.length})</option>
+                  {availableCampuses.map((campus) => (
+                    <option key={campus.id} value={campus.id}>{campus.name}</option>
+                  ))}
+                </select>
+              </div>
+              {subjectsList.filter((subject: any) => subjectLocationFilter === "GLOBAL" || subject.instituteId === subjectLocationFilter).length === 0 ? (
+                <p className="rounded-lg border border-dashed p-4 text-center text-xs text-muted-foreground">No subjects found for this location.</p>
+              ) : (
+                <div className="max-h-64 overflow-y-auto space-y-2 pr-1">
+                  {subjectsList
+                    .filter((subject: any) => subjectLocationFilter === "GLOBAL" || subject.instituteId === subjectLocationFilter)
+                    .map((subject: any) => (
+                      <div key={subject.id} className="flex items-center justify-between gap-3 rounded-lg border p-3">
+                        <div className="min-w-0">
+                          <p className="text-xs font-semibold truncate">{subject.name}</p>
+                          <p className="text-[10px] font-mono text-muted-foreground">{subject.code}</p>
+                          <p className="text-[10px] text-primary mt-0.5">{subject.institute?.name || "Location not set"}</p>
+                        </div>
+                        <Button type="button" variant="ghost" size="sm" disabled={isCreatingSubject} onClick={() => void handleDeleteSubject(subject.id, subject.name)} className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50" title="Delete subject">
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {isCreateModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto animate-in fade-in">
           <div className="bg-card border rounded-xl shadow-2xl max-w-xl w-full p-6 space-y-5 animate-in zoom-in-95 duration-150">
@@ -1102,6 +1353,25 @@ export function BatchesManager({
             <form onSubmit={handleCreateBatch} className="space-y-4 text-xs">
               {errorMsg && <p role="alert" className="rounded-lg border border-red-300 bg-red-50 p-3 text-red-700">{errorMsg}</p>}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="sm:col-span-2">
+                  <label className="font-semibold block mb-1 text-foreground">
+                    Location *
+                  </label>
+                  <select
+                    required
+                    value={formData.instituteId}
+                    onChange={(event) => void handleCreateLocationChange(event.target.value)}
+                    className="w-full h-9 px-3 rounded-md border border-input bg-background text-foreground"
+                  >
+                    <option value="">Select location</option>
+                    {availableCampuses.map((campus) => (
+                      <option key={campus.id} value={campus.id}>
+                        {getCampusDisplayName(campus)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
                 <div className="sm:col-span-2">
                   <label className="font-semibold block mb-1 text-foreground">
                     Class / Batch Name *
@@ -1184,13 +1454,13 @@ export function BatchesManager({
                   </label>
                   <span className="text-[10px] text-muted-foreground">Select instructors teaching this batch</span>
                 </div>
-                {teacherList.length === 0 ? (
+                {createTeacherList.length === 0 ? (
                   <p className="p-3 border rounded-lg bg-muted/20 text-muted-foreground text-center">
                     No faculty accounts exist yet. You can assign faculty after adding teachers in Users module.
                   </p>
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-44 overflow-y-auto border p-2 rounded-lg bg-muted/20">
-                    {teacherList.map((t) => {
+                    {createTeacherList.map((t) => {
                       const isChecked = formData.selectedTeacherIds.includes(t.id);
                       return (
                         <div
@@ -1290,6 +1560,26 @@ export function BatchesManager({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="sm:col-span-2">
                   <label className="font-semibold block mb-1 text-foreground">
+                    Location
+                  </label>
+                  <select
+                    value={editFormData.instituteId}
+                    disabled
+                    className="w-full h-9 px-3 rounded-md border border-input bg-muted text-muted-foreground"
+                  >
+                    {availableCampuses.map((campus) => (
+                      <option key={campus.id} value={campus.id}>
+                        {getCampusDisplayName(campus)}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="mt-1 text-[10px] text-muted-foreground">
+                    Existing batches keep their location to protect enrollments and attendance history.
+                  </p>
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="font-semibold block mb-1 text-foreground">
                     Class / Batch Name *
                   </label>
                   <Input
@@ -1379,7 +1669,7 @@ export function BatchesManager({
               </div>
 
               {/* Faculty Checklist */}
-              {teacherList.length > 0 && (
+              {editTeacherList.length > 0 && (
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
                     <label className="font-semibold text-foreground">
@@ -1388,7 +1678,7 @@ export function BatchesManager({
                     <span className="text-[10px] text-muted-foreground">Select instructors teaching this batch</span>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-44 overflow-y-auto border p-2 rounded-lg bg-muted/20">
-                    {teacherList.map((t) => {
+                    {editTeacherList.map((t) => {
                       const isChecked = editFormData.selectedTeacherIds.includes(t.id);
                       return (
                         <div
@@ -1478,6 +1768,10 @@ export function BatchesManager({
                   <h3 className="text-xl font-bold text-foreground">
                     {selectedBatchForDrawer.name}
                   </h3>
+                  <div className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">
+                    <MapPin className="h-3.5 w-3.5" />
+                    {getCampusDisplayName(selectedBatchForDrawer.institute || { name: "Location" })}
+                  </div>
                 </div>
                 <button
                   onClick={() => setSelectedBatchForDrawer(null)}

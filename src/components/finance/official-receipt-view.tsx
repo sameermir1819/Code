@@ -83,6 +83,8 @@ interface OfficialReceiptViewProps {
     website: string | null;
     logoUrl?: string | null;
   } | null;
+  backHref?: string;
+  backLabel?: string;
 }
 
 // ─── SVG Vectors & Security Graphics ─────────────────────────────────────────
@@ -210,14 +212,19 @@ function DigitizedSignature({ name, color = "#1e3a8a" }: { name: string; color?:
 
 // ─── Main Official Receipt Component ─────────────────────────────────────────
 
-export function OfficialReceiptView({ payment, institute }: OfficialReceiptViewProps) {
+export function OfficialReceiptView({
+  payment,
+  institute,
+  backHref = "/finance/payments",
+  backLabel = "Back to Fee Ledger",
+}: OfficialReceiptViewProps) {
   const [copyType, setCopyType] = useState<"STUDENT" | "OFFICE" | "AUDIT">("STUDENT");
   const [isCopied, setIsCopied] = useState(false);
 
   const amountInWords = numberToWords(payment.amount);
   const activeEnrollment = payment.student.enrollments?.[0];
   const batchName = activeEnrollment?.batch?.name || payment.student.gradeClass || "Classroom Batch";
-  const courseName = activeEnrollment?.course?.name || "Academic Coaching & Competition Program";
+  const academicService = activeEnrollment?.batch?.name || payment.student.gradeClass || "Academic Batch";
   const formattedDate = formatDate(payment.paymentDate);
   const logoUrl = institute?.logoUrl || "/logo.png";
   const instName = institute?.name || "FUTUREX LEARNING";
@@ -264,11 +271,11 @@ export function OfficialReceiptView({ payment, institute }: OfficialReceiptViewP
       {/* ── Action Toolbar (Hidden during print) ── */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3.5 bg-card border rounded-2xl shadow-xs no-print">
         <Link
-          href="/finance/payments"
+          href={backHref}
           className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors"
         >
           <ArrowLeft className="h-4 w-4" />
-          <span>Back to Fee Ledger</span>
+          <span>{backLabel}</span>
         </Link>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -435,7 +442,7 @@ export function OfficialReceiptView({ payment, institute }: OfficialReceiptViewP
             <div className="p-2 space-y-0.5">
               <span className="text-[8px] font-bold text-zinc-600 uppercase block">Batch Allotment:</span>
               <p className="font-bold text-[10.5px] text-zinc-900">{batchName}</p>
-              <p className="text-[8px] text-zinc-600 font-medium">{courseName}</p>
+              <p className="text-[8px] text-zinc-600 font-medium">{academicService}</p>
             </div>
 
             <div className="p-2 space-y-0.5 bg-zinc-50/50">
@@ -544,7 +551,7 @@ export function OfficialReceiptView({ payment, institute }: OfficialReceiptViewP
           </div>
           <div className="grid grid-cols-4 divide-x divide-zinc-300 text-center p-2 bg-zinc-50 text-[9px]">
             <div>
-              <span className="text-[7.5px] text-zinc-600 uppercase font-bold block">Gross Program Fee</span>
+              <span className="text-[7.5px] text-zinc-600 uppercase font-bold block">Gross Academic Fee</span>
               <span className="font-bold text-zinc-900 text-[10.5px]">{formatCurrency(payment.feePlan.finalAmount)}</span>
             </div>
             <div>

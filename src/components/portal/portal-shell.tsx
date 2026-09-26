@@ -151,6 +151,10 @@ export function PortalShell({
 
   return (
     <div className="flex h-screen overflow-hidden bg-[#07090e] text-zinc-100 font-sans selection:bg-indigo-500/25 selection:text-white">
+      <div className="pointer-events-none fixed inset-0 overflow-hidden">
+        <div className="absolute -top-40 left-1/3 h-96 w-96 rounded-full bg-indigo-600/10 blur-[120px]" />
+        <div className="absolute bottom-0 right-0 h-80 w-80 rounded-full bg-purple-600/10 blur-[110px]" />
+      </div>
       {/* ── DESKTOP FIXED SIDEBAR (Visible on lg screens and up) ── */}
       <aside className="hidden lg:flex w-64 xl:w-72 flex-col justify-between border-r border-white/10 bg-[#090d16] p-4 shrink-0 relative z-30 select-none">
         {/* Top: Institute Brand */}
@@ -297,6 +301,24 @@ export function PortalShell({
 
             {/* Desktop Right Quick Actions */}
             <div className="hidden lg:flex items-center gap-3">
+              {canNavigate("/portal/results", permissions) && (
+                <Link
+                  href="/portal/results"
+                  className="px-3.5 py-1.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] text-zinc-300 hover:text-white border border-white/10 text-xs font-semibold flex items-center gap-1.5 transition-all"
+                >
+                  <Award className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Results</span>
+                </Link>
+              )}
+              {canNavigate("/portal/fees", permissions) && (
+                <Link
+                  href="/portal/fees"
+                  className="px-3.5 py-1.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] text-zinc-300 hover:text-white border border-white/10 text-xs font-semibold flex items-center gap-1.5 transition-all"
+                >
+                  <Receipt className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Fee Ledger</span>
+                </Link>
+              )}
               <Link
                 href="/portal/id-card"
                 className="px-3.5 py-1.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] text-zinc-300 hover:text-white border border-white/10 text-xs font-semibold flex items-center gap-1.5 transition-all"
@@ -385,7 +407,7 @@ export function PortalShell({
         </header>
 
         {/* Main Content Area (Scrollable canvas, padded bottom for mobile dock) */}
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-6 pb-28 lg:pb-8 w-full max-w-7xl mx-auto">
+        <main className="relative z-10 flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-6 pb-28 lg:pb-8 w-full max-w-7xl mx-auto scroll-smooth">
           {children}
         </main>
       </div>

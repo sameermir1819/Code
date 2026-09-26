@@ -40,6 +40,12 @@ export async function getUsers({
   includeArchived?: boolean;
 } = {}) {
   const actor = await requirePermission("users.view");
+  // Records are globally visible; campus is an optional location filter.
+  const effectiveCampusId = campusId;
+  const statsWhere: Record<string, unknown> = { isArchived: false };
+  if (effectiveCampusId && !["ALL", "GLOBAL"].includes(effectiveCampusId)) {
+    statsWhere.instituteId = effectiveCampusId;
+  }
 
   const where: Record<string, any> = {
     isArchived: includeArchived ? undefined : false,
@@ -82,12 +88,8 @@ export async function getUsers({
   }
 
   // Filter by Campus
-  if (campusId && campusId !== "ALL") {
-    if (campusId === "GLOBAL") {
-      where.instituteId = null;
-    } else {
-      where.instituteId = campusId;
-    }
+  if (effectiveCampusId && !["ALL", "GLOBAL"].includes(effectiveCampusId)) {
+    where.instituteId = effectiveCampusId;
   }
 
   // Filter by Created Date range
@@ -146,10 +148,10 @@ export async function getUsers({
     db.user.count({ where }),
     // Aggregate status counters for dashboard tabs
     Promise.all([
-      db.user.count({ where: { isArchived: false } }),
-      db.user.count({ where: { status: "ACTIVE", isArchived: false } }),
-      db.user.count({ where: { role: { in: ["SUPER_ADMIN", "ADMIN"] }, isArchived: false } }),
-      db.user.count({ where: { status: { in: ["INACTIVE", "SUSPENDED"] }, isArchived: false } }),
+      db.user.count({ where: statsWhere }),
+      db.user.count({ where: { ...statsWhere, status: "ACTIVE" } }),
+      db.user.count({ where: { ...statsWhere, role: { in: ["SUPER_ADMIN", "ADMIN"] } } }),
+      db.user.count({ where: { ...statsWhere, status: { in: ["INACTIVE", "SUSPENDED"] } } }),
     ]),
   ]);
 
@@ -320,20 +322,33 @@ export async function getUser(id: string) {
 // Helper: Ensure User with role TEACHER is synced with Teacher table
 async function syncTeacherProfile(
   tx: any,
-  user: { id: string; name: string; email: string; phone?: string | null; status?: string; role: string },
+  user: {
+    id: string;
+    instituteId?: string | null;
+    name: string;
+    email: string;
+    phone?: string | null;
+    status?: string;
+    role: string;
+  },
   subjectIds?: string[],
   qualification?: string
 ) {
-  const institute = await tx.institute.findFirst();
-  if (!institute) return;
-
   const existingTeacher = await tx.teacher.findFirst({ where: { userId: user.id } });
   if (user.role === "TEACHER") {
+    if (!user.instituteId) {
+      throw new Error("Faculty accounts must be assigned to a campus.");
+    }
+
+    const institute = await tx.institute.findUnique({ where: { id: user.instituteId } });
+    if (!institute) throw new Error("The selected campus could not be found.");
+
     let teacherRecord = existingTeacher;
     if (existingTeacher) {
       teacherRecord = await tx.teacher.update({
         where: { id: existingTeacher.id },
         data: {
+          instituteId: institute.id,
           name: user.name,
           email: user.email,
           phone: user.phone || "0000000000",
@@ -546,6 +561,8 @@ export async function updateUser(
 
   const targetUser = await db.user.findUnique({ where: { id } });
   if (!targetUser) throw new Error("Target user not found");
+  if (data.role && data.role !== targetUser.role) await requirePermission("users.role");
+  if (data.status && data.status !== targetUser.status) await requirePermission("users.status");
 
   // Security Rule: Admin cannot edit Super Admin accounts
   if (targetUser.role === "SUPER_ADMIN" && actor.role !== "SUPER_ADMIN") {
@@ -728,6 +745,7 @@ export async function changeUserRole(userId: string, newRole: Role) {
     // Sync Teacher profile
     await syncTeacherProfile(tx, {
       id: userId,
+      instituteId: targetUser.instituteId,
       name: targetUser.name,
       email: targetUser.email,
       phone: targetUser.phone,

@@ -46,6 +46,7 @@ function loginFixture(overrides = {}) {
   };
   const actions = load("src/server/actions/auth.ts", {
     "@/lib/db": { db }, "@/lib/auth": auth, "./audit": { logAudit: async () => {} },
+    "next/cache": { revalidatePath: () => {} },
   });
   const portal = load("src/server/actions/portal.ts", {
     "@/lib/db": { db }, "@/lib/auth": auth,
@@ -95,6 +96,7 @@ function studentIdentifierLoginFixture(identifier, studentRecord) {
       setSessionCookie: async () => { cookieSet = true; },
     },
     "./audit": { logAudit: async () => {} },
+    "next/cache": { revalidatePath: () => {} },
   });
   return { actions, cookieSet: () => cookieSet };
 }

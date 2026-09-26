@@ -103,12 +103,15 @@ export async function getStudentPortalOverview() {
   const isPreview = session.role === "SUPER_ADMIN" || session.role === "ADMIN";
 
   const permissions = await getEffectivePermissions(session);
-  if (["batches.view", "timetable.view", "attendance.view", "fees.view", "results.view", "materials.view", "announcements.view"].some((code) => !permissions.includes(code as any))) {
-    return { success: false, data: null, isPreview, error: "Overview includes restricted sections. Open an available module from navigation." };
-  }
+  const canViewBatches = permissions.includes("batches.view");
+  const canViewAttendance = permissions.includes("attendance.view");
+  const canViewFees = permissions.includes("fees.view");
+  const canViewResults = permissions.includes("results.view");
+  const canViewMaterials = permissions.includes("materials.view");
+  const canViewAnnouncements = permissions.includes("announcements.view");
 
   // Pre-fetch active enrollments to reuse for materials count without extra subqueries
-  const enrollments = await db.enrollment.findMany({
+  const enrollments = canViewBatches ? await db.enrollment.findMany({
     where: {
       studentId: student.id,
       status: "ACTIVE",
@@ -121,10 +124,12 @@ export async function getStudentPortalOverview() {
           teachers: {
             include: { teacher: true },
           },
-          timetableSlots: {
-            include: { subject: true, teacher: true },
-            orderBy: { startTime: "asc" },
-          },
+          timetableSlots: permissions.includes("timetable.view")
+            ? {
+                include: { subject: true, teacher: true },
+                orderBy: { startTime: "asc" as const },
+              }
+            : false,
           _count: {
             select: {
               timetableSlots: true,
@@ -135,7 +140,7 @@ export async function getStudentPortalOverview() {
       },
       course: true,
     },
-  });
+  }) : [];
 
   const enrolledBatchIds = enrollments.map((e) => e.batchId).filter(Boolean);
   const enrolledCourseIds = enrollments.map((e) => e.courseId).filter(Boolean);
@@ -150,7 +155,7 @@ export async function getStudentPortalOverview() {
     studyMaterialsCount,
   ] = await Promise.all([
     // Attendance records
-    db.attendance.findMany({
+    canViewAttendance ? db.attendance.findMany({
       where: {
         studentId: student.id,
         batch: { instituteId: student.instituteId },
@@ -160,27 +165,27 @@ export async function getStudentPortalOverview() {
       include: {
         batch: true,
       },
-    }),
+    }) : Promise.resolve([]),
 
     // Fee plans
-    db.feePlan.findMany({
+    canViewFees ? db.feePlan.findMany({
       where: { studentId: student.id },
       include: {
         installments: {
           orderBy: { installmentNumber: "asc" },
         },
       },
-    }),
+    }) : Promise.resolve([]),
 
     // Recent payments
-    db.payment.findMany({
+    canViewFees ? db.payment.findMany({
       where: { studentId: student.id, status: { in: ["SUCCESS", "ADJUSTED", "REFUNDED"] } },
       orderBy: { paymentDate: "desc" },
       take: 5,
-    }),
+    }) : Promise.resolve([]),
 
     // Exam marks & reports
-    db.marks.findMany({
+    canViewResults ? db.marks.findMany({
       where: {
         studentId: student.id,
         exam: { batch: { instituteId: student.instituteId } },
@@ -195,10 +200,10 @@ export async function getStudentPortalOverview() {
       },
       orderBy: { createdAt: "desc" },
       take: 8,
-    }),
+    }) : Promise.resolve([]),
 
     // Announcements
-    db.announcement.findMany({
+    canViewAnnouncements ? db.announcement.findMany({
       where: {
         AND: [
           { targetRole: { in: ["STUDENT", "ALL"] } },
@@ -217,10 +222,10 @@ export async function getStudentPortalOverview() {
       },
       orderBy: { createdAt: "desc" },
       take: 5,
-    }),
+    }) : Promise.resolve([]),
 
     // Study materials count (reusing pre-fetched IDs, 0 redundant DB calls)
-    db.studyMaterial.count({
+    canViewMaterials ? db.studyMaterial.count({
       where: {
         OR: [
           ...(enrolledBatchIds.length > 0 ? [{ batchId: { in: enrolledBatchIds } }] : []),
@@ -229,7 +234,7 @@ export async function getStudentPortalOverview() {
           { batchId: null, courseId: null },
         ],
       },
-    }),
+    }) : Promise.resolve(0),
   ]);
 
   // Attendance stats

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useTransition } from "react";
+import React, { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import { submitPublicAdmissionEnquiry } from "@/server/actions/leads";
 import {
@@ -21,13 +21,21 @@ import {
   HelpCircle,
 } from "lucide-react";
 
-interface CourseOption {
+interface BatchOption {
   id: string;
+  instituteId: string;
   name: string;
   code: string;
-  gradeClass?: string | null;
-  duration?: string | null;
-  standardFee?: number;
+  capacity: number;
+}
+
+interface TestSeriesOption {
+  id: string;
+  instituteId: string;
+  title: string;
+  code: string;
+  targetExam: string;
+  fee: number;
 }
 
 interface InstituteInfo {
@@ -50,7 +58,8 @@ interface CampusItem {
 interface AdmissionApplicationFormProps {
   institute: InstituteInfo | null;
   campuses: CampusItem[];
-  courses: CourseOption[];
+  batches: BatchOption[];
+  testSeries: TestSeriesOption[];
 }
 
 const CLASS_OPTIONS = [
@@ -68,7 +77,8 @@ const CLASS_OPTIONS = [
 export function AdmissionApplicationForm({
   institute,
   campuses = [],
-  courses = [],
+  batches = [],
+  testSeries = [],
 }: AdmissionApplicationFormProps) {
   const [isPending, startTransition] = useTransition();
 
@@ -80,12 +90,47 @@ export function AdmissionApplicationForm({
     campusId: campuses.length > 0 ? campuses[0].id : (institute?.id || ""),
     parentName: "",
     parentPhone: "",
-    courseInterest: courses.length > 0 ? courses[0].name : "NEET Medical Target",
+    interestType: "ADMISSION" as "ADMISSION" | "TEST_SERIES",
+    batchId: batches.find((batch) => batch.instituteId === (campuses[0]?.id || institute?.id))?.id || "",
+    testSeriesId: "",
     currentClass: "Class 11th (Medical - NEET)",
     currentSchool: "",
     city: institute?.city || "Srinagar",
     notes: "",
   });
+  const campusBatches = batches.filter((batch) => batch.instituteId === formData.campusId);
+  const campusTestSeries = testSeries.filter((series) => series.instituteId === formData.campusId);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const requestedInterest = params.get("interest")?.trim().toLowerCase();
+    const requestedCampus = params.get("campus")?.trim().toLowerCase();
+    const matchedSeries = requestedInterest
+      ? testSeries.find((series) => series.title.toLowerCase() === requestedInterest)
+      : undefined;
+    const matchedCampus = requestedCampus
+      ? campuses.find((campus) =>
+          campus.id.toLowerCase() === requestedCampus || campus.code.toLowerCase() === requestedCampus
+        )
+      : undefined;
+
+    if (matchedSeries) {
+      setFormData((current) => ({
+        ...current,
+        campusId: matchedSeries.instituteId,
+        interestType: "TEST_SERIES",
+        batchId: "",
+        testSeriesId: matchedSeries.id,
+      }));
+    } else if (matchedCampus) {
+      setFormData((current) => ({
+        ...current,
+        campusId: matchedCampus.id,
+        batchId: batches.find((batch) => batch.instituteId === matchedCampus.id)?.id || "",
+        testSeriesId: "",
+      }));
+    }
+  }, [batches, campuses, testSeries]);
 
   const [errorMsg, setErrorMsg] = useState("");
   const [successData, setSuccessData] = useState<{
@@ -109,6 +154,14 @@ export function AdmissionApplicationForm({
       setErrorMsg("Please enter a valid 10-digit mobile number for communication.");
       return;
     }
+    if (formData.interestType === "ADMISSION" && !formData.batchId) {
+      setErrorMsg("Please select an available batch.");
+      return;
+    }
+    if (formData.interestType === "TEST_SERIES" && !formData.testSeriesId) {
+      setErrorMsg("Please select an available Test Series.");
+      return;
+    }
 
     startTransition(async () => {
       try {
@@ -118,7 +171,7 @@ export function AdmissionApplicationForm({
             leadId: res.leadId,
             name: res.name || formData.name,
             phone: res.phone || formData.phone,
-            course: res.course || formData.courseInterest,
+            course: res.course || "Selected program",
           });
         } else {
           setErrorMsg(res.error || "Failed to submit application. Please try again.");
@@ -195,7 +248,9 @@ export function AdmissionApplicationForm({
                 campusId: campuses.length > 0 ? campuses[0].id : "",
                 parentName: "",
                 parentPhone: "",
-                courseInterest: courses.length > 0 ? courses[0].name : "NEET Medical Target",
+                interestType: "ADMISSION",
+                batchId: batches.find((batch) => batch.instituteId === campuses[0]?.id)?.id || "",
+                testSeriesId: "",
                 currentClass: "Class 11th (Medical - NEET)",
                 currentSchool: "",
                 city: institute?.city || "Srinagar",
@@ -354,7 +409,15 @@ export function AdmissionApplicationForm({
               </label>
               <select
                 value={formData.campusId}
-                onChange={(e) => setFormData({ ...formData, campusId: e.target.value })}
+                onChange={(e) => {
+                  const campusId = e.target.value;
+                  setFormData({
+                    ...formData,
+                    campusId,
+                    batchId: batches.find((batch) => batch.instituteId === campusId)?.id || "",
+                    testSeriesId: testSeries.find((series) => series.instituteId === campusId)?.id || "",
+                  });
+                }}
                 className="w-full px-4 py-2.5 rounded-xl bg-[#111625] border border-white/10 text-white text-xs focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all font-semibold"
               >
                 {campuses.length > 0 ? (
@@ -374,42 +437,65 @@ export function AdmissionApplicationForm({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-zinc-300">
-                  Course Interested In *
+                  Application Type *
                 </label>
                 <select
-                  value={formData.courseInterest}
-                  onChange={(e) => setFormData({ ...formData, courseInterest: e.target.value })}
+                  value={formData.interestType}
+                  onChange={(e) => {
+                    const interestType = e.target.value as "ADMISSION" | "TEST_SERIES";
+                    setFormData({
+                      ...formData,
+                      interestType,
+                      batchId: interestType === "ADMISSION" ? (formData.batchId || campusBatches[0]?.id || "") : "",
+                      testSeriesId: interestType === "TEST_SERIES" ? (formData.testSeriesId || campusTestSeries[0]?.id || "") : "",
+                    });
+                  }}
                   className="w-full px-4 py-2.5 rounded-xl bg-[#111625] border border-white/10 text-white text-xs focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
                 >
-                {courses.length > 0 ? (
-                  courses.map((c) => (
-                    <option key={c.id} value={c.name} className="bg-[#111625] text-white">
-                      {c.name} {c.code ? `(${c.code})` : ""}
-                    </option>
-                  ))
-                ) : (
-                  <>
-                    <option value="NEET Medical Target 2026-2027">
-                      NEET Medical Target 2026-2027
-                    </option>
-                    <option value="JEE Main & Advanced 2-Year Program">
-                      JEE Main &amp; Advanced 2-Year Program
-                    </option>
-                    <option value="Class 11-12 Board + Competitive">
-                      Class 11-12 Board + Competitive
-                    </option>
-                    <option value="Foundation (Class 9th & 10th)">
-                      Foundation (Class 9th &amp; 10th)
-                    </option>
-                    <option value="Repeater / Dropper Intensive Batch">
-                      Repeater / Dropper Intensive Batch
-                    </option>
-                  </>
-                )}
-              </select>
-            </div>
+                  <option value="ADMISSION">Regular Batch Admission</option>
+                  <option value="TEST_SERIES">Test Series (External Candidate)</option>
+                </select>
+              </div>
 
-            <div className="space-y-1.5">
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-zinc-300">
+                  {formData.interestType === "TEST_SERIES" ? "Test Series *" : "Batch *"}
+                </label>
+                {formData.interestType === "TEST_SERIES" ? (
+                  <select
+                    required
+                    value={formData.testSeriesId}
+                    onChange={(e) => setFormData({ ...formData, testSeriesId: e.target.value })}
+                    className="w-full px-4 py-2.5 rounded-xl bg-[#111625] border border-white/10 text-white text-xs focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
+                  >
+                    <option value="">Select Test Series</option>
+                    {campusTestSeries.map((series) => (
+                      <option key={series.id} value={series.id} className="bg-[#111625] text-white">
+                        {series.title} ({series.code}) — ₹{Number(series.fee).toLocaleString("en-IN")}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <select
+                    required
+                    value={formData.batchId}
+                    onChange={(e) => setFormData({ ...formData, batchId: e.target.value })}
+                    className="w-full px-4 py-2.5 rounded-xl bg-[#111625] border border-white/10 text-white text-xs focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
+                  >
+                    <option value="">Select Batch</option>
+                    {campusBatches.map((batch) => (
+                      <option key={batch.id} value={batch.id} className="bg-[#111625] text-white">
+                        {batch.name} ({batch.code})
+                      </option>
+                    ))}
+                  </select>
+                )}
+                {(formData.interestType === "TEST_SERIES" ? campusTestSeries : campusBatches).length === 0 && (
+                  <p className="text-[11px] text-amber-400">No active option is available at this campus.</p>
+                )}
+              </div>
+
+            <div className="space-y-1.5 sm:col-span-2">
               <label className="text-xs font-semibold text-zinc-300">
                 Current Class / Target Stage *
               </label>
@@ -509,7 +595,11 @@ export function AdmissionApplicationForm({
             ) : (
               <>
                 <Send className="w-4 h-4" />
-                <span>Submit Admission Application</span>
+                <span>
+                  {formData.interestType === "TEST_SERIES"
+                    ? "Submit Test Series Enquiry"
+                    : "Submit Batch Admission Application"}
+                </span>
               </>
             )}
           </button>

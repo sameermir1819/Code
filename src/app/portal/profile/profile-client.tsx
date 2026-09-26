@@ -77,10 +77,25 @@ export function StudentProfileClient({ student }: ProfileProps) {
   const [msg, setMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [loggingOut, setLoggingOut] = useState(false);
 
-  const handleCopy = (text: string, field: string) => {
-    navigator.clipboard.writeText(text);
-    setCopiedField(field);
-    setTimeout(() => setCopiedField(null), 2000);
+  const handleCopy = async (text: string, field: string) => {
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const input = document.createElement("textarea");
+        input.value = text;
+        input.style.position = "fixed";
+        input.style.opacity = "0";
+        document.body.appendChild(input);
+        input.select();
+        document.execCommand("copy");
+        document.body.removeChild(input);
+      }
+      setCopiedField(field);
+      setTimeout(() => setCopiedField(null), 2000);
+    } catch {
+      setMsg({ type: "error", text: "Could not copy this value. Please copy it manually." });
+    }
   };
 
   const handleLogout = async () => {

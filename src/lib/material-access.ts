@@ -15,8 +15,7 @@ export async function materialAccessWhere(session: SessionUser): Promise<Prisma.
     ] };
   }
   if (!["STUDENT", "PARENT"].includes(session.role)) {
-    const instituteId = authorizedCampusId(session, await getActiveCampusId());
-    return { OR: [ { batch: { instituteId } }, { batchId: null, course: { instituteId } }, { batchId: null, courseId: null } ] };
+    return {};
   }
   return { id: { in: [] } };
 }

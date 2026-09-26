@@ -269,7 +269,7 @@ export function PortalBatchesView({ enrollments }: PortalBatchesViewProps) {
                             {enr.batch.name}
                           </Link>
                           <p className="text-xs text-zinc-400 mt-0.5 font-medium">
-                            {enr.course.name}
+                            Your active classroom, timetable and study resources
                           </p>
                         </div>
 

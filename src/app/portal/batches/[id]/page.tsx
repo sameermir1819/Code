@@ -12,11 +12,11 @@ export const metadata = {
 };
 
 interface BatchPageProps {
-  params: Promise<{ id: string }> | { id: string };
+  params: Promise<{ id: string }>;
 }
 
 export default async function StudentBatchDetailPage({ params }: BatchPageProps) {
-  const resolvedParams = await Promise.resolve(params);
+  const resolvedParams = await params;
   const batchId = resolvedParams.id;
 
   const res = await getStudentBatchDetails(batchId);

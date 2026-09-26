@@ -1,6 +1,8 @@
 import React from "react";
 import Link from "next/link";
 import { getStudentPortalOverview } from "@/server/actions/portal";
+import { getEffectivePermissions, getSession } from "@/lib/auth";
+import { canNavigate } from "@/lib/navigation-permissions";
 import {
   CalendarCheck2,
   Award,
@@ -29,7 +31,8 @@ export const metadata = {
 };
 
 export default async function StudentPortalPage() {
-  const res = await getStudentPortalOverview();
+  const [res, session] = await Promise.all([getStudentPortalOverview(), getSession()]);
+  const permissions = session ? await getEffectivePermissions(session) : [];
 
   if (!res.success || !res.data) {
     return (
@@ -234,13 +237,13 @@ export default async function StudentPortalPage() {
 
               <p className="text-xs text-zinc-300 flex items-center gap-2 flex-wrap">
                 <span className="font-semibold text-white">
-                  {primaryEnrollment?.course?.name || "Academic Program"}
+                  {primaryEnrollment?.batch?.name || student.gradeClass || "Academic Batch"}
                 </span>
-                {primaryEnrollment?.batch?.name && (
+                {student.gradeClass && (
                   <>
                     <span className="text-zinc-600">•</span>
                     <span className="text-indigo-300 font-medium">
-                      {primaryEnrollment.batch.name}
+                      {student.gradeClass}
                     </span>
                   </>
                 )}
@@ -406,7 +409,7 @@ export default async function StudentPortalPage() {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-          {ACTION_BUTTONS.map((item) => {
+          {ACTION_BUTTONS.filter((item) => canNavigate(item.href, permissions)).map((item) => {
             const Icon = item.icon;
             return (
               <Link

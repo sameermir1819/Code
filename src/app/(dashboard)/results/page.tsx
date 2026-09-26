@@ -61,10 +61,18 @@ function ExamStatusBadge({ status }: { status: string }) {
 
 export default async function ResultsPage() {
   const session = await requireStaffPermission("results.view");
-  const campusId = authorizedCampusId(session, await getActiveCampusId());
+  const testSeriesResults = await db.testSeriesResult.findMany({
+    orderBy: [{ testSeriesExam: { examDate: "desc" } }, { marksObtained: "desc" }],
+    select: {
+      id: true, marksObtained: true, maxMarks: true, percentage: true,
+      attendance: true, rank: true, percentile: true, remarks: true,
+      registration: { select: { rollNumber: true, externalStudentName: true, student: { select: { name: true } } } },
+      testSeriesExam: { select: { title: true, examDate: true, testSeries: { select: { title: true } } } },
+    },
+  });
   // ── Fetch all marks with full relational data ──────────────────────────────
   const allMarks = await db.marks.findMany({
-    where: { exam: { batch: { instituteId: campusId } } },
+    where: {},
     orderBy: { marksObtained: "desc" },
     include: {
       student: true,
@@ -76,7 +84,7 @@ export default async function ResultsPage() {
 
   // ── Fetch all exams for the "by-exam" analytics section ──────────────────
   const allExams = await db.exam.findMany({
-    where: { batch: { instituteId: campusId } },
+    where: {},
     orderBy: { examDate: "desc" },
     include: {
       subject: true,
@@ -137,6 +145,35 @@ export default async function ResultsPage() {
         </div>
         <PrintButton label="Print Official Merit Gazette" />
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Test Series Results ({testSeriesResults.length})</CardTitle>
+          <CardDescription>Saved offline test scores and current rankings. <Link href="/test-series" className="text-primary underline">Open test series to edit results</Link></CardDescription>
+        </CardHeader>
+        <CardContent className="overflow-x-auto">
+          <table className="w-full text-left text-xs">
+            <thead className="border-b text-muted-foreground">
+              <tr>{["Candidate", "Test", "Attendance", "Marks", "Percentage", "Rank", "Percentile", "Remarks"].map((label) => <th key={label} className="p-3">{label}</th>)}</tr>
+            </thead>
+            <tbody className="divide-y">
+              {testSeriesResults.map((result) => (
+                <tr key={result.id}>
+                  <td className="p-3"><span className="block font-semibold">{result.registration.student?.name || result.registration.externalStudentName}</span><span className="text-muted-foreground">{result.registration.rollNumber}</span></td>
+                  <td className="p-3"><span className="block font-semibold">{result.testSeriesExam.title}</span><span className="text-muted-foreground">{result.testSeriesExam.testSeries.title} · {formatDate(result.testSeriesExam.examDate)}</span></td>
+                  <td className="p-3">{result.attendance}</td>
+                  <td className="p-3">{result.marksObtained}/{result.maxMarks}</td>
+                  <td className="p-3">{result.percentage}%</td>
+                  <td className="p-3">{result.rank ?? "—"}</td>
+                  <td className="p-3">{result.percentile ?? "—"}</td>
+                  <td className="p-3">{result.remarks || "—"}</td>
+                </tr>
+              ))}
+              {testSeriesResults.length === 0 && <tr><td colSpan={8} className="p-8 text-center text-muted-foreground">No test-series results published yet.</td></tr>}
+            </tbody>
+          </table>
+        </CardContent>
+      </Card>
 
       {/* Printable Institution Letterhead for Merit Board */}
       <div className="hidden print-only border-b-2 border-zinc-900 pb-3 mb-4">

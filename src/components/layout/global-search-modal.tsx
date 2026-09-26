@@ -125,11 +125,13 @@ export function GlobalSearchModal() {
       <button
         type="button"
         onClick={() => setIsOpen(true)}
-        className="w-full h-9 pl-3 pr-2.5 rounded-xl border border-input bg-muted/40 hover:bg-muted/70 text-xs text-muted-foreground flex items-center justify-between gap-2 transition-all cursor-pointer shadow-2xs select-none"
+        className="w-full h-10 pl-3.5 pr-2.5 rounded-xl border border-border/70 bg-card/75 hover:bg-card hover:border-primary/30 text-xs text-muted-foreground flex items-center justify-between gap-2 transition-all cursor-pointer shadow-sm select-none"
         title="Search ERP (Ctrl + K)"
       >
         <div className="flex min-w-0 items-center gap-2">
-          <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+          <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <Search className="h-3.5 w-3.5 shrink-0" />
+          </span>
           <span className="hidden md:block truncate">Search students, batches, receipts...</span>
         </div>
         <kbd className="hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-mono font-medium rounded-md bg-background border text-muted-foreground shadow-2xs">
@@ -141,7 +143,7 @@ export function GlobalSearchModal() {
       {isOpen && createPortal(
         <div onClick={() => setIsOpen(false)} className="fixed inset-0 z-50 flex items-start justify-center pt-16 sm:pt-24 p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
           <div
-            className="w-full max-w-xl bg-card border rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150"
+            className="w-full max-w-xl bg-card/95 border border-border/70 rounded-3xl shadow-2xl overflow-hidden backdrop-blur-xl animate-in zoom-in-95 duration-150"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Search Input Bar */}

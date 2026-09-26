@@ -1,8 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  swcMinify: true,
   compress: true,
+  serverExternalPackages: ["@prisma/client"],
   output: process.env.NEXT_OUTPUT_STANDALONE === "true" ? "standalone" : undefined,
   compiler: {
     removeConsole: process.env.NODE_ENV === "production" ? { exclude: ["error", "warn"] } : false,
@@ -24,7 +24,6 @@ const nextConfig = {
     serverActions: {
       bodySizeLimit: "10mb",
     },
-    serverComponentsExternalPackages: ["@prisma/client"],
     optimizePackageImports: [
       "lucide-react",
       "date-fns",

@@ -1,5 +1,7 @@
 import React from "react";
 import { getOutstandingFeesReport } from "@/server/actions/finance";
+import { getAllCampuses } from "@/server/actions/campus";
+import { getCampusDisplayName } from "@/lib/campus-label";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import {
   Card,
@@ -55,8 +57,17 @@ function KpiCard({
   );
 }
 
-export default async function OutstandingFeesPage() {
-  const records = await getOutstandingFeesReport();
+export default async function OutstandingFeesPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ campusId?: string }>;
+}) {
+  const resolvedSearchParams = searchParams ? await searchParams : undefined;
+  const campusId = resolvedSearchParams?.campusId || "GLOBAL";
+  const [records, campuses] = await Promise.all([
+    getOutstandingFeesReport({ campusId }),
+    getAllCampuses(),
+  ]);
 
   const totalOutstanding = records.reduce((acc, r) => acc + r.remainingAmount, 0);
   const overdueCount = records.filter((r) => r.isOverdue).length;
@@ -74,6 +85,27 @@ export default async function OutstandingFeesPage() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
+          <form method="get" className="flex items-center gap-2 rounded-xl border bg-card px-3 py-1.5 shadow-xs">
+            <label htmlFor="outstanding-location" className="text-xs font-semibold text-muted-foreground">
+              Location
+            </label>
+            <select
+              id="outstanding-location"
+              name="campusId"
+              defaultValue={campusId}
+              className="min-w-28 bg-transparent py-1 text-xs font-semibold text-foreground outline-none"
+            >
+              <option value="GLOBAL">Global</option>
+              {campuses.map((campus) => (
+                <option key={campus.id} value={campus.id}>
+                  {getCampusDisplayName(campus)}
+                </option>
+              ))}
+            </select>
+            <button type="submit" className="rounded-lg bg-primary px-2.5 py-1.5 text-[11px] font-bold text-white">
+              Apply
+            </button>
+          </form>
           <OutstandingToolbar records={records} />
           <Link
             href="/finance/payments"
@@ -133,6 +165,7 @@ export default async function OutstandingFeesPage() {
               <thead>
                 <tr className="border-b bg-muted/40 text-muted-foreground font-medium">
                   <th className="p-3 pl-4">Student</th>
+                  <th className="p-3">Location</th>
                   <th className="p-3">Batch &amp; Course</th>
                   <th className="p-3">Student Fee Status (Total · Deposit · Pending)</th>
                   <th className="p-3">Installment</th>
@@ -145,7 +178,7 @@ export default async function OutstandingFeesPage() {
               <tbody className="divide-y">
                 {records.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="text-center py-12 text-muted-foreground">
+                    <td colSpan={9} className="text-center py-12 text-muted-foreground">
                       No outstanding fees recorded. All student dues are cleared! 🎉
                     </td>
                   </tr>
@@ -181,6 +214,7 @@ export default async function OutstandingFeesPage() {
                             {r.studentCode} • Guardian: {r.parentName || "—"}
                           </span>
                         </td>
+                        <td className="p-3 text-muted-foreground">{r.locationName}</td>
                         <td className="p-3">
                           <span className="font-medium text-foreground block">{r.batchName}</span>
                           <span className="text-[11px] text-muted-foreground">{r.courseName}</span>

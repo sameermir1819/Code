@@ -12,8 +12,8 @@ function fixture({ role = 'SUPER_ADMIN', assignedCampus = 'first' } = {}) {
   ];
   const writes = [];
   const db = {
-    campus: {
-      findUnique: async ({ where }) => campuses.find(campus => campus.code === where.code) || null,
+    institute: {
+      findUnique: async ({ where }) => campuses.find(campus => campus.id === where.id || campus.code === where.code) || null,
       update: async ({ where, data }) => {
         writes.push(where.id);
         const campus = campuses.find(item => item.id === where.id);

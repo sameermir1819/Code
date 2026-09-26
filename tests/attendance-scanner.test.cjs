@@ -77,7 +77,7 @@ function fixture() {
         return row;
       },
       findMany: async ({ where }) => {
-        assert.equal(where.batch.instituteId, campus);
+        assert.equal(where.batch, undefined);
         assert.deepEqual(Array.from(where.status.in), ["PRESENT", "LATE"]);
         return [];
       },
@@ -182,7 +182,7 @@ test("retry after a competing scan sees the committed record and does not write 
   assert.equal(f.writes(), 1);
 });
 
-test("gate feed is scoped to the selected campus", async () => {
+test("gate feed is globally visible across campuses", async () => {
   const f = fixture();
   await f.actions.getTodayAttendanceLiveFeed();
 });

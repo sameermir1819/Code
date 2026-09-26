@@ -45,7 +45,6 @@ async function main() {
     await prisma.teacher.deleteMany();
     await prisma.user.deleteMany();
     await prisma.academicSession.deleteMany();
-    await prisma.campus.deleteMany();
     await prisma.institute.deleteMany();
     console.log("✨ Existing records cleaned!");
   } catch (e) {
@@ -70,18 +69,8 @@ async function main() {
     },
   });
 
-  const campus = await prisma.campus.create({
-    data: {
-      instituteId: institute.id,
-      name: "Futurex Learning - Main Campus",
-      code: "FL-CAMPUS-01",
-      city: "New Delhi",
-      state: "Delhi",
-      address: "Plot 42, Knowledge Park, Central Avenue",
-      phone: "+91 98765 43210",
-      email: "admissions@futurexlearning.com",
-    },
-  });
+  // Institute rows are the campus/branch records in the current schema.
+  const campus = institute;
 
   // 2. Academic Session
   const session = await prisma.academicSession.create({
@@ -214,7 +203,7 @@ async function main() {
 
   const subjects = [];
   for (const s of subjectsData) {
-    const subj = await prisma.subject.create({ data: s });
+    const subj = await prisma.subject.create({ data: { ...s, instituteId: institute.id } });
     subjects.push(subj);
   }
 

@@ -1,10 +1,7 @@
-import { requireStaffPermission } from "@/lib/auth";
-import { authorizedCampusId } from "@/lib/campus-scope";
-import { db } from "@/lib/db";
-import { getSession } from "@/lib/auth";
-import { getActiveCampusId } from "@/server/actions/campus";
+import { getEffectivePermissions, getSession, requireStaffPermission } from "@/lib/auth";
 import { getSubjects, getTeachers } from "@/server/actions/academics";
 import { FacultyManager } from "@/components/faculty/faculty-manager";
+import { getAllCampuses } from "@/server/actions/campus";
 import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
@@ -15,39 +12,24 @@ export const metadata = {
 };
 
 export default async function FacultyPage() {
-  await requireStaffPermission("teachers.view");
+  const actor = await requireStaffPermission("teachers.view");
   const session = await getSession();
   if (!session) redirect("/login");
 
-  // Auto-sync teachers and fetch campus
-  await getTeachers();
-  const campusId = authorizedCampusId(session, await getActiveCampusId());
-
-  const [teachers, subjects] = await Promise.all([
-    db.teacher.findMany({
-      where: {
-        status: "ACTIVE",
-        ...(campusId ? { instituteId: campusId } : {}),
-      },
-      orderBy: { name: "asc" },
-      include: {
-        subjects: {
-          include: { subject: true },
-        },
-        batches: {
-          include: { batch: true },
-        },
-        timetableSlots: true,
-      },
-    }),
+  const [teachers, subjects, campuses] = await Promise.all([
+    getTeachers(),
     getSubjects(),
+    getAllCampuses(),
   ]);
+  const permissions = await getEffectivePermissions(actor);
 
   return (
     <FacultyManager
       initialTeachers={teachers as any}
       allSubjects={subjects as any}
       userRole={session.role}
+      canManageSubjects={permissions.includes("courses.manage")}
+      availableCampuses={campuses}
     />
   );
 }

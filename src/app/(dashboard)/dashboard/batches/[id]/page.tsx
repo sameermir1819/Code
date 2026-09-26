@@ -7,14 +7,15 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 interface BatchPageProps {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
 export default async function DashboardBatchDetailPage({ params }: BatchPageProps) {
+  const { id } = await params;
   const actor = await requireStaffPermission("batches.view");
   const permissions = await getEffectivePermissions(actor);
   const [batch, teachers, subjects, session] = await Promise.all([
-    getBatchById(params.id),
+    getBatchById(id),
     permissions.includes("teachers.view") ? getTeachers() : Promise.resolve([]),
     permissions.includes("courses.view") ? getSubjects() : Promise.resolve([]),
     getSession(),

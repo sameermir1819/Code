@@ -149,7 +149,7 @@ export function StudentAttendanceClient({
               <thead className="border-b border-white/10 bg-white/[0.02] text-zinc-400 font-semibold uppercase text-[10px] tracking-wider">
                 <tr>
                   <th className="py-3 px-4">Date &amp; Day</th>
-                  <th className="py-3 px-4">Course / Batch</th>
+                  <th className="py-3 px-4">Batch</th>
                   <th className="py-3 px-4">Status</th>
                   <th className="py-3 px-4">Check-in</th>
                   <th className="py-3 px-4">Check-out</th>

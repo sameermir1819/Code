@@ -6,9 +6,12 @@ import {
   recordPayment,
   getStudentFeeDetails,
   getStudentFeeAccounts,
+  processRefund,
 } from "@/server/actions/finance";
 import { getStudents } from "@/server/actions/students";
 import { getBatches } from "@/server/actions/academics";
+import { getAllCampuses, type CampusItem } from "@/server/actions/campus";
+import { getCampusDisplayName } from "@/lib/campus-label";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import {
   Card,
@@ -35,6 +38,8 @@ import {
   Users,
   CreditCard,
   UserCheck,
+  RotateCcw,
+  AlertTriangle,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -48,13 +53,130 @@ type StudentAccount = Awaited<ReturnType<typeof getStudentFeeAccounts>>[number];
 const PAYMENT_METHODS = ["CASH", "UPI", "BANK_TRANSFER", "CARD", "OTHER"] as const;
 type PaymentMethod = (typeof PAYMENT_METHODS)[number];
 
+function RefundModal({
+  payment,
+  onClose,
+  onSuccess,
+}: {
+  payment: PaymentRow;
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const refunded = payment.refunds.reduce((sum, item) => sum + item.amount, 0);
+  const refundable = Math.max(0, Math.round((payment.amount - refunded) * 100) / 100);
+  const [amount, setAmount] = useState(String(refundable));
+  const [reason, setReason] = useState("");
+  const [error, setError] = useState("");
+  const [isPending, startTransition] = useTransition();
+
+  const submit = (event: React.FormEvent) => {
+    event.preventDefault();
+    const value = Number(amount);
+    if (!Number.isFinite(value) || value <= 0 || value > refundable) {
+      setError(`Enter an amount between ₹0.01 and ${formatCurrency(refundable)}.`);
+      return;
+    }
+    if (!reason.trim()) {
+      setError("Refund reason is required.");
+      return;
+    }
+    setError("");
+    startTransition(async () => {
+      try {
+        await processRefund({ paymentId: payment.id, amount: value, reason: reason.trim() });
+        window.dispatchEvent(new Event("erp-data-refresh"));
+        onSuccess();
+        onClose();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Refund could not be processed.");
+      }
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+      <div className="w-full max-w-md rounded-2xl border bg-card shadow-2xl">
+        <div className="flex items-start justify-between border-b p-5">
+          <div>
+            <h2 className="flex items-center gap-2 text-base font-bold">
+              <RotateCcw className="h-4 w-4 text-amber-600" /> Process Refund
+            </h2>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {payment.receiptNo} · {payment.student.name}
+            </p>
+          </div>
+          <button onClick={onClose} disabled={isPending} className="rounded-lg p-1.5 hover:bg-muted">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <form onSubmit={submit} className="space-y-4 p-5">
+          <div className="grid grid-cols-3 gap-2 text-center text-xs">
+            <div className="rounded-xl border bg-muted/30 p-2.5">
+              <span className="block text-[10px] text-muted-foreground">Paid</span>
+              <strong>{formatCurrency(payment.amount)}</strong>
+            </div>
+            <div className="rounded-xl border bg-muted/30 p-2.5">
+              <span className="block text-[10px] text-muted-foreground">Refunded</span>
+              <strong>{formatCurrency(refunded)}</strong>
+            </div>
+            <div className="rounded-xl border border-amber-200 bg-amber-50 p-2.5 dark:bg-amber-950/30">
+              <span className="block text-[10px] text-muted-foreground">Available</span>
+              <strong className="text-amber-700 dark:text-amber-400">{formatCurrency(refundable)}</strong>
+            </div>
+          </div>
+          <label className="block space-y-1.5 text-xs font-semibold">
+            <span>Refund amount</span>
+            <input
+              type="number"
+              min="0.01"
+              max={refundable}
+              step="0.01"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              className="w-full rounded-xl border bg-background px-3 py-2.5 outline-none focus:ring-2 focus:ring-primary/20"
+              required
+            />
+          </label>
+          <label className="block space-y-1.5 text-xs font-semibold">
+            <span>Reason</span>
+            <textarea
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="Why is this payment being refunded?"
+              rows={3}
+              className="w-full resize-none rounded-xl border bg-background px-3 py-2.5 outline-none focus:ring-2 focus:ring-primary/20"
+              required
+            />
+          </label>
+          <div className="flex gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-[11px] text-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>This updates the fee balance and installment ledger. The action is audit logged.</span>
+          </div>
+          {error && <p className="rounded-lg bg-destructive/10 p-2.5 text-xs text-destructive">{error}</p>}
+          <div className="flex justify-end gap-2 pt-1">
+            <button type="button" onClick={onClose} disabled={isPending} className="rounded-xl border px-4 py-2 text-xs font-semibold hover:bg-muted">
+              Cancel
+            </button>
+            <button type="submit" disabled={isPending || refundable <= 0} className="inline-flex items-center gap-2 rounded-xl bg-amber-600 px-4 py-2 text-xs font-bold text-white hover:bg-amber-700 disabled:opacity-50">
+              {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
+              Confirm Refund
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 // ─── Collect Fee Modal ───────────────────────────────────────────────────────
 function CollectFeeModal({
   initialStudent,
+  campusId,
   onClose,
   onSuccess,
 }: {
   initialStudent?: StudentSearchResult | null;
+  campusId: string;
   onClose: () => void;
   onSuccess: () => void;
 }) {
@@ -125,7 +247,7 @@ function CollectFeeModal({
     const t = setTimeout(async () => {
       setSearching(true);
       try {
-        const res = await getStudents({ search: searchQuery, limit: 5 });
+        const res = await getStudents({ search: searchQuery, limit: 5, campusId });
         setStudentResults(res.students);
       } catch {
         setStudentResults([]);
@@ -134,7 +256,7 @@ function CollectFeeModal({
       }
     }, 300);
     return () => clearTimeout(t);
-  }, [searchQuery, selectedStudent]);
+  }, [searchQuery, selectedStudent, campusId]);
 
   const selectedPlan = feePlans.find((p) => p.id === selectedPlanId);
   const selectedInstallment = selectedPlan?.installments.find(
@@ -545,6 +667,8 @@ function CollectFeeModal({
 // ─── Main Fee & Payments Management Page ──────────────────────────────────────
 export default function PaymentsPage() {
   const [activeTab, setActiveTab] = useState<"accounts" | "receipts">("accounts");
+  const [campuses, setCampuses] = useState<CampusItem[]>([]);
+  const [campusFilter, setCampusFilter] = useState("GLOBAL");
 
   // Accounts state (Student Fee Ledger)
   const [accounts, setAccounts] = useState<StudentAccount[]>([]);
@@ -564,13 +688,24 @@ export default function PaymentsPage() {
   // Modal state
   const [showModal, setShowModal] = useState(false);
   const [modalStudent, setModalStudent] = useState<StudentSearchResult | null>(null);
+  const [refundPayment, setRefundPayment] = useState<PaymentRow | null>(null);
 
-  // Load Batches
+  // Finance is Global by default; batch choices follow the selected location.
   useEffect(() => {
-    getBatches({ status: "ACTIVE" })
-      .then((b) => setBatchList(b.map((item) => ({ id: item.id, name: item.name }))))
-      .catch(() => {});
+    getAllCampuses().then(setCampuses).catch(() => setCampuses([]));
   }, []);
+
+  useEffect(() => {
+    setStudentBatch("ALL");
+    getBatches({ status: "ACTIVE", campusId: campusFilter })
+      .then((b) => setBatchList(b.map((item) => ({
+        id: item.id,
+        name: campusFilter === "GLOBAL" && item.institute
+          ? `${item.name} — ${getCampusDisplayName(item.institute)}`
+          : item.name,
+      }))))
+      .catch(() => {});
+  }, [campusFilter]);
 
   // Fetch Student Fee Accounts
   const fetchStudentAccounts = useCallback(async () => {
@@ -580,6 +715,7 @@ export default function PaymentsPage() {
         search: studentSearch || undefined,
         status: studentStatus,
         batchId: studentBatch !== "ALL" ? studentBatch : undefined,
+        campusId: campusFilter,
       });
       setAccounts(data);
     } catch {
@@ -587,7 +723,7 @@ export default function PaymentsPage() {
     } finally {
       setAccountsLoading(false);
     }
-  }, [studentSearch, studentStatus, studentBatch]);
+  }, [studentSearch, studentStatus, studentBatch, campusFilter]);
 
   useEffect(() => {
     fetchStudentAccounts();
@@ -600,6 +736,7 @@ export default function PaymentsPage() {
       const result = await getPayments({
         search: receiptSearch || undefined,
         method: methodFilter === "ALL" ? undefined : methodFilter,
+        campusId: campusFilter,
         page: receiptPage,
         limit: 20,
       });
@@ -609,7 +746,7 @@ export default function PaymentsPage() {
     } finally {
       setReceiptsLoading(false);
     }
-  }, [receiptSearch, methodFilter, receiptPage]);
+  }, [receiptSearch, methodFilter, receiptPage, campusFilter]);
 
   useEffect(() => {
     if (activeTab === "receipts") {
@@ -669,6 +806,25 @@ export default function PaymentsPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <label className="flex items-center gap-2 rounded-xl border bg-card px-3 py-2 text-xs font-semibold shadow-xs">
+            <span className="text-muted-foreground">Location</span>
+            <select
+              value={campusFilter}
+              onChange={(e) => {
+                setCampusFilter(e.target.value);
+                setReceiptPage(1);
+              }}
+              className="min-w-32 bg-transparent text-foreground outline-none"
+              aria-label="Filter fees by location"
+            >
+              <option value="GLOBAL">Global</option>
+              {campuses.map((campus) => (
+                <option key={campus.id} value={campus.id}>
+                  {getCampusDisplayName(campus)}
+                </option>
+              ))}
+            </select>
+          </label>
           <button
             onClick={() => {
               setModalStudent(null);
@@ -810,6 +966,11 @@ export default function PaymentsPage() {
                       <p className="text-[11px] text-muted-foreground font-mono mt-0.5">
                         ID: {acc.studentCode} • Adm: {acc.admissionNo} • {acc.batchName}
                       </p>
+                      {campusFilter === "GLOBAL" && (
+                        <p className="mt-1 text-[10px] font-semibold text-primary/80">
+                          {acc.locationName}
+                        </p>
+                      )}
                     </div>
 
                     <button
@@ -934,7 +1095,7 @@ export default function PaymentsPage() {
                       <th className="p-3">Reference / UTR</th>
                       <th className="p-3">Deposit Date</th>
                       <th className="p-3">Amount</th>
-                      <th className="p-3 pr-4 text-right">Print Voucher</th>
+                      <th className="p-3 pr-4 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y">
@@ -945,7 +1106,10 @@ export default function PaymentsPage() {
                         </td>
                       </tr>
                     ) : (
-                      payments.map((p) => (
+                      payments.map((p) => {
+                        const refunded = p.refunds.reduce((sum, item) => sum + item.amount, 0);
+                        const refundable = Math.max(0, Math.round((p.amount - refunded) * 100) / 100);
+                        return (
                         <tr key={p.id} className="hover:bg-muted/20 transition-colors">
                           <td className="p-3 pl-4 font-mono font-bold text-primary">
                             {p.receiptNo}
@@ -981,18 +1145,36 @@ export default function PaymentsPage() {
                           </td>
                           <td className="p-3 font-bold text-emerald-600 dark:text-emerald-400">
                             {formatCurrency(p.amount)}
+                            {refunded > 0 && (
+                              <span className="mt-0.5 block text-[10px] font-semibold text-amber-600">
+                                {formatCurrency(refunded)} refunded
+                              </span>
+                            )}
                           </td>
                           <td className="p-3 pr-4 text-right">
-                            <Link
-                              href={`/finance/receipts/${p.receiptNo}`}
-                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded border text-xs font-semibold hover:bg-muted transition-colors"
-                            >
-                              <Printer className="h-3 w-3" />
-                              <span>Print</span>
-                            </Link>
+                            <div className="flex items-center justify-end gap-1.5">
+                              {refundable > 0 && (
+                                <button
+                                  type="button"
+                                  onClick={() => setRefundPayment(p)}
+                                  className="inline-flex items-center gap-1 rounded border border-amber-300 px-2.5 py-1 text-xs font-semibold text-amber-700 transition-colors hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950/30"
+                                >
+                                  <RotateCcw className="h-3 w-3" />
+                                  <span>Refund</span>
+                                </button>
+                              )}
+                              <Link
+                                href={`/finance/receipts/${p.receiptNo}`}
+                                className="inline-flex items-center gap-1 rounded border px-2.5 py-1 text-xs font-semibold transition-colors hover:bg-muted"
+                              >
+                                <Printer className="h-3 w-3" />
+                                <span>Print</span>
+                              </Link>
+                            </div>
                           </td>
                         </tr>
-                      ))
+                        );
+                      })
                     )}
                   </tbody>
                 </table>
@@ -1031,12 +1213,23 @@ export default function PaymentsPage() {
       {showModal && (
         <CollectFeeModal
           initialStudent={modalStudent}
+          campusId={campusFilter}
           onClose={() => setShowModal(false)}
           onSuccess={() => {
             fetchStudentAccounts();
             if (activeTab === "receipts") {
               fetchReceipts();
             }
+          }}
+        />
+      )}
+      {refundPayment && (
+        <RefundModal
+          payment={refundPayment}
+          onClose={() => setRefundPayment(null)}
+          onSuccess={() => {
+            fetchStudentAccounts();
+            fetchReceipts();
           }}
         />
       )}

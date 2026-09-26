@@ -454,7 +454,7 @@ export async function exportFullBackupJSON(campusId?: string) {
     leads,
     attendanceRecords,
   ] = await Promise.all([
-    db.campus.findMany({ where: instituteWhere }),
+    db.institute.findMany({ where: instituteWhere }),
     db.course.findMany({ where: campusFilter }),
     db.batch.findMany({
       where: campusFilter,

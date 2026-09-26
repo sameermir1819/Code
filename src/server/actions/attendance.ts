@@ -13,10 +13,9 @@ import { logAudit } from "./audit";
 import { startOfDay, endOfDay, startOfMonth, endOfMonth } from "date-fns";
 
 export async function getBatchAttendanceForDate(batchId: string, dateStr: string) {
-  const session = await requireStaffPermission("attendance.view");
-  const instituteId = authorizedCampusId(session, await getActiveCampusId());
+  await requireStaffPermission("attendance.view");
   const batch = await db.batch.findFirst({
-    where: { id: batchId, instituteId },
+    where: { id: batchId },
     select: { id: true },
   });
   if (!batch) throw new Error("Batch not found");
@@ -217,12 +216,11 @@ export async function markBatchUnscannedAsAbsent(batchId: string, dateStr: strin
 }
 
 export async function getAttendanceDefaulters(thresholdPercentage = 75) {
-  const session = await requireStaffPermission("attendance.view");
-  const instituteId = authorizedCampusId(session, await getActiveCampusId());
+  await requireStaffPermission("attendance.view");
 
   // Calculate attendance rate per active student
   const students = await db.student.findMany({
-    where: { status: "ACTIVE", instituteId },
+    where: { status: "ACTIVE" },
     include: {
       parent: true,
       enrollments: {
@@ -292,15 +290,14 @@ export async function getMonthlyAttendanceReport(
   month: number, // 1-12
   year: number
 ): Promise<MonthlyAttendanceReport> {
-  const session = await requireStaffPermission("attendance.view");
-  const instituteId = authorizedCampusId(session, await getActiveCampusId());
+  await requireStaffPermission("attendance.view");
 
   const monthStart = startOfMonth(new Date(year, month - 1, 1));
   const monthEnd = endOfMonth(new Date(year, month - 1, 1));
 
   // Get batch info
   const batch = await db.batch.findFirst({
-    where: { id: batchId, instituteId },
+    where: { id: batchId },
     select: { name: true },
   });
   if (!batch) throw new Error("Batch not found");
@@ -491,13 +488,10 @@ export async function recordQrAttendance(qrPayload: string, requestId?: string) 
 
 export async function getTodayAttendanceLiveFeed() {
   await requireStaffPermission("attendance.view");
-  const campusId = await getActiveCampusId();
-  if (!campusId) return [];
   const { start, end } = attendanceDay();
   const records = await db.attendance.findMany({
     where: {
       date: { gte: start, lt: end },
-      batch: { instituteId: campusId },
       status: { in: ["PRESENT", "LATE"] },
     },
     orderBy: { updatedAt: "desc" },

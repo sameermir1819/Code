@@ -1,0 +1,4 @@
+ALTER TABLE "TestSeriesRegistration"
+ADD COLUMN "refundedAmount" DOUBLE PRECISION NOT NULL DEFAULT 0,
+ADD COLUMN "refundReason" TEXT,
+ADD COLUMN "refundedAt" TIMESTAMP(3);

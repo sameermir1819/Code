@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { enrollStudentSelf } from "@/server/actions/test-series";
 import {
   Layers,
@@ -106,6 +107,7 @@ export function PortalTestSeriesClient({
   availableSeries,
   student,
 }: Props) {
+  const router = useRouter();
   // Navigation tabs: "all" (Enrolled series), "results" (Scorecards), "available" (New series)
   const [activeTab, setActiveTab] = useState<"enrolled" | "results" | "explore">("enrolled");
 
@@ -141,8 +143,7 @@ export function PortalTestSeriesClient({
           type: "success",
           text: `Enrolled successfully! Assigned Roll No: ${res.registration?.rollNumber}. You can now view your test schedule.`,
         });
-        setActiveTab("enrolled");
-        setSelectedSeriesId(seriesId);
+        router.refresh();
       } else {
         setMsg({
           type: "error",

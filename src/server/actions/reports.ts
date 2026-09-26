@@ -8,10 +8,8 @@ import { authorizedCampusId } from "@/lib/campus-scope";
 import { collectionTotals, postedPaymentStatuses } from "@/lib/collection-totals";
 
 export async function getAuditLogs(limit = 100) {
-  const session = await requireStaffPermission("audit.view");
-  const instituteId = authorizedCampusId(session, await getActiveCampusId());
+  await requireStaffPermission("audit.view");
   return await db.auditLog.findMany({
-    where: { instituteId },
     take: limit,
     orderBy: { createdAt: "desc" },
   });
@@ -19,18 +17,18 @@ export async function getAuditLogs(limit = 100) {
 
 export async function getFinancialSummaryReport() {
   await requireStaffPermission("fees.view");
-  const session = await requireStaffPermission("reports.view");
-  const instituteId = authorizedCampusId(session, await getActiveCampusId());
+  await requireStaffPermission("reports.view");
+  const instituteId: string | undefined = undefined;
 
   const [collections, feePlanAggs, paymentMethods] = await Promise.all([
     collectionTotals(instituteId),
     db.feePlan.aggregate({
-      where: { student: { instituteId } },
+      where: {},
       _sum: { totalAmount: true, discountAmount: true, finalAmount: true, paidAmount: true, balanceAmount: true },
       _count: true,
     }),
     db.payment.groupBy({
-      where: { student: { instituteId }, status: { in: postedPaymentStatuses } },
+      where: { status: { in: postedPaymentStatuses } },
       by: ["paymentMethod"],
       _sum: { amount: true },
       _count: true,

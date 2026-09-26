@@ -17,6 +17,11 @@ function assertFeeAccess(session: SessionUser, student: { id: string; parentId: 
   throw new Error("FORBIDDEN: You do not have access to these fee records");
 }
 
+async function resolveFinanceCampus(session: SessionUser, selectedCampusId?: string) {
+  const requestedCampusId = selectedCampusId ?? "GLOBAL";
+  return ["ALL", "GLOBAL"].includes(requestedCampusId) ? undefined : requestedCampusId;
+}
+
 // ---------------------------------------------------------------------------
 // Fee Plans
 // ---------------------------------------------------------------------------
@@ -24,10 +29,11 @@ function assertFeeAccess(session: SessionUser, student: { id: string; parentId: 
 export async function getFeePlans({
   status,
   search,
-}: { status?: string; search?: string } = {}) {
-  await requireStaffPermission("fees.view");
+  campusId: selectedCampusId,
+}: { status?: string; search?: string; campusId?: string } = {}) {
+  const session = await requireStaffPermission("fees.view");
 
-  const campusId = await getActiveCampusId();
+  const campusId = await resolveFinanceCampus(session, selectedCampusId);
   const where: Record<string, unknown> = {};
   if (status && status !== "ALL") where.status = status;
 
@@ -82,19 +88,22 @@ export async function createFeePlan(data: {
   }[];
 }) {
   const session = await requireStaffPermission("fees.update");
-  const instituteId = authorizedCampusId(session, await getActiveCampusId());
+  const instituteId = session.role === "SUPER_ADMIN"
+    ? undefined
+    : await resolveFinanceCampus(session);
   const student = await db.student.findFirst({
-    where: { id: data.studentId, instituteId },
-    select: { id: true },
+    where: { id: data.studentId, ...(instituteId ? { instituteId } : {}) },
+    select: { id: true, instituteId: true },
   });
-  if (!student) throw new Error("Student not found in the active campus");
+  if (!student) throw new Error("Student not found in an authorized location");
+  const studentCampusId = student.instituteId;
   if (data.enrollmentId) {
     const enrollment = await db.enrollment.findFirst({
       where: {
         id: data.enrollmentId,
         studentId: data.studentId,
         status: "ACTIVE",
-        batch: { instituteId },
+        batch: { instituteId: studentCampusId },
       },
       select: { id: true },
     });
@@ -161,7 +170,9 @@ export async function getStudentFeeDetails(studentId: string) {
   const session = await requirePermission("fees.view");
   const instituteId = ["STUDENT", "PARENT"].includes(session.role)
     ? null
-    : authorizedCampusId(session, await getActiveCampusId());
+    : session.role === "SUPER_ADMIN"
+      ? null
+      : await resolveFinanceCampus(session);
 
   const student = await db.student.findUnique({
     where: { id: studentId },
@@ -203,7 +214,9 @@ export async function recordPayment(data: {
   notes?: string;
 }) {
   const session = await requireStaffPermission("fees.create");
-  const instituteId = authorizedCampusId(session, await getActiveCampusId());
+  const instituteId = session.role === "SUPER_ADMIN"
+    ? undefined
+    : await resolveFinanceCampus(session);
 
   validateAmount(data.amount);
   const paymentDate = data.paymentDate ? new Date(data.paymentDate) : new Date();
@@ -219,8 +232,8 @@ export async function recordPayment(data: {
     });
     if (!feePlan) throw new Error("Fee plan not found");
     if (feePlan.studentId !== data.studentId) throw new Error("Fee plan does not belong to this student");
-    if (feePlan.student.instituteId !== instituteId) {
-      throw new Error("Fee plan does not belong to the active campus");
+    if (instituteId && feePlan.student.instituteId !== instituteId) {
+      throw new Error("Fee plan does not belong to your authorized location");
     }
 
     const selectedInstallment = data.installmentId
@@ -326,6 +339,7 @@ export async function getPayments({
   method,
   dateFrom,
   dateTo,
+  campusId: selectedCampusId,
   page = 1,
   limit = 20,
 }: {
@@ -333,12 +347,13 @@ export async function getPayments({
   method?: string;
   dateFrom?: string;
   dateTo?: string;
+  campusId?: string;
   page?: number;
   limit?: number;
 } = {}) {
   const session = await requireStaffPermission("fees.view");
 
-  const campusId = authorizedCampusId(session, await getActiveCampusId());
+  const campusId = await resolveFinanceCampus(session, selectedCampusId);
   const where: Record<string, unknown> = {};
 
   if (campusId) {
@@ -380,6 +395,7 @@ export async function getPayments({
         student: true,
         feePlan: true,
         installment: true,
+        refunds: { orderBy: { refundDate: "desc" } },
       },
     }),
     db.payment.count({ where }),
@@ -408,14 +424,13 @@ export async function processRefund(data: {
 }) {
   await requireStaffPermission("fees.update");
   const session = await requireAuth(["SUPER_ADMIN"]);
-  const instituteId = authorizedCampusId(session, await getActiveCampusId());
 
   validateAmount(data.amount);
   if (!data.reason?.trim()) throw new Error("Refund reason is required");
 
   const result = await financeTransaction(async (tx) => {
-    const payment = await tx.payment.findFirst({
-      where: { id: data.paymentId, student: { instituteId } },
+    const payment = await tx.payment.findUnique({
+      where: { id: data.paymentId },
       include: {
         refunds: true,
         feePlan: { include: { installments: { orderBy: { installmentNumber: "desc" } } } },
@@ -534,12 +549,6 @@ export async function getReceiptDetails(receiptNo: string) {
   });
 
   if (!payment) throw new Error("Receipt not found");
-  if (!["STUDENT", "PARENT"].includes(session.role)) {
-    const instituteId = authorizedCampusId(session, await getActiveCampusId());
-    if (payment.student.instituteId !== instituteId) {
-      throw new Error("Receipt not found");
-    }
-  }
   assertFeeAccess(session, payment.student);
 
   const institute = await db.institute.findUnique({ where: { id: payment.student.instituteId } });
@@ -557,10 +566,11 @@ export async function getReceiptDetails(receiptNo: string) {
 export async function getOutstandingFeesReport({
   batchId,
   statusFilter,
-}: { batchId?: string; statusFilter?: string } = {}) {
-  await requireStaffPermission("fees.view");
+  campusId: selectedCampusId,
+}: { batchId?: string; statusFilter?: string; campusId?: string } = {}) {
+  const actor = await requireStaffPermission("fees.view");
 
-  const campusId = await getActiveCampusId();
+  const campusId = await resolveFinanceCampus(actor, selectedCampusId);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const weekEnd = new Date(today);
@@ -585,6 +595,7 @@ export async function getOutstandingFeesReport({
         include: {
           student: {
             include: {
+              institute: { select: { name: true, city: true } },
               parent: true,
               enrollments: {
                 where: {
@@ -633,6 +644,9 @@ export async function getOutstandingFeesReport({
       studentId: inst.feePlan.student.id,
       studentCode: inst.feePlan.student.studentId,
       studentName: inst.feePlan.student.name,
+      locationName: inst.feePlan.student.institute.city
+        ? `${inst.feePlan.student.institute.name} — ${inst.feePlan.student.institute.city}`
+        : inst.feePlan.student.institute.name,
       studentPhone: inst.feePlan.student.phone,
       parentName: inst.feePlan.student.parent?.name,
       parentPhone: inst.feePlan.student.parent?.phone,
@@ -654,14 +668,16 @@ export async function getStudentFeeAccounts({
   search,
   status,
   batchId,
+  campusId: selectedCampusId,
 }: {
   search?: string;
   status?: string;
   batchId?: string;
+  campusId?: string;
 } = {}) {
-  await requireStaffPermission("fees.view");
+  const actor = await requireStaffPermission("fees.view");
 
-  const campusId = await getActiveCampusId();
+  const campusId = await resolveFinanceCampus(actor, selectedCampusId);
   const studentWhere: Record<string, unknown> = {};
 
   if (campusId) {
@@ -687,6 +703,7 @@ export async function getStudentFeeAccounts({
     where: studentWhere,
     orderBy: { name: "asc" },
     include: {
+      institute: { select: { name: true, city: true } },
       enrollments: {
         where: { status: "ACTIVE" },
         include: { batch: true, course: true },
@@ -731,6 +748,9 @@ export async function getStudentFeeAccounts({
       admissionNo: s.admissionNo,
       name: s.name,
       phone: s.phone,
+      locationName: s.institute.city
+        ? `${s.institute.name} — ${s.institute.city}`
+        : s.institute.name,
       batchName: s.enrollments[0]?.batch?.name ?? s.gradeClass ?? "Unassigned",
       courseName: s.enrollments[0]?.course?.name ?? "General Course",
       totalFees,
@@ -766,6 +786,6 @@ export async function getStudentFeeAccounts({
 
 export async function getFinanceOverview() {
   const session = await requireStaffPermission("fees.view");
-  const campusId = authorizedCampusId(session, await getActiveCampusId());
+  const campusId = await resolveFinanceCampus(session);
   return financeMetrics(campusId);
 }

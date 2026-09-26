@@ -46,6 +46,18 @@ export async function updateCampus(
   }
 
   const cleanCode = data.code?.trim().toUpperCase();
+  const cleanName = data.name?.trim();
+  if (data.name !== undefined && !cleanName) {
+    return { success: false, error: "Campus name is required." };
+  }
+  if (data.code !== undefined && !cleanCode) {
+    return { success: false, error: "Campus code is required." };
+  }
+
+  if (session?.role !== "SUPER_ADMIN" && session?.instituteId && session.instituteId !== campusId) {
+    return { success: false, error: "You can only update your assigned campus." };
+  }
+
   const campus = await db.institute.findUnique({ where: { id: campusId } });
   if (!campus) {
     return { success: false, error: "Campus not found." };
@@ -62,7 +74,7 @@ export async function updateCampus(
     const updatedCampus = await db.institute.update({
       where: { id: campusId },
       data: {
-        name: data.name?.trim() || campus.name,
+        name: cleanName || campus.name,
         code: cleanCode || campus.code,
         city: data.city?.trim() || campus.city,
         state: data.state?.trim() || campus.state,

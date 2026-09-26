@@ -60,20 +60,10 @@ export async function markAllNotificationsRead() {
 
 export async function getAnnouncements() {
   const session = await requirePermission("announcements.view");
-  const instituteId = authorizedCampusId(session, await getActiveCampusId());
   const now = new Date();
 
   const where: Record<string, unknown> = {
     OR: [{ expiryDate: null }, { expiryDate: { gte: now } }],
-    AND: [
-      {
-        OR: [
-          { courseId: null, batchId: null },
-          { course: { instituteId } },
-          { batch: { instituteId } },
-        ],
-      },
-    ],
   };
 
   if (session && session.role !== "SUPER_ADMIN" && session.role !== "ADMIN") {

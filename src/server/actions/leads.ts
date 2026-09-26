@@ -26,6 +26,24 @@ export type LeadSource =
   | "NEWSPAPER"
   | "OTHER";
 
+export async function getLeadTestSeriesOptions() {
+  await requireStaffPermission("leads.view");
+  return db.testSeries.findMany({
+    where: {
+      status: { in: ["ACTIVE", "UPCOMING"] },
+    },
+    select: {
+      id: true,
+      instituteId: true,
+      title: true,
+      code: true,
+      fee: true,
+      institute: { select: { name: true, city: true } },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+}
+
 // =========================================================================
 // 1. GET LEADS (Paginated, Searchable, Filterable, Scoped)
 // =========================================================================
@@ -46,26 +64,17 @@ export async function getLeads({
   limit?: number;
   campusId?: string;
 } = {}) {
-  const actor = await requireStaffPermission("leads.view");
-  const activeCampusId = campusId || (await getActiveCampusId());
+  await requireStaffPermission("leads.view");
 
   const where: Record<string, any> = {};
   const andConditions: any[] = [];
 
   // Campus scoping:
   // If specific campusId is requested (e.g. from filter dropdown or URL):
-  if (campusId && campusId !== "ALL") {
+  if (campusId && !["ALL", "GLOBAL"].includes(campusId)) {
     andConditions.push({
       OR: [
         { instituteId: campusId },
-        { source: "WEBSITE" },
-        { instituteId: null },
-      ],
-    });
-  } else if (actor.role !== "SUPER_ADMIN" && activeCampusId && activeCampusId !== "ALL") {
-    andConditions.push({
-      OR: [
-        { instituteId: activeCampusId },
         { source: "WEBSITE" },
         { instituteId: null },
       ],
@@ -178,6 +187,8 @@ export async function createLead(data: {
   parentName?: string;
   parentPhone?: string;
   courseInterest?: string;
+  interestType?: "ADMISSION" | "TEST_SERIES";
+  testSeriesId?: string | null;
   currentClass?: string;
   currentSchool?: string;
   schoolCollege?: string;
@@ -203,16 +214,33 @@ export async function createLead(data: {
   const cleanPhone = data.phone.trim();
   const nextDateVal = data.nextFollowUp || data.nextFollowUpDate;
   const schoolVal = data.currentSchool || data.schoolCollege;
+  let selectedTestSeries: { id: string; instituteId: string } | null = null;
+  if (data.interestType === "TEST_SERIES") {
+    if (!data.testSeriesId) throw new Error("Please select a Test Series.");
+    selectedTestSeries = await db.testSeries.findFirst({
+      where: {
+        id: data.testSeriesId,
+        status: { in: ["ACTIVE", "UPCOMING"] },
+        ...(actor.role !== "SUPER_ADMIN" && actor.instituteId
+          ? { instituteId: actor.instituteId }
+          : {}),
+      },
+      select: { id: true, instituteId: true },
+    });
+    if (!selectedTestSeries) throw new Error("Selected Test Series is not available.");
+  }
 
   const lead = await db.lead.create({
     data: {
-      instituteId: activeCampusId && activeCampusId !== "ALL" ? activeCampusId : null,
+      instituteId: selectedTestSeries?.instituteId || (activeCampusId && activeCampusId !== "ALL" ? activeCampusId : null),
       name: data.name.trim(),
       phone: cleanPhone,
       email: data.email?.trim().toLowerCase() || null,
       parentName: data.parentName?.trim() || null,
       parentPhone: data.parentPhone?.trim() || null,
       courseInterest: data.courseInterest?.trim() || null,
+      interestType: data.interestType || "ADMISSION",
+      testSeriesId: data.interestType === "TEST_SERIES" ? data.testSeriesId || null : null,
       currentClass: data.currentClass?.trim() || null,
       currentSchool: schoolVal?.trim() || null,
       source: data.source || "WALK_IN",
@@ -260,6 +288,8 @@ export async function updateLead(
     parentName?: string | null;
     parentPhone?: string | null;
     courseInterest?: string | null;
+    interestType?: "ADMISSION" | "TEST_SERIES";
+    testSeriesId?: string | null;
     currentClass?: string | null;
     currentSchool?: string | null;
     schoolCollege?: string | null;
@@ -272,14 +302,34 @@ export async function updateLead(
     notes?: string | null;
     isConverted?: boolean;
     convertedStudentId?: string | null;
+    convertedTestSeriesRegistrationId?: string | null;
   }
 ) {
   const actor = await requireStaffPermission("leads.manage");
 
   const existing = await db.lead.findUnique({ where: { id } });
   if (!existing) throw new Error("Lead not found.");
-
   const updateData: Record<string, any> = {};
+
+  const effectiveInterestType = data.interestType || existing.interestType || "ADMISSION";
+  const effectiveTestSeriesId = data.testSeriesId !== undefined
+    ? data.testSeriesId
+    : existing.testSeriesId;
+  if (effectiveInterestType === "TEST_SERIES") {
+    if (!effectiveTestSeriesId) throw new Error("Please select a Test Series.");
+    const series = await db.testSeries.findFirst({
+      where: {
+        id: effectiveTestSeriesId,
+        status: { in: ["ACTIVE", "UPCOMING"] },
+        ...(actor.role !== "SUPER_ADMIN" && actor.instituteId
+          ? { instituteId: actor.instituteId }
+          : {}),
+      },
+      select: { id: true, instituteId: true },
+    });
+    if (!series) throw new Error("Selected Test Series is not available.");
+    updateData.instituteId = series.instituteId;
+  }
 
   if (data.name) updateData.name = data.name.trim();
   if (data.phone) updateData.phone = data.phone.trim();
@@ -287,6 +337,9 @@ export async function updateLead(
   if (data.parentName !== undefined) updateData.parentName = data.parentName?.trim() || null;
   if (data.parentPhone !== undefined) updateData.parentPhone = data.parentPhone?.trim() || null;
   if (data.courseInterest !== undefined) updateData.courseInterest = data.courseInterest?.trim() || null;
+  if (data.interestType !== undefined) updateData.interestType = data.interestType;
+  if (data.interestType === "ADMISSION") updateData.testSeriesId = null;
+  else if (data.testSeriesId !== undefined) updateData.testSeriesId = data.testSeriesId || null;
   if (data.currentClass !== undefined) updateData.currentClass = data.currentClass?.trim() || null;
   const schoolVal = data.currentSchool !== undefined ? data.currentSchool : data.schoolCollege;
   if (schoolVal !== undefined) updateData.currentSchool = schoolVal?.trim() || null;
@@ -297,6 +350,9 @@ export async function updateLead(
   }
   if (data.isConverted !== undefined) updateData.isConverted = data.isConverted;
   if (data.convertedStudentId !== undefined) updateData.convertedStudentId = data.convertedStudentId;
+  if (data.convertedTestSeriesRegistrationId !== undefined) {
+    updateData.convertedTestSeriesRegistrationId = data.convertedTestSeriesRegistrationId;
+  }
   if (data.priority) updateData.priority = data.priority;
   if (data.assignedTo !== undefined) updateData.assignedTo = data.assignedTo?.trim() || null;
   const nextDateVal = data.nextFollowUp !== undefined ? data.nextFollowUp : data.nextFollowUpDate;
@@ -497,10 +553,10 @@ export async function getLeadsMetrics() {
 }
 
 // =========================================================================
-// 8. PUBLIC ADMISSIONS: GET COURSES & SUBMIT ONLINE ENQUIRY (NO AUTH REQUIRED)
+// 8. PUBLIC ADMISSIONS: GET BATCHES / TEST SERIES & SUBMIT ONLINE ENQUIRY
 // =========================================================================
 export async function getPublicAdmissionData() {
-  const [institute, campuses, courses] = await Promise.all([
+  const [institute, campuses, batches, testSeries] = await Promise.all([
     db.institute.findFirst({
       orderBy: { createdAt: "asc" },
       select: {
@@ -512,7 +568,7 @@ export async function getPublicAdmissionData() {
         logoUrl: true,
       },
     }),
-    db.campus.findMany({
+    db.institute.findMany({
       select: {
         id: true,
         name: true,
@@ -522,21 +578,32 @@ export async function getPublicAdmissionData() {
       },
       orderBy: { createdAt: "asc" },
     }),
-    db.course.findMany({
-      where: { status: "ACTIVE" },
+    db.batch.findMany({
+      where: { status: { in: ["ACTIVE", "UPCOMING"] } },
       select: {
         id: true,
+        instituteId: true,
         name: true,
         code: true,
-        gradeClass: true,
-        duration: true,
-        standardFee: true,
+        capacity: true,
       },
       orderBy: { name: "asc" },
     }),
+    db.testSeries.findMany({
+      where: { status: { in: ["ACTIVE", "UPCOMING"] } },
+      select: {
+        id: true,
+        instituteId: true,
+        title: true,
+        code: true,
+        targetExam: true,
+        fee: true,
+      },
+      orderBy: { title: "asc" },
+    }),
   ]);
 
-  return { institute, campuses, courses };
+  return { institute, campuses, batches, testSeries };
 }
 
 export async function submitPublicAdmissionEnquiry(data: {
@@ -545,7 +612,9 @@ export async function submitPublicAdmissionEnquiry(data: {
   email?: string;
   parentName?: string;
   parentPhone?: string;
-  courseInterest: string;
+  interestType?: "ADMISSION" | "TEST_SERIES";
+  batchId?: string;
+  testSeriesId?: string;
   campusId?: string;
   instituteId?: string;
   currentClass?: string;
@@ -568,7 +637,7 @@ export async function submitPublicAdmissionEnquiry(data: {
   let targetInstituteId = data.campusId || data.instituteId;
 
   if (!targetInstituteId) {
-    const defaultInstitute = await db.campus.findFirst({
+    const defaultInstitute = await db.institute.findFirst({
       orderBy: { createdAt: "asc" },
       select: { id: true },
     });
@@ -577,7 +646,7 @@ export async function submitPublicAdmissionEnquiry(data: {
 
   // Lookup campus name if available
   const selectedCampus = targetInstituteId
-    ? await db.campus.findUnique({
+    ? await db.institute.findUnique({
         where: { id: targetInstituteId },
         select: { name: true, city: true, code: true },
       })
@@ -587,6 +656,39 @@ export async function submitPublicAdmissionEnquiry(data: {
     ? `${selectedCampus.city || selectedCampus.name} (${selectedCampus.code})`
     : null;
 
+  const interestType = data.interestType === "TEST_SERIES" ? "TEST_SERIES" : "ADMISSION";
+  let interestLabel = "General Admission Inquiry";
+  let selectedTestSeriesId: string | null = null;
+
+  if (interestType === "TEST_SERIES") {
+    if (!data.testSeriesId) return { success: false, error: "Please select a Test Series." };
+    const series = await db.testSeries.findFirst({
+      where: {
+        id: data.testSeriesId,
+        status: { in: ["ACTIVE", "UPCOMING"] },
+        ...(targetInstituteId ? { instituteId: targetInstituteId } : {}),
+      },
+      select: { id: true, instituteId: true, title: true },
+    });
+    if (!series) return { success: false, error: "Selected Test Series is not available at this campus." };
+    targetInstituteId = series.instituteId;
+    selectedTestSeriesId = series.id;
+    interestLabel = series.title;
+  } else {
+    if (!data.batchId) return { success: false, error: "Please select a Batch." };
+    const batch = await db.batch.findFirst({
+      where: {
+        id: data.batchId,
+        status: { in: ["ACTIVE", "UPCOMING"] },
+        ...(targetInstituteId ? { instituteId: targetInstituteId } : {}),
+      },
+      select: { id: true, instituteId: true, name: true },
+    });
+    if (!batch) return { success: false, error: "Selected Batch is not available at this campus." };
+    targetInstituteId = batch.instituteId;
+    interestLabel = batch.name;
+  }
+
   const lead = await db.lead.create({
     data: {
       instituteId: targetInstituteId || null,
@@ -595,7 +697,9 @@ export async function submitPublicAdmissionEnquiry(data: {
       email: data.email?.trim().toLowerCase() || null,
       parentName: data.parentName?.trim() || null,
       parentPhone: data.parentPhone?.trim() || null,
-      courseInterest: data.courseInterest?.trim() || "General Admission Inquiry",
+      courseInterest: interestLabel,
+      interestType,
+      testSeriesId: selectedTestSeriesId,
       currentClass: data.currentClass?.trim() || null,
       currentSchool: data.currentSchool?.trim() || null,
       source: "WEBSITE",
@@ -613,7 +717,7 @@ export async function submitPublicAdmissionEnquiry(data: {
       leadId: lead.id,
       status: "COMPLETED",
       contactMethod: "WEBSITE",
-      notes: `Online Admission Application received via Website portal for ${data.courseInterest || "General"}.${campusTag ? ` Campus Preference: ${campusTag}.` : ""}${data.city ? ` City: ${data.city}.` : ""}${data.notes ? ` Notes: ${data.notes}` : ""}`,
+      notes: `Online ${interestType === "TEST_SERIES" ? "Test Series" : "batch admission"} application received via Website portal for ${interestLabel}.${campusTag ? ` Campus Preference: ${campusTag}.` : ""}${data.city ? ` City: ${data.city}.` : ""}${data.notes ? ` Notes: ${data.notes}` : ""}`,
       counselorName: "Online Admission Desk",
     },
   });

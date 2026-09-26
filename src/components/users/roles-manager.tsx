@@ -53,6 +53,7 @@ interface RolesManagerProps {
   initialRoles: RoleItem[];
   allPermissions: RolePermissionItem[];
   actorRole: string;
+  canManageRoles: boolean;
   onRoleChanged?: () => void;
 }
 
@@ -76,6 +77,7 @@ export function RolesManager({
   initialRoles,
   allPermissions,
   actorRole,
+  canManageRoles,
   onRoleChanged,
 }: RolesManagerProps) {
   const [roles, setRoles] = useState<RoleItem[]>(initialRoles);
@@ -318,13 +320,13 @@ export function RolesManager({
           </p>
         </div>
 
-        <Button
+        {canManageRoles && <Button
           onClick={handleOpenCreate}
           className="inline-flex items-center gap-2 text-xs font-semibold shadow shrink-0"
         >
           <Plus className="h-4 w-4" />
           <span>Create Custom Role</span>
-        </Button>
+        </Button>}
       </div>
 
       {/* Notifications */}
@@ -497,7 +499,7 @@ export function RolesManager({
 
                 {/* Footer Action Buttons */}
                 <div className="flex items-center justify-end gap-2 pt-2 border-t">
-                  <Button
+                  {canManageRoles && <Button
                     variant="outline"
                     size="sm"
                     onClick={() => handleOpenEdit(r)}
@@ -505,9 +507,9 @@ export function RolesManager({
                   >
                     <Edit3 className="h-3.5 w-3.5 mr-1.5" />
                     <span>Edit Rights</span>
-                  </Button>
+                  </Button>}
 
-                  {r.name === "SUPER_ADMIN" ? (
+                  {!canManageRoles ? null : r.name === "SUPER_ADMIN" ? (
                     <span
                       title="Master Super Administrator role is the system root anchor and cannot be deleted."
                       className="text-[10px] text-primary/90 font-medium p-1 px-2 border border-primary/20 rounded bg-primary/5 flex items-center gap-1"

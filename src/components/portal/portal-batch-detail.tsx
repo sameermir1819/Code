@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   Calendar,
   Clock,
@@ -136,11 +136,16 @@ const DAY_ORDER: Record<string, number> = {
 
 export function PortalBatchDetail({ batch }: { batch: BatchData }) {
   const searchParams = useSearchParams();
-  const initialTab = searchParams.get("tab") || "timetable";
-
-  const [activeTab, setActiveTab] = useState<"timetable" | "materials" | "faculty">(
-    initialTab === "materials" ? "materials" : initialTab === "faculty" ? "faculty" : "timetable"
-  );
+  const pathname = usePathname();
+  const router = useRouter();
+  const requestedTab = searchParams.get("tab");
+  const activeTab: "timetable" | "materials" | "faculty" =
+    requestedTab === "materials" ? "materials" : requestedTab === "faculty" ? "faculty" : "timetable";
+  const setActiveTab = (tab: "timetable" | "materials" | "faculty") => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("tab", tab);
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+  };
 
   // Timetable Day Filter
   const todayDayName = useMemo(() => {
@@ -218,11 +223,11 @@ export function PortalBatchDetail({ batch }: { batch: BatchData }) {
       {/* ── Breadcrumb / Back Bar ── */}
       <div className="flex items-center justify-between">
         <Link
-          href="/portal"
+          href="/portal/batches"
           className="inline-flex items-center gap-1.5 text-xs font-semibold text-zinc-400 hover:text-white transition-colors px-3 py-1.5 rounded-xl bg-white/[0.04] border border-white/10 hover:bg-white/[0.08]"
         >
           <ArrowLeft className="w-3.5 h-3.5" />
-          <span>Back to Dashboard</span>
+          <span>Back to My Batches</span>
         </Link>
 
         <span className="text-[11px] font-mono text-zinc-500 uppercase">
@@ -257,7 +262,7 @@ export function PortalBatchDetail({ batch }: { batch: BatchData }) {
 
             <p className="text-xs sm:text-sm text-zinc-300 flex items-center gap-2">
               <GraduationCap className="w-4 h-4 text-indigo-400" />
-              <span>Program: <strong className="text-white font-semibold">{batch.course.name}</strong></span>
+              <span>Your active academic batch and learning workspace</span>
             </p>
           </div>
 

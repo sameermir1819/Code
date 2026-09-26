@@ -1,22 +1,17 @@
 "use client";
 
 import { useState, useTransition, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import { Role } from "@/lib/permissions";
 import { logoutUser } from "@/server/actions/auth";
-import type { CampusItem } from "@/server/actions/campus";
-import { CampusSelector } from "./campus-selector";
 import { GlobalSearchModal } from "./global-search-modal";
 import {
   Bell,
-  Search,
   LogOut,
   Moon,
   Sun,
   Shield,
-  GraduationCap,
-  Briefcase,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -24,18 +19,15 @@ interface HeaderProps {
   currentRole: Role;
   userName: string;
   unreadCount?: number;
-  campuses: CampusItem[];
-  activeCampus: CampusItem | null;
 }
 
 export function Header({
   currentRole,
   userName,
   unreadCount = 0,
-  campuses,
-  activeCampus,
 }: HeaderProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const [isPending, startTransition] = useTransition();
   const { resolvedTheme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
@@ -58,11 +50,34 @@ export function Header({
     setTheme(resolvedTheme === "dark" ? "light" : "dark");
   };
 
+  const routeMeta = [
+    ["/dashboard/batches", "Batches", "Academic operations"],
+    ["/dashboard/users", "Users & Roles", "Access management"],
+    ["/finance", "Finance", "Payments and collections"],
+    ["/students", "Students", "Student lifecycle"],
+    ["/faculty", "Faculty", "Teaching team"],
+    ["/attendance", "Attendance", "Daily attendance"],
+    ["/test-series", "Test Series", "Assessments"],
+    ["/exams", "Exams", "Exams and marks"],
+    ["/results", "Results", "Academic performance"],
+    ["/materials", "Study Materials", "Learning resources"],
+    ["/leads", "Leads & CRM", "Admissions pipeline"],
+    ["/announcements", "Announcements", "Institute communication"],
+    ["/notifications", "Notifications", "Activity inbox"],
+    ["/settings", "Settings", "Institute configuration"],
+    ["/dashboard", "Dashboard", "ERP overview"],
+  ].find(([path]) => pathname === path || pathname.startsWith(`${path}/`)) || ["", "Workspace", "Futurex ERP"];
+
   return (
-    <header className="h-16 shrink-0 border-b border-border/60 bg-background/80 backdrop-blur-md pl-14 pr-2 sm:pr-4 lg:px-6 flex items-center justify-between gap-2 lg:gap-4 sticky top-0 z-30 font-poppins print:hidden">
-      <div className="flex min-w-0 flex-1 items-center gap-2 lg:gap-4">
-        <CampusSelector campuses={campuses} activeCampus={activeCampus} />
-        <GlobalSearchModal />
+    <header className="h-[4.5rem] shrink-0 border-b border-border/60 bg-background/80 backdrop-blur-xl pl-14 pr-2 sm:pr-4 lg:px-7 flex items-center justify-between gap-3 lg:gap-6 sticky top-0 z-30 font-poppins print:hidden shadow-[0_1px_0_hsl(var(--border)/0.4)]">
+      <div className="flex min-w-0 flex-1 items-center gap-4 lg:gap-8">
+        <div className="hidden min-w-36 lg:block">
+          <p className="truncate text-sm font-extrabold tracking-tight text-foreground">{routeMeta[1]}</p>
+          <p className="truncate text-[10px] font-medium uppercase tracking-wider text-muted-foreground">{routeMeta[2]}</p>
+        </div>
+        <div className="w-full max-w-xl">
+          <GlobalSearchModal />
+        </div>
       </div>
 
       {/* Right controls */}
@@ -72,6 +87,18 @@ export function Header({
           <Shield className="h-3.5 w-3.5 text-primary" />
           <span className="tracking-wide text-[11px] font-bold">{currentRole.replace("_", " ")}</span>
         </div>
+
+        <button
+          type="button"
+          onClick={() => router.push("/profile")}
+          className="hidden sm:flex items-center gap-2 rounded-xl border border-border/70 bg-card/70 py-1.5 pl-1.5 pr-3 text-left shadow-sm transition-all hover:border-primary/30 hover:bg-card"
+          title="Open profile"
+        >
+          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-[11px] font-extrabold text-primary-foreground">
+            {userName.charAt(0).toUpperCase()}
+          </span>
+          <span className="hidden 2xl:block max-w-28 truncate text-[11px] font-bold text-foreground">{userName}</span>
+        </button>
 
         {/* Theme Toggle */}
         <Button

@@ -1,9 +1,10 @@
 import { redirect } from "next/navigation";
 
 interface BatchPageProps {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
-export default function BatchDetailRedirect({ params }: BatchPageProps) {
-  redirect(`/dashboard/batches/${params.id}`);
+export default async function BatchDetailRedirect({ params }: BatchPageProps) {
+  const { id } = await params;
+  redirect(`/dashboard/batches/${id}`);
 }

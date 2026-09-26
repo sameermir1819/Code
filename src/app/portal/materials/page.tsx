@@ -40,7 +40,7 @@ export default async function StudentMaterialsPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-black text-white">Course Materials &amp; Lecture Notes</h1>
+          <h1 className="text-2xl font-black text-white">Study Materials &amp; Lecture Notes</h1>
           <p className="text-xs text-zinc-400">
             Downloadable PDFs, assignments, and test prep notes curated for your enrolled batches.
           </p>

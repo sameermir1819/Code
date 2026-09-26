@@ -8,6 +8,7 @@ import {
   getLead,
   getRecentLeadFollowUps,
   getLeadsMetrics,
+  getLeadTestSeriesOptions,
   createLead,
   updateLead,
   addLeadFollowUp,
@@ -16,6 +17,7 @@ import {
   LeadPriority,
   LeadSource,
 } from "@/server/actions/leads";
+import { registerStudentForTestSeries } from "@/server/actions/test-series";
 import { exportLeadsCSV } from "@/server/actions/export";
 import { formatDate, formatDateTime } from "@/lib/utils";
 import {
@@ -64,6 +66,7 @@ import {
 
 type Lead = Awaited<ReturnType<typeof getLeads>>["leads"][number];
 type Metrics = Awaited<ReturnType<typeof getLeadsMetrics>>;
+type TestSeriesOption = Awaited<ReturnType<typeof getLeadTestSeriesOptions>>[number];
 
 const STATUS_COLUMNS: { key: LeadStatus; label: string; color: string }[] = [
   { key: "NEW", label: "New Leads", color: "border-blue-500/40 bg-blue-500/5 text-blue-400" },
@@ -116,6 +119,15 @@ export default function LeadsPage() {
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
   const [activeFollowUpLead, setActiveFollowUpLead] = useState<Lead | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [testSeriesOptions, setTestSeriesOptions] = useState<TestSeriesOption[]>([]);
+  const [testSeriesLeadToEnroll, setTestSeriesLeadToEnroll] = useState<Lead | null>(null);
+  const [testSeriesEnrollment, setTestSeriesEnrollment] = useState({
+    testSeriesId: "",
+    feeAmount: 0,
+    paymentMethod: "UPI",
+    paymentStatus: "PAID",
+    remarks: "Converted from Test Series lead",
+  });
 
   // ─── Add/Edit Form State ────────────────────────────────────────────
   const [formData, setFormData] = useState({
@@ -125,6 +137,8 @@ export default function LeadsPage() {
     parentName: "",
     parentPhone: "",
     courseInterest: "",
+    interestType: "ADMISSION" as "ADMISSION" | "TEST_SERIES",
+    testSeriesId: "",
     schoolCollege: "",
     source: "WALK_IN" as LeadSource,
     priority: "MEDIUM" as LeadPriority,
@@ -146,7 +160,7 @@ export default function LeadsPage() {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [leadsRes, metricsRes] = await Promise.all([
+      const [leadsRes, metricsRes, seriesRes] = await Promise.all([
         getLeads({
           search,
           status: statusFilter,
@@ -155,9 +169,11 @@ export default function LeadsPage() {
           limit: 100,
         }),
         getLeadsMetrics(),
+        getLeadTestSeriesOptions(),
       ]);
       setLeads(leadsRes.leads);
       setMetrics(metricsRes);
+      setTestSeriesOptions(seriesRes);
     } catch (err) {
       console.error("Failed to load leads data:", err);
     } finally {
@@ -264,6 +280,10 @@ export default function LeadsPage() {
       alert("Please provide at least a Student Name and Phone number.");
       return;
     }
+    if (formData.interestType === "TEST_SERIES" && !formData.testSeriesId) {
+      alert("Please select the Test Series for this lead.");
+      return;
+    }
 
     setSubmitting(true);
     try {
@@ -301,6 +321,8 @@ export default function LeadsPage() {
       parentName: "",
       parentPhone: "",
       courseInterest: "",
+      interestType: "ADMISSION",
+      testSeriesId: "",
       schoolCollege: "",
       source: "WALK_IN",
       priority: "MEDIUM",
@@ -320,6 +342,8 @@ export default function LeadsPage() {
       parentName: lead.parentName || "",
       parentPhone: lead.parentPhone || "",
       courseInterest: lead.courseInterest || "",
+      interestType: (lead.interestType || "ADMISSION") as "ADMISSION" | "TEST_SERIES",
+      testSeriesId: lead.testSeriesId || "",
       schoolCollege: lead.currentSchool || "",
       source: lead.source as LeadSource,
       priority: lead.priority as LeadPriority,
@@ -388,6 +412,18 @@ export default function LeadsPage() {
 
   // ─── Convert Lead to Admission ──────────────────────────────────────
   const handleConvertToAdmission = (lead: Lead) => {
+    if (lead.interestType === "TEST_SERIES") {
+      const selectedSeries = testSeriesOptions.find((series) => series.id === lead.testSeriesId);
+      setTestSeriesLeadToEnroll(lead);
+      setTestSeriesEnrollment({
+        testSeriesId: lead.testSeriesId || "",
+        feeAmount: Number(selectedSeries?.fee || 0),
+        paymentMethod: "UPI",
+        paymentStatus: "PAID",
+        remarks: "Converted from Test Series lead",
+      });
+      return;
+    }
     const params = new URLSearchParams({
       leadId: lead.id,
       name: lead.name,
@@ -397,6 +433,34 @@ export default function LeadsPage() {
       courseInterest: lead.courseInterest || "",
     });
     router.push(`/admissions/new?${params.toString()}`);
+  };
+
+  const handleTestSeriesEnrollment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!testSeriesLeadToEnroll || !testSeriesEnrollment.testSeriesId) return;
+    setSubmitting(true);
+    try {
+      const result = await registerStudentForTestSeries({
+        testSeriesId: testSeriesEnrollment.testSeriesId,
+        studentId: null,
+        externalStudentName: testSeriesLeadToEnroll.name,
+        externalStudentPhone: testSeriesLeadToEnroll.phone,
+        externalStudentEmail: testSeriesLeadToEnroll.email,
+        feeAmount: Number(testSeriesEnrollment.feeAmount) || 0,
+        paymentMethod: testSeriesEnrollment.paymentMethod,
+        paymentStatus: testSeriesEnrollment.paymentStatus,
+        remarks: testSeriesEnrollment.remarks,
+        leadId: testSeriesLeadToEnroll.id,
+      });
+      if (!result.success) throw new Error(result.error || "Registration failed.");
+      setTestSeriesLeadToEnroll(null);
+      await loadData();
+      alert(`External candidate enrolled. Roll No: ${result.registration?.rollNumber}`);
+    } catch (err: any) {
+      alert(err.message || "Failed to enroll Test Series candidate.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   // ─── CSV Export ─────────────────────────────────────────────────────
@@ -1052,6 +1116,11 @@ export default function LeadsPage() {
                       <td className="px-4 py-3.5">
                         <div className="font-semibold text-foreground flex items-center gap-1.5">
                           {lead.name}
+                          {lead.interestType === "TEST_SERIES" && (
+                            <Badge className="text-[9px] px-1.5 py-0 bg-violet-500/10 text-violet-400 border border-violet-500/25">
+                              TEST SERIES
+                            </Badge>
+                          )}
                           {lead.isConverted && (
                             <span title="Converted / Enrolled student" className="text-emerald-400">
                               <CheckCircle2 className="w-3.5 h-3.5 inline" />
@@ -1213,16 +1282,16 @@ export default function LeadsPage() {
                             Log Call
                           </Button>
 
-                          {/* Convert to Admission Button */}
+                          {/* Convert lead */}
                           {lead.status !== "CONVERTED" && (
                             <Button
                               size="sm"
                               onClick={() => handleConvertToAdmission(lead)}
                               className="h-8 px-2.5 text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-medium flex items-center gap-1 shadow-sm"
-                              title="Convert to Admission"
+                              title={lead.interestType === "TEST_SERIES" ? "Enroll in Test Series" : "Convert to Admission"}
                             >
                               <UserPlus className="w-3.5 h-3.5" />
-                              Admit
+                              {lead.interestType === "TEST_SERIES" ? "Enroll" : "Admit"}
                             </Button>
                           )}
 
@@ -1280,9 +1349,12 @@ export default function LeadsPage() {
                       className="bg-card border-border hover:border-primary/50 transition-all p-3 shadow-sm group"
                     >
                       <div className="flex items-start justify-between gap-1 mb-1">
-                        <p className="font-semibold text-xs text-foreground group-hover:text-primary transition-colors">
-                          {lead.name}
-                        </p>
+                        <div>
+                          <p className="font-semibold text-xs text-foreground group-hover:text-primary transition-colors">{lead.name}</p>
+                          {lead.interestType === "TEST_SERIES" && (
+                            <span className="text-[9px] font-semibold text-violet-400">TEST SERIES LEAD</span>
+                          )}
+                        </div>
                         {getPriorityBadge(lead.priority)}
                       </div>
 
@@ -1361,7 +1433,8 @@ export default function LeadsPage() {
                               onClick={() => handleConvertToAdmission(lead)}
                               className="h-6 px-2 text-[10px] bg-emerald-600 hover:bg-emerald-500 text-white font-medium"
                             >
-                              <UserPlus className="w-2.5 h-2.5 mr-1" /> Admit
+                              <UserPlus className="w-2.5 h-2.5 mr-1" />
+                              {lead.interestType === "TEST_SERIES" ? "Enroll" : "Admit"}
                             </Button>
                           )}
 
@@ -1448,14 +1521,62 @@ export default function LeadsPage() {
 
                 <div>
                   <label className="text-xs font-medium text-foreground block mb-1">
-                    Course Interested
+                    Lead Type *
                   </label>
-                  <Input
-                    placeholder="e.g. Class 11th JEE / NEET"
-                    value={formData.courseInterest}
-                    onChange={(e) => setFormData({ ...formData, courseInterest: e.target.value })}
-                  />
+                  <select
+                    value={formData.interestType}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        interestType: e.target.value as "ADMISSION" | "TEST_SERIES",
+                        testSeriesId: e.target.value === "TEST_SERIES" ? formData.testSeriesId : "",
+                      })
+                    }
+                    className="w-full text-sm h-10 rounded-md bg-background border border-border px-3 text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                  >
+                    <option value="ADMISSION">Regular Batch Admission</option>
+                    <option value="TEST_SERIES">Test Series (External Candidate)</option>
+                  </select>
                 </div>
+
+                {formData.interestType === "TEST_SERIES" ? (
+                  <div className="md:col-span-2">
+                    <label className="text-xs font-medium text-foreground block mb-1">
+                      Test Series *
+                    </label>
+                    <select
+                      required
+                      value={formData.testSeriesId}
+                      onChange={(e) => {
+                        const series = testSeriesOptions.find((item) => item.id === e.target.value);
+                        setFormData({
+                          ...formData,
+                          testSeriesId: e.target.value,
+                          courseInterest: series?.title || "",
+                        });
+                      }}
+                      className="w-full text-sm h-10 rounded-md bg-background border border-border px-3 text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                    >
+                      <option value="">Select Test Series</option>
+                      {testSeriesOptions.map((series) => (
+                        <option key={series.id} value={series.id}>
+                          {series.title} ({series.code}) — {series.institute.name} — ₹{Number(series.fee).toLocaleString("en-IN")}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ) : (
+                  <div>
+                    <label className="text-xs font-medium text-foreground block mb-1">
+                      Batch / Program Interest
+                    </label>
+                    <Input
+                      placeholder="e.g. Class 11 JEE Batch"
+                      value={formData.courseInterest}
+                      onChange={(e) => setFormData({ ...formData, courseInterest: e.target.value })}
+                    />
+                  </div>
+                )}
 
                 <div>
                   <label className="text-xs font-medium text-foreground block mb-1">
@@ -1605,6 +1726,76 @@ export default function LeadsPage() {
                     : editingLead
                     ? "Update Lead"
                     : "Save Inquiry"}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {testSeriesLeadToEnroll && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm">
+          <div className="bg-card border border-border w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-muted/20">
+              <div>
+                <h3 className="font-semibold text-foreground">Enroll External Test Series Candidate</h3>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {testSeriesLeadToEnroll.name} · {testSeriesLeadToEnroll.phone}
+                </p>
+              </div>
+              <button onClick={() => setTestSeriesLeadToEnroll(null)} className="p-1 text-muted-foreground hover:text-foreground">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <form onSubmit={handleTestSeriesEnrollment} className="p-6 space-y-4">
+              <div>
+                <label className="text-xs font-medium text-foreground block mb-1">Test Series *</label>
+                <select
+                  required
+                  value={testSeriesEnrollment.testSeriesId}
+                  onChange={(e) => {
+                    const series = testSeriesOptions.find((item) => item.id === e.target.value);
+                    setTestSeriesEnrollment({ ...testSeriesEnrollment, testSeriesId: e.target.value, feeAmount: Number(series?.fee || 0) });
+                  }}
+                  className="w-full text-sm h-10 rounded-md bg-background border border-border px-3 text-foreground"
+                >
+                  <option value="">Select Test Series</option>
+                  {testSeriesOptions.map((series) => (
+                    <option key={series.id} value={series.id}>
+                      {series.title} ({series.code}) — {series.institute.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-medium text-foreground block mb-1">Fee Amount</label>
+                  <Input type="number" min="0" value={testSeriesEnrollment.feeAmount} onChange={(e) => setTestSeriesEnrollment({ ...testSeriesEnrollment, feeAmount: Number(e.target.value) })} />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-foreground block mb-1">Payment Status</label>
+                  <select value={testSeriesEnrollment.paymentStatus} onChange={(e) => setTestSeriesEnrollment({ ...testSeriesEnrollment, paymentStatus: e.target.value })} className="w-full text-sm h-10 rounded-md bg-background border border-border px-3 text-foreground">
+                    <option value="PAID">Paid</option>
+                    <option value="PENDING">Pending</option>
+                  </select>
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="text-xs font-medium text-foreground block mb-1">Payment Method</label>
+                  <select value={testSeriesEnrollment.paymentMethod} onChange={(e) => setTestSeriesEnrollment({ ...testSeriesEnrollment, paymentMethod: e.target.value })} className="w-full text-sm h-10 rounded-md bg-background border border-border px-3 text-foreground">
+                    <option value="UPI">UPI</option>
+                    <option value="CASH">Cash</option>
+                    <option value="CARD">Card</option>
+                    <option value="BANK_TRANSFER">Bank Transfer</option>
+                  </select>
+                </div>
+              </div>
+              <div className="rounded-lg border border-emerald-500/25 bg-emerald-500/5 p-3 text-xs text-muted-foreground">
+                This creates an external Test Series registration and roll number only. It will not create a regular Student or Batch admission.
+              </div>
+              <div className="flex justify-end gap-2 pt-2 border-t border-border">
+                <Button type="button" variant="outline" onClick={() => setTestSeriesLeadToEnroll(null)}>Cancel</Button>
+                <Button type="submit" disabled={submitting || !testSeriesEnrollment.testSeriesId}>
+                  {submitting ? "Enrolling..." : "Confirm Enrollment"}
                 </Button>
               </div>
             </form>

@@ -11,8 +11,6 @@ import {
 } from "@/server/actions/auth";
 import {
   getAllCampuses,
-  getActiveCampus,
-  switchActiveCampus,
   createNewCampus,
   updateCampus,
   deleteCampus,
@@ -38,8 +36,6 @@ import {
   MapPin,
   Sparkles,
   Plus,
-  Check,
-  RefreshCw,
   Trash2,
   AlertTriangle,
   X,
@@ -80,7 +76,6 @@ export default function SettingsAndProfilePage() {
   });
 
   const [campuses, setCampuses] = useState<CampusItem[]>([]);
-  const [activeCampus, setActiveCampus] = useState<CampusItem | null>(null);
   const [showAddCampus, setShowAddCampus] = useState(false);
   const [deletingCampus, setDeletingCampus] = useState<CampusItem | null>(null);
   const [editingCampus, setEditingCampus] = useState<CampusItem | null>(null);
@@ -100,11 +95,10 @@ export default function SettingsAndProfilePage() {
 
   useEffect(() => {
     async function loadProfiles() {
-      const [u, inst, allC, activeC] = await Promise.all([
+      const [u, inst, allC] = await Promise.all([
         getUserProfile(),
         getInstituteProfile(),
         getAllCampuses(),
-        getActiveCampus(),
       ]);
 
       if (u) {
@@ -120,10 +114,6 @@ export default function SettingsAndProfilePage() {
 
       if (allC) {
         setCampuses(allC);
-      }
-
-      if (activeC) {
-        setActiveCampus(activeC);
       }
 
       const activeInst = inst;
@@ -153,25 +143,6 @@ export default function SettingsAndProfilePage() {
     window.addEventListener("erp-campus-changed", reloadProfiles);
     return () => window.removeEventListener("erp-campus-changed", reloadProfiles);
   }, []);
-
-  const handleSwitchCampus = (campusId: string) => {
-    startTransition(async () => {
-      try {
-        const res = await switchActiveCampus(campusId);
-        if (res.success) {
-          setFeedback({ type: "success", message: "Active campus switched successfully!" });
-          const [updatedActive, allC] = await Promise.all([getActiveCampus(), getAllCampuses()]);
-          setActiveCampus(updatedActive);
-          setCampuses(allC);
-          router.refresh();
-        } else {
-          setFeedback({ type: "error", message: res.error || "Failed to switch campus." });
-        }
-      } catch (err: any) {
-        setFeedback({ type: "error", message: err.message || "Failed to switch campus." });
-      }
-    });
-  };
 
   const handleCreateCampus = (e: React.FormEvent) => {
     e.preventDefault();
@@ -216,9 +187,7 @@ export default function SettingsAndProfilePage() {
         const res = await deleteCampus(deletingCampus.id);
         if (res.success) {
           setFeedback({ type: "success", message: res.message || "Campus deleted successfully!" });
-          const [allC, activeC] = await Promise.all([getAllCampuses(), getActiveCampus()]);
-          setCampuses(allC);
-          setActiveCampus(activeC);
+          setCampuses(await getAllCampuses());
           setDeletingCampus(null);
           window.dispatchEvent(new CustomEvent("erp-campus-changed"));
           window.dispatchEvent(new CustomEvent("erp-data-refresh"));
@@ -253,11 +222,6 @@ export default function SettingsAndProfilePage() {
       }
       const updated = res.campus;
       setCampuses((items) => items.map((item) => item.id === updated.id ? { ...item, ...updated } : item));
-      if (activeCampus?.id === updated.id) {
-        const active = { ...activeCampus, ...updated };
-        setActiveCampus(active);
-        window.dispatchEvent(new CustomEvent("erp-campus-changed", { detail: { campusId: active.id, campus: active } }));
-      }
       setEditingCampus(null);
       setFeedback({ type: "success", message: "Campus details updated successfully!" });
       router.refresh();
@@ -648,24 +612,15 @@ export default function SettingsAndProfilePage() {
               {/* Campuses Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
                 {campuses.map((c) => {
-                  const isCurrent = activeCampus?.id === c.id;
                   return (
                     <div
                       key={c.id}
-                      className={`p-3.5 rounded-xl border transition-all flex flex-col justify-between gap-3 ${
-                        isCurrent
-                          ? "bg-primary/5 border-primary/40 shadow-xs"
-                          : "bg-muted/20 hover:bg-muted/40"
-                      }`}
+                      className="p-3.5 rounded-xl border bg-muted/20 hover:bg-muted/40 transition-all flex flex-col justify-between gap-3"
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex items-center gap-2.5">
                           <div
-                            className={`h-9 w-9 rounded-xl flex items-center justify-center shrink-0 ${
-                              isCurrent
-                                ? "bg-primary text-white shadow-xs"
-                                : "bg-muted text-muted-foreground"
-                            }`}
+                            className="h-9 w-9 rounded-xl flex items-center justify-center shrink-0 bg-primary/10 text-primary"
                           >
                             <Building2 className="h-4 w-4" />
                           </div>
@@ -688,23 +643,6 @@ export default function SettingsAndProfilePage() {
                         </div>
 
                         <div className="flex items-center gap-1.5 shrink-0">
-                          {isCurrent ? (
-                            <Badge variant="default" className="text-[9px] tracking-wide shrink-0">
-                              Active Campus
-                            </Badge>
-                          ) : (
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleSwitchCampus(c.id)}
-                              disabled={isPending}
-                              className="text-[11px] h-7 px-2.5 shrink-0 font-medium"
-                            >
-                              Switch to this
-                            </Button>
-                          )}
-
                           {permissions.includes("settings.manage") && (
                             <Button
                               type="button"

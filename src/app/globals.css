@@ -6,8 +6,8 @@
   :root {
     /* Keep production builds independent of Google Fonts availability. */
     --font-poppins: "Poppins", "Segoe UI", Arial, sans-serif;
-    --background: 210 20% 98%;
-    --foreground: 222.2 84% 4.9%;
+    --background: 216 33% 97%;
+    --foreground: 222 47% 11%;
 
     --card: 0 0% 100%;
     --card-foreground: 222.2 84% 4.9%;
@@ -15,26 +15,26 @@
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 84% 4.9%;
 
-    --primary: 221.2 83.2% 53.3%;
+    --primary: 226 76% 55%;
     --primary-foreground: 210 40% 98%;
 
-    --secondary: 210 40% 96.1%;
+    --secondary: 218 30% 94%;
     --secondary-foreground: 222.2 47.4% 11.2%;
 
-    --muted: 210 40% 96.1%;
+    --muted: 218 27% 94%;
     --muted-foreground: 215.4 16.3% 46.9%;
 
-    --accent: 210 40% 96.1%;
+    --accent: 225 45% 94%;
     --accent-foreground: 222.2 47.4% 11.2%;
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
+    --border: 217 27% 88%;
+    --input: 217 27% 86%;
     --ring: 221.2 83.2% 53.3%;
 
-    --radius: 0.75rem;
+    --radius: 1rem;
 
     --sidebar-background: 222 47% 7%;
     --sidebar-foreground: 210 40% 98%;
@@ -47,13 +47,13 @@
   }
 
   .dark {
-    --background: 224 71% 4%;
+    --background: 224 45% 6%;
     --foreground: 213 31% 91%;
 
-    --card: 224 71% 6%;
+    --card: 224 39% 8%;
     --card-foreground: 213 31% 91%;
 
-    --popover: 224 71% 6%;
+    --popover: 224 39% 8%;
     --popover-foreground: 213 31% 91%;
 
     --primary: 217.2 91.2% 59.8%;
@@ -92,6 +92,43 @@
   }
   body {
     @apply bg-background text-foreground antialiased font-sans selection:bg-primary/20 selection:text-primary;
+    background-image:
+      radial-gradient(circle at 85% -10%, hsl(var(--primary) / 0.08), transparent 30rem),
+      radial-gradient(circle at 15% 110%, hsl(199 89% 48% / 0.05), transparent 32rem);
+    background-attachment: fixed;
+  }
+
+  h1, h2, h3 {
+    text-wrap: balance;
+  }
+
+  button, a, input, select, textarea {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  :focus-visible {
+    outline: 2px solid hsl(var(--ring) / 0.7);
+    outline-offset: 2px;
+  }
+
+  main select {
+    @apply rounded-xl border-input bg-card/90 shadow-sm transition-all;
+  }
+
+  main select:hover {
+    border-color: hsl(var(--primary) / 0.45);
+  }
+
+  main table thead {
+    @apply bg-muted/50;
+  }
+
+  main table tbody tr {
+    @apply transition-colors duration-150;
+  }
+
+  main table tbody tr:hover {
+    background: hsl(var(--muted) / 0.48);
   }
 
   /* Sleek custom modern scrollbars */
@@ -108,6 +145,20 @@
   }
   ::-webkit-scrollbar-thumb:hover {
     background: rgba(148, 163, 184, 0.5);
+  }
+}
+
+@layer components {
+  .erp-surface {
+    @apply rounded-2xl border border-border/70 bg-card/90 shadow-sm backdrop-blur-sm;
+  }
+
+  .erp-page-title {
+    @apply text-2xl font-extrabold tracking-tight text-foreground sm:text-3xl;
+  }
+
+  .erp-page-subtitle {
+    @apply mt-1 text-xs leading-relaxed text-muted-foreground sm:text-sm;
   }
 }
 

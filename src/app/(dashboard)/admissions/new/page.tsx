@@ -3,7 +3,7 @@
 import { useState, useEffect, useTransition, Suspense, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { processAdmission } from "@/server/actions/admissions";
-import { getCourses, getBatches } from "@/server/actions/academics";
+import { getBatches } from "@/server/actions/academics";
 import { getActiveCampus, getAllCampuses, type CampusItem } from "@/server/actions/campus";
 import { updateLead } from "@/server/actions/leads";
 import { formatCurrency } from "@/lib/utils";
@@ -23,15 +23,11 @@ function AdmissionForm() {
   const queryPhone = searchParams.get("phone");
   const queryParentName = searchParams.get("parentName");
   const queryParentPhone = searchParams.get("parentPhone");
-  const queryCourse = searchParams.get("courseInterest");
-
-  // Courses & Batches list
-  const [courses, setCourses] = useState<any[]>([]);
+  // Batch is the only academic choice; its internal course relation is inferred server-side.
   const [batches, setBatches] = useState<any[]>([]);
   const [campuses, setCampuses] = useState<CampusItem[]>([]);
   const [selectedCampusId, setSelectedCampusId] = useState("");
   const [isLoadingCampusData, setIsLoadingCampusData] = useState(true);
-  const [selectedCourseId, setSelectedCourseId] = useState("");
   const [selectedBatchId, setSelectedBatchId] = useState("");
 
   // Form State
@@ -69,19 +65,12 @@ function AdmissionForm() {
   const [errorMsg, setErrorMsg] = useState("");
 
   const loadCampusAcademicData = useCallback(async (campusId: string) => {
-    const [campusCourses, campusBatches] = await Promise.all([
-      getCourses(campusId),
-      getBatches({ status: "ACTIVE", campusId }),
-    ]);
-    setCourses(campusCourses);
+    const campusBatches = await getBatches({ status: "ACTIVE", campusId });
     setBatches(campusBatches);
     const firstBatch = campusBatches[0];
-    const defaultCourseId = firstBatch?.courseId || campusCourses[0]?.id || "";
-    setSelectedCourseId(defaultCourseId);
     setSelectedBatchId(firstBatch?.id || "");
-    const course = campusCourses.find((item: any) => item.id === defaultCourseId);
-    if (course) {
-      setFormData((prev) => ({ ...prev, tuitionFee: course.standardFee - 25000 }));
+    if (firstBatch?.course) {
+      setFormData((prev) => ({ ...prev, tuitionFee: Math.max(0, firstBatch.course.standardFee - 25000) }));
     }
   }, []);
 
@@ -109,13 +98,12 @@ function AdmissionForm() {
   const handleCampusChange = async (campusId: string) => {
     setSelectedCampusId(campusId);
     setSelectedBatchId("");
-    setSelectedCourseId("");
     setErrorMsg("");
     setIsLoadingCampusData(true);
     try {
       await loadCampusAcademicData(campusId);
     } catch (error: unknown) {
-      setErrorMsg(error instanceof Error ? error.message : "Failed to load courses and batches for this campus.");
+      setErrorMsg(error instanceof Error ? error.message : "Failed to load batches for this location.");
     } finally {
       setIsLoadingCampusData(false);
     }
@@ -124,15 +112,11 @@ function AdmissionForm() {
   const handleBatchChange = (bId: string) => {
     setSelectedBatchId(bId);
     const chosenBatch = batches.find((b) => b.id === bId);
-    if (chosenBatch) {
-      setSelectedCourseId(chosenBatch.courseId);
-      const chosenCourse = courses.find((c) => c.id === chosenBatch.courseId);
-      if (chosenCourse) {
-        setFormData((prev) => ({
-          ...prev,
-          tuitionFee: chosenCourse.standardFee - 25000,
-        }));
-      }
+    if (chosenBatch?.course) {
+      setFormData((prev) => ({
+        ...prev,
+        tuitionFee: Math.max(0, chosenBatch.course.standardFee - 25000),
+      }));
     }
   };
 
@@ -151,14 +135,12 @@ function AdmissionForm() {
     if (!formData.name.trim()) return setErrorMsg("Student name is required");
     if (!formData.parentName.trim()) return setErrorMsg("Parent name is required");
     if (!formData.parentPhone.trim()) return setErrorMsg("Parent phone is required");
-    if (!selectedCourseId) return setErrorMsg("Please select a course");
     if (!selectedBatchId) return setErrorMsg("Please select a batch");
 
     startTransition(async () => {
       try {
         const res = await processAdmission({
           ...formData,
-          courseId: selectedCourseId,
           batchId: selectedBatchId,
           campusId: selectedCampusId,
           admissionFee: Number(formData.admissionFee),
@@ -432,7 +414,7 @@ function AdmissionForm() {
                 {batches.length === 0 && <option value="">No active batches for this campus</option>}
                 {batches.map((b) => (
                   <option key={b.id} value={b.id}>
-                    {b.name} ({b.capacity} seats) {b.course?.name ? `• ${b.course.name}` : ""}
+                    {b.name} ({b.capacity} seats)
                   </option>
                 ))}
               </select>

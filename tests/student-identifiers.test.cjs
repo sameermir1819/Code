@@ -22,7 +22,7 @@ function transaction() {
   const codes = new Map([['hawal', 'HAWAL'], ['parraypora', 'FX_PARRAYPORA']]);
   const sequences = new Map();
   return {
-    campus: { findUnique: async ({ where }) => codes.has(where.id) ? { code: codes.get(where.id) } : null },
+    institute: { findUnique: async ({ where }) => codes.has(where.id) ? { code: codes.get(where.id) } : null },
     studentIdSequence: {
       upsert: async ({ where, create }) => {
         const key = `${where.instituteId_year.instituteId}:${where.instituteId_year.year}`;

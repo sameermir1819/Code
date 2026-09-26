@@ -5,11 +5,13 @@ import Link from "next/link";
 import {
   getStudents,
   getStudentStats,
+  getStudentFilterBatches,
   updateStudent,
   updateStudentParent,
 } from "@/server/actions/students";
 import { getBatches } from "@/server/actions/academics";
-import { getActiveCampus, getAllCampuses, switchActiveCampus, type CampusItem } from "@/server/actions/campus";
+import { getAllCampuses, type CampusItem } from "@/server/actions/campus";
+import { getCampusDisplayName } from "@/lib/campus-label";
 import { formatDate } from "@/lib/utils";
 import {
   Card,
@@ -150,7 +152,9 @@ export default function StudentsPage() {
   const [campusFilter, setCampusFilter] = useState("");
   const [campusError, setCampusError] = useState("");
   const [dataError, setDataError] = useState("");
-  const [isSwitchingCampus, setIsSwitchingCampus] = useState(false);
+  const [filterBatches, setFilterBatches] = useState<Awaited<ReturnType<typeof getStudentFilterBatches>>>([]);
+  const [batchFilter, setBatchFilter] = useState("ALL");
+  const [isLoadingFilterBatches, setIsLoadingFilterBatches] = useState(false);
   const [editCampuses, setEditCampuses] = useState<CampusItem[]>([]);
   const [isLoadingEditBatches, setIsLoadingEditBatches] = useState(false);
 
@@ -177,11 +181,11 @@ export default function StudentsPage() {
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([getAllCampuses(), getActiveCampus()])
-      .then(([allCampuses, activeCampus]) => {
+    getAllCampuses()
+      .then((allCampuses) => {
         if (cancelled) return;
         setCampuses(allCampuses);
-        setCampusFilter(activeCampus?.id || "ALL");
+        setCampusFilter("GLOBAL");
         setCampusesLoaded(true);
       })
       .catch((error: unknown) => {
@@ -194,28 +198,31 @@ export default function StudentsPage() {
     };
   }, []);
 
-  const handleCampusChange = async (selectedCampusId: string) => {
+  const handleCampusChange = (selectedCampusId: string) => {
     setCampusError("");
-    setIsSwitchingCampus(true);
-    try {
-      if (selectedCampusId !== "ALL") {
-        const result = await switchActiveCampus(selectedCampusId);
-        if (!result.success) throw new Error(result.error || "Failed to switch centre.");
-        window.dispatchEvent(
-          new CustomEvent("erp-campus-changed", {
-            detail: { campusId: selectedCampusId, campus: result.campus },
-          })
-        );
-        window.dispatchEvent(new CustomEvent("erp-data-refresh"));
-      }
-      setCampusFilter(selectedCampusId);
-      setPage(1);
-    } catch (error: unknown) {
-      setCampusError(error instanceof Error ? error.message : "Failed to switch centre.");
-    } finally {
-      setIsSwitchingCampus(false);
-    }
+    setCampusFilter(selectedCampusId);
+    setBatchFilter("ALL");
+    setPage(1);
   };
+
+  useEffect(() => {
+    if (!campusFilter) return;
+    let cancelled = false;
+    setIsLoadingFilterBatches(true);
+    getStudentFilterBatches(campusFilter)
+      .then((items) => {
+        if (!cancelled) setFilterBatches(items);
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) setCampusError(error instanceof Error ? error.message : "Failed to load batches.");
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoadingFilterBatches(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [campusFilter]);
 
   // ── Debounce search ──
   useEffect(() => {
@@ -229,20 +236,20 @@ export default function StudentsPage() {
   // Reset page when filters change
   useEffect(() => {
     setPage(1);
-  }, [statusFilter]);
+  }, [statusFilter, batchFilter]);
 
   // ── Fetch KPI counts directly via lightweight query ──
   const fetchKpis = useCallback(async () => {
     setKpiLoading(true);
     try {
-      const stats = await getStudentStats(campusFilter || undefined);
+      const stats = await getStudentStats(campusFilter || undefined, batchFilter);
       setKpiStats(stats);
     } catch (error: unknown) {
       setDataError(error instanceof Error ? error.message : "Failed to load student statistics.");
     } finally {
       setKpiLoading(false);
     }
-  }, [campusFilter]);
+  }, [campusFilter, batchFilter]);
 
   useEffect(() => {
     fetchKpis();
@@ -255,6 +262,7 @@ export default function StudentsPage() {
       const res = await getStudents({
         search: debouncedSearch,
         status: statusFilter,
+        batchId: batchFilter,
         campusId: campusFilter || undefined,
         page,
         limit: PAGE_SIZE,
@@ -267,7 +275,7 @@ export default function StudentsPage() {
     } finally {
       setTableLoading(false);
     }
-  }, [debouncedSearch, statusFilter, campusFilter, page]);
+  }, [debouncedSearch, statusFilter, batchFilter, campusFilter, page]);
 
   useEffect(() => {
     fetchTable();
@@ -295,7 +303,7 @@ export default function StudentsPage() {
     };
   }, [fetchTable, fetchKpis]);
 
-  const hasFilters = debouncedSearch !== "" || statusFilter !== "ALL";
+  const hasFilters = debouncedSearch !== "" || statusFilter !== "ALL" || batchFilter !== "ALL";
 
   // ── Batches list for editing batch allotment ──
   const [batches, setBatches] = useState<any[]>([]);
@@ -454,23 +462,6 @@ export default function StudentsPage() {
           </p>
         </div>
         <div className="flex flex-col sm:items-end gap-2">
-          <label className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
-            <span>Centre</span>
-            <select
-              aria-label="Filter students by centre"
-              value={campusFilter}
-              onChange={(event) => handleCampusChange(event.target.value)}
-              disabled={!campusesLoaded || isSwitchingCampus}
-              className="h-9 min-w-52 rounded-md border border-input bg-background px-3 text-xs font-medium text-foreground"
-            >
-              <option value="ALL">All Centres</option>
-              {campuses.map((campus) => (
-                <option key={campus.id} value={campus.id}>
-                  {campus.name} ({campus.code})
-                </option>
-              ))}
-            </select>
-          </label>
           <Link
             href="/admissions/new"
             className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-semibold shadow hover:bg-primary/90 transition-colors shrink-0"
@@ -519,6 +510,38 @@ export default function StudentsPage() {
       <Card>
         <CardContent className="p-4">
           <div className="flex flex-col sm:flex-row gap-3">
+            {/* Campus filter */}
+            <select
+              aria-label="Filter students by campus"
+              value={campusFilter}
+              onChange={(event) => handleCampusChange(event.target.value)}
+              disabled={!campusesLoaded}
+              className="h-9 px-3 rounded-md border border-input bg-background text-xs focus:outline-none focus:ring-1 focus:ring-primary min-w-[150px]"
+            >
+              <option value="GLOBAL">Global</option>
+              {campuses.map((campus) => (
+                <option key={campus.id} value={campus.id}>
+                  {getCampusDisplayName(campus)}
+                </option>
+              ))}
+            </select>
+
+            {/* Batch filter */}
+            <select
+              aria-label="Filter students by batch"
+              value={batchFilter}
+              onChange={(event) => setBatchFilter(event.target.value)}
+              disabled={isLoadingFilterBatches}
+              className="h-9 px-3 rounded-md border border-input bg-background text-xs focus:outline-none focus:ring-1 focus:ring-primary min-w-[170px]"
+            >
+              <option value="ALL">All Batches</option>
+              {filterBatches.map((batch) => (
+                <option key={batch.id} value={batch.id}>
+                  {batch.name}{campusFilter === "GLOBAL" ? ` — ${getCampusDisplayName(batch.institute)}` : ""}
+                </option>
+              ))}
+            </select>
+
             {/* Search */}
             <div className="relative flex-1 max-w-sm">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -560,6 +583,7 @@ export default function StudentsPage() {
                 onClick={() => {
                   setSearch("");
                   setStatusFilter("ALL");
+                  setBatchFilter("ALL");
                 }}
                 className="h-9 px-3 rounded-md border text-xs text-muted-foreground hover:bg-muted transition-colors"
               >

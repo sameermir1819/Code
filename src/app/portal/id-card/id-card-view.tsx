@@ -59,13 +59,22 @@ export function StudentIDCardView({ student, institute }: StudentIDProps) {
           </p>
         </div>
 
-        <button
-          onClick={handlePrint}
-          className="px-5 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-primary/20 transition-all active:scale-[0.99]"
-        >
-          <Printer className="w-4 h-4" />
-          <span>Print Official ID Card</span>
-        </button>
+        <div className="flex flex-col sm:flex-row gap-2">
+          <button
+            onClick={handlePrint}
+            className="px-4 py-2.5 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] text-zinc-200 font-bold text-xs flex items-center justify-center gap-2 border border-white/10 transition-all"
+          >
+            <Download className="w-4 h-4 text-indigo-400" />
+            <span>Save as PDF</span>
+          </button>
+          <button
+            onClick={handlePrint}
+            className="px-5 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-primary/20 transition-all active:scale-[0.99]"
+          >
+            <Printer className="w-4 h-4" />
+            <span>Print Official ID Card</span>
+          </button>
+        </div>
       </div>
 
       {/* ID Card Presentation Canvas */}
@@ -145,7 +154,7 @@ export function StudentIDCardView({ student, institute }: StudentIDProps) {
                     ADM: {student.admissionNo}
                   </div>
                   <div className="text-[11px] font-medium text-white truncate">
-                    {student.enrollmentCourse || "Academic Scholar"}
+                    {student.gradeClass || "Academic Scholar"}
                   </div>
                   <div className="text-[10px] text-zinc-400 truncate">
                     Batch: {student.enrollmentBatch || "Main Cohort"}

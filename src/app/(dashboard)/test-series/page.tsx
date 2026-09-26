@@ -16,19 +16,33 @@ export default async function TestSeriesPage() {
   const actor = await requireStaffPermission("test-series.view");
   const permissions = await getEffectivePermissions(actor);
   await requireAuth();
-  const campusId = authorizedCampusId(actor, await getActiveCampusId());
+  const campusId = actor.role === "SUPER_ADMIN"
+    ? undefined
+    : authorizedCampusId(actor, await getActiveCampusId());
 
   const [testSeriesData, enrolledStudents] = await Promise.all([
     getTestSeriesList(),
     permissions.includes("students.view") ? db.student.findMany({
-      where: { status: "ACTIVE", instituteId: campusId },
+      where: {
+        status: "ACTIVE",
+        ...(campusId ? { instituteId: campusId } : {}),
+      },
       select: {
         id: true,
+        instituteId: true,
         name: true,
         studentId: true,
         admissionNo: true,
         gradeClass: true,
         phone: true,
+        enrollments: {
+          where: { status: "ACTIVE" },
+          select: {
+            batchId: true,
+            batch: { select: { id: true, name: true, code: true } },
+          },
+          take: 1,
+        },
       },
       orderBy: { name: "asc" },
     }) : Promise.resolve([]),
@@ -40,6 +54,8 @@ export default async function TestSeriesPage() {
         seriesList={testSeriesData.seriesList as any}
         stats={testSeriesData.stats}
         enrolledStudents={enrolledStudents}
+        canViewResults={permissions.includes("results.view")}
+        canManageResults={permissions.includes("results.view") && permissions.includes("results.manage")}
       />
     </div>
   );

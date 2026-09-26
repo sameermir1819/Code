@@ -12,7 +12,7 @@ export async function getDashboardStats() {
   const role = session.role;
   const userName = session.name || "Administrator";
   const now = new Date();
-  const campusId = authorizedCampusId(session, await getActiveCampusId());
+  const campusId: string | undefined = undefined;
 
   const permissions = await getEffectivePermissions(session);
   const required = ["SUPER_ADMIN", "ADMIN"].includes(role) ? ["students.view", "teachers.view", "batches.view", "attendance.view", "fees.view", "exams.view"] : role === "ACCOUNTANT" ? ["fees.view"] : role === "TEACHER" ? ["batches.view", "timetable.view", "exams.view"] : [];
@@ -21,7 +21,7 @@ export async function getDashboardStats() {
   // Role Gate: Only Admins can see the Executive Dashboard Data
   const isAdmin = role === "SUPER_ADMIN" || role === "ADMIN";
 
-  // If Admin: Return Full Executive Data scoped to active campus
+  // If Admin: Return full global executive data.
   if (isAdmin) {
     const monthStart = indiaDateRange(now, "month").start;
     const monthEnd = indiaDateRange(now, "month").end;
@@ -29,7 +29,7 @@ export async function getDashboardStats() {
     const todayEnd = indiaDateRange(now, "day").end;
     const sixMonthsAgoStart = indiaDateRange(now, "month", -5).start;
 
-    // Base filter scoped to active campus
+    // Default dashboard is global; location filters live on module pages.
     const campusFilter = campusId ? { instituteId: campusId } : {};
     const studentCampusFilter = campusId ? { student: { instituteId: campusId } } : {};
     const batchCampusFilter = campusId ? { batch: { instituteId: campusId } } : {};

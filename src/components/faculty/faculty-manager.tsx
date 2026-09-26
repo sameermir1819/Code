@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useState, useTransition } from "react";
+import React, { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { assignTeacherSubjects } from "@/server/actions/academics";
+import { assignTeacherSubjects, createSubject, deleteSubject } from "@/server/actions/academics";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -26,16 +26,21 @@ import {
   Clock,
   Settings2,
   Users,
+  Trash2,
 } from "lucide-react";
 
 interface SubjectItem {
   id: string;
+  instituteId?: string;
   name: string;
   code: string;
+  institute?: { id: string; name: string; code?: string; city?: string | null };
 }
 
 interface TeacherItem {
   id: string;
+  instituteId?: string;
+  institute?: { id: string; name: string; code?: string; city?: string | null };
   teacherId: string;
   name: string;
   email: string;
@@ -69,24 +74,44 @@ interface FacultyManagerProps {
   initialTeachers: TeacherItem[];
   allSubjects: SubjectItem[];
   userRole?: string;
+  canManageSubjects?: boolean;
+  availableCampuses?: { id: string; name: string; code: string; city?: string | null }[];
 }
 
 export function FacultyManager({
   initialTeachers,
   allSubjects,
   userRole = "ADMIN",
+  canManageSubjects = false,
+  availableCampuses = [],
 }: FacultyManagerProps) {
   const router = useRouter();
   const [teachers, setTeachers] = useState<TeacherItem[]>(initialTeachers);
+  const [subjects, setSubjects] = useState<SubjectItem[]>(allSubjects);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [subjectFilter, setSubjectFilter] = useState("ALL");
+  const [locationFilter, setLocationFilter] = useState("GLOBAL");
   const [isPending, startTransition] = useTransition();
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
   // Modal: Assign Subjects to Faculty
   const [activeTeacher, setActiveTeacher] = useState<TeacherItem | null>(null);
   const [selectedSubjectIds, setSelectedSubjectIds] = useState<string[]>([]);
+  const [isSubjectsModalOpen, setIsSubjectsModalOpen] = useState(false);
+  const [newSubjectName, setNewSubjectName] = useState("");
+  const [newSubjectCode, setNewSubjectCode] = useState("");
+  const [newSubjectDescription, setNewSubjectDescription] = useState("");
+  const [newSubjectInstituteId, setNewSubjectInstituteId] = useState(availableCampuses[0]?.id || "");
+  const [subjectLocationFilter, setSubjectLocationFilter] = useState("GLOBAL");
+
+  useEffect(() => {
+    setTeachers(initialTeachers);
+  }, [initialTeachers]);
+
+  useEffect(() => {
+    setSubjects(allSubjects);
+  }, [allSubjects]);
 
   const handleOpenAssignModal = (teacher: TeacherItem) => {
     setActiveTeacher(teacher);
@@ -121,6 +146,51 @@ export function FacultyManager({
     });
   };
 
+  const handleCreateSubject = (e: React.FormEvent) => {
+    e.preventDefault();
+    startTransition(async () => {
+      try {
+        const result = await createSubject({
+          name: newSubjectName,
+          code: newSubjectCode,
+          description: newSubjectDescription || undefined,
+          instituteId: newSubjectInstituteId,
+        });
+        setSubjects((current) =>
+          [...current, result.subject].sort((a, b) => a.name.localeCompare(b.name))
+        );
+        setNewSubjectName("");
+        setNewSubjectCode("");
+        setNewSubjectDescription("");
+        setFeedback({ type: "success", message: `Subject ${result.subject.name} created.` });
+        router.refresh();
+      } catch (err: unknown) {
+        setFeedback({
+          type: "error",
+          message: err instanceof Error ? err.message : "Failed to create subject.",
+        });
+      }
+    });
+  };
+
+  const handleDeleteSubject = (subject: SubjectItem) => {
+    if (!window.confirm(`Delete subject "${subject.name}"?`)) return;
+    startTransition(async () => {
+      try {
+        await deleteSubject(subject.id);
+        setSubjects((current) => current.filter((item) => item.id !== subject.id));
+        setSelectedSubjectIds((current) => current.filter((id) => id !== subject.id));
+        setFeedback({ type: "success", message: `Subject ${subject.name} deleted.` });
+        router.refresh();
+      } catch (err: unknown) {
+        setFeedback({
+          type: "error",
+          message: err instanceof Error ? err.message : "Failed to delete subject.",
+        });
+      }
+    });
+  };
+
   // Filter teachers
   const filteredTeachers = teachers.filter((t) => {
     const matchesSearch =
@@ -134,8 +204,9 @@ export function FacultyManager({
 
     const matchesSubject =
       subjectFilter === "ALL" || t.subjects.some((s) => s.subjectId === subjectFilter);
+    const matchesLocation = locationFilter === "GLOBAL" || t.instituteId === locationFilter;
 
-    return matchesSearch && matchesStatus && matchesSubject;
+    return matchesSearch && matchesStatus && matchesSubject && matchesLocation;
   });
 
   // Aggregated Stats
@@ -169,6 +240,19 @@ export function FacultyManager({
         </div>
 
         <div className="flex items-center gap-2.5">
+          {canManageSubjects && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setIsSubjectsModalOpen(true)}
+              className="gap-2 text-xs font-semibold cursor-pointer"
+            >
+              <BookOpen className="h-4 w-4 text-indigo-500" />
+              <span>Manage Subjects</span>
+            </Button>
+          )}
+
           <Link href="/dashboard/batches">
             <Button variant="outline" size="sm" className="gap-2 text-xs font-semibold cursor-pointer">
               <Layers className="h-4 w-4 text-purple-500" />
@@ -286,12 +370,24 @@ export function FacultyManager({
 
           <div className="flex items-center gap-2">
             <select
+              value={locationFilter}
+              onChange={(e) => setLocationFilter(e.target.value)}
+              className="h-9 px-3 rounded-lg border bg-background text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer"
+              aria-label="Filter faculty by location"
+            >
+              <option value="GLOBAL">All Locations</option>
+              {availableCampuses.map((campus) => (
+                <option key={campus.id} value={campus.id}>{campus.name}</option>
+              ))}
+            </select>
+
+            <select
               value={subjectFilter}
               onChange={(e) => setSubjectFilter(e.target.value)}
               className="h-9 px-3 rounded-lg border bg-background text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer"
             >
               <option value="ALL">All Subjects</option>
-              {allSubjects.map((s) => (
+              {subjects.map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.name} ({s.code})
                 </option>
@@ -531,6 +627,98 @@ export function FacultyManager({
       )}
 
       {/* ── MODAL: ASSIGN SUBJECTS TO FACULTY ── */}
+      {isSubjectsModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in">
+          <div className="bg-card text-card-foreground border rounded-2xl p-6 w-full max-w-lg shadow-2xl space-y-5">
+            <div className="flex items-start justify-between border-b pb-3">
+              <div>
+                <h3 className="font-bold text-base text-foreground">Manage Global Subjects</h3>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  These subjects are available across all campuses, faculty, batches, timetables, and exams.
+                </p>
+              </div>
+              <button type="button" onClick={() => setIsSubjectsModalOpen(false)} className="text-muted-foreground hover:text-foreground cursor-pointer" aria-label="Close subjects manager">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateSubject} className="space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-semibold text-foreground block mb-1">Subject Name *</label>
+                  <Input required value={newSubjectName} onChange={(event) => setNewSubjectName(event.target.value)} placeholder="e.g. Physics" />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-foreground block mb-1">Subject Code *</label>
+                  <Input required value={newSubjectCode} onChange={(event) => setNewSubjectCode(event.target.value.toUpperCase())} placeholder="e.g. PHY-101" />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-foreground block mb-1">Description</label>
+                <Input value={newSubjectDescription} onChange={(event) => setNewSubjectDescription(event.target.value)} placeholder="Optional subject description" />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-foreground block mb-1">Assigned Location *</label>
+                <select
+                  required
+                  value={newSubjectInstituteId}
+                  onChange={(event) => setNewSubjectInstituteId(event.target.value)}
+                  className="w-full h-9 px-3 rounded-md border border-input bg-background text-foreground text-xs"
+                >
+                  <option value="">Select location</option>
+                  {availableCampuses.map((campus) => (
+                    <option key={campus.id} value={campus.id}>
+                      {campus.name}{campus.city ? ` — ${campus.city}` : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex justify-end">
+                <Button type="submit" size="sm" disabled={isPending} className="gap-2 text-xs">
+                  <Plus className="h-3.5 w-3.5" />
+                  {isPending ? "Saving..." : "Add Subject"}
+                </Button>
+              </div>
+            </form>
+
+            <div className="border-t pt-4">
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="text-xs font-bold text-foreground">Configured Subjects</h4>
+                <select
+                  value={subjectLocationFilter}
+                  onChange={(event) => setSubjectLocationFilter(event.target.value)}
+                  className="h-8 rounded-md border border-input bg-background px-2 text-[11px] text-foreground"
+                  aria-label="Filter subjects by location"
+                >
+                  <option value="GLOBAL">All Locations ({subjects.length})</option>
+                  {availableCampuses.map((campus) => (
+                    <option key={campus.id} value={campus.id}>{campus.name}</option>
+                  ))}
+                </select>
+              </div>
+              {subjects.filter((subject) => subjectLocationFilter === "GLOBAL" || subject.instituteId === subjectLocationFilter).length === 0 ? (
+                <p className="rounded-xl border border-dashed p-5 text-center text-xs text-muted-foreground">No subjects configured yet.</p>
+              ) : (
+                <div className="max-h-64 overflow-y-auto space-y-2 pr-1">
+                  {subjects.filter((subject) => subjectLocationFilter === "GLOBAL" || subject.instituteId === subjectLocationFilter).map((subject) => (
+                    <div key={subject.id} className="flex items-center justify-between gap-3 rounded-xl border p-3">
+                      <div className="min-w-0">
+                        <p className="text-xs font-semibold text-foreground truncate">{subject.name}</p>
+                        <p className="text-[10px] font-mono text-muted-foreground">{subject.code}</p>
+                        <p className="text-[10px] text-primary mt-0.5">{subject.institute?.name || "Location not set"}</p>
+                      </div>
+                      <Button type="button" variant="ghost" size="sm" disabled={isPending} onClick={() => handleDeleteSubject(subject)} className="h-8 w-8 p-0 text-red-600 hover:bg-red-50 hover:text-red-700" title="Delete subject">
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {activeTeacher && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in">
           <div className="bg-card text-card-foreground border rounded-2xl p-6 w-full max-w-md shadow-2xl space-y-4">
@@ -553,10 +741,10 @@ export function FacultyManager({
 
             <form onSubmit={handleSaveSubjects} className="space-y-4 text-xs">
               <div className="max-h-72 overflow-y-auto space-y-1.5 pr-1 divide-y divide-border/40">
-                {allSubjects.length === 0 ? (
+                {subjects.length === 0 ? (
                   <p className="text-muted-foreground text-center py-4">No curriculum subjects found.</p>
                 ) : (
-                  allSubjects.map((sub) => {
+                  subjects.map((sub) => {
                     const isChecked = selectedSubjectIds.includes(sub.id);
 
                     return (

@@ -11,6 +11,7 @@ import {
   submitTestResults,
   updateTestSeries,
   updateTestSeriesPayment,
+  refundTestSeriesPayment,
 } from "@/server/actions/test-series";
 import {
   Layers,
@@ -43,6 +44,7 @@ import {
   Filter,
   Pencil,
   Trash2,
+  RotateCcw,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -51,11 +53,16 @@ import { Input } from "@/components/ui/input";
 
 interface EnrolledStudent {
   id: string;
+  instituteId: string;
   name: string;
   studentId: string;
   admissionNo: string;
   gradeClass?: string | null;
   phone?: string | null;
+  enrollments: Array<{
+    batchId: string;
+    batch: { id: string; name: string; code: string };
+  }>;
 }
 
 interface TestSeriesExamItem {
@@ -78,6 +85,7 @@ interface TestSeriesExamItem {
 
 interface TestSeriesItem {
   id: string;
+  instituteId: string;
   title: string;
   code: string;
   description?: string | null;
@@ -101,6 +109,8 @@ interface Props {
     totalExamsScheduled: number;
   };
   enrolledStudents: EnrolledStudent[];
+  canViewResults: boolean;
+  canManageResults: boolean;
 }
 
 const toDateInputValue = (value: string | Date) => {
@@ -124,7 +134,7 @@ const getDefaultSeriesData = () => ({
   status: "ACTIVE",
 });
 
-export function TestSeriesClient({ seriesList, stats, enrolledStudents }: Props) {
+export function TestSeriesClient({ seriesList, stats, enrolledStudents, canViewResults, canManageResults }: Props) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<"programs" | "registrations" | "schedule" | "results">("programs");
   const [searchTerm, setSearchTerm] = useState("");
@@ -136,12 +146,18 @@ export function TestSeriesClient({ seriesList, stats, enrolledStudents }: Props)
   const [showCreateSeriesModal, setShowCreateSeriesModal] = useState(false);
   const [showAddExamModal, setShowAddExamModal] = useState(false);
   const [showRegisterModal, setShowRegisterModal] = useState(false);
+  const [candidateSearch, setCandidateSearch] = useState("");
+  const [candidateBatch, setCandidateBatch] = useState("ALL");
   const [admitSlipModalData, setAdmitSlipModalData] = useState<any | null>(null);
   const [editingSeries, setEditingSeries] = useState<TestSeriesItem | null>(null);
   const [seriesToDelete, setSeriesToDelete] = useState<TestSeriesItem | null>(null);
 
   // Payment update modal state
   const [paymentModalReg, setPaymentModalReg] = useState<any | null>(null);
+  const [refundModalReg, setRefundModalReg] = useState<any | null>(null);
+  const [refundAmount, setRefundAmount] = useState("");
+  const [refundReason, setRefundReason] = useState("");
+  const [refundError, setRefundError] = useState("");
   const [paymentFormData, setPaymentFormData] = useState({
     paymentStatus: "PAID",
     paymentMethod: "UPI",
@@ -154,8 +170,11 @@ export function TestSeriesClient({ seriesList, stats, enrolledStudents }: Props)
 
   // Marks entry state for Tab 4
   const [selectedExamId, setSelectedExamId] = useState<string>("");
+  const [resultView, setResultView] = useState<"pending" | "published">("pending");
+  const [editingResultIds, setEditingResultIds] = useState<string[]>([]);
+  const [savingResults, setSavingResults] = useState(false);
   const [marksEntries, setMarksEntries] = useState<
-    Record<string, { marks: number; attendance: "PRESENT" | "ABSENT"; remarks: string }>
+    Record<string, { marks: number; attendance: "PRESENT" | "ABSENT"; correct: number; wrong: number; unattempted: number; remarks: string; expectedUpdatedAt?: string | null }>
   >({});
   const [actionSuccessMsg, setActionSuccessMsg] = useState("");
   const [actionErrorMsg, setActionErrorMsg] = useState("");
@@ -183,10 +202,16 @@ export function TestSeriesClient({ seriesList, stats, enrolledStudents }: Props)
   const [regData, setRegData] = useState({
     testSeriesId: seriesList[0]?.id || "",
     candidateType: "enrolled" as "enrolled" | "external",
-    studentId: enrolledStudents[0]?.id || "",
+    studentId: enrolledStudents.find((student) => student.instituteId === seriesList[0]?.instituteId)?.id || "",
     externalStudentName: "",
     externalStudentPhone: "",
     externalStudentEmail: "",
+    externalDateOfBirth: "",
+    externalGender: "",
+    externalParentName: "",
+    externalParentPhone: "",
+    externalAddress: "",
+    externalCity: "",
     feeAmount: seriesList[0]?.fee || 2500,
     paymentMethod: "UPI",
     paymentStatus: "PAID",
@@ -205,7 +230,32 @@ export function TestSeriesClient({ seriesList, stats, enrolledStudents }: Props)
 
   // Active exam for results entry
   const activeExam = allExams.find((e) => e.id === selectedExamId);
-  const activeExamSeries = seriesList.find((s) => s.id === activeExam?.testSeriesId) || seriesList[0];
+  const activeExamSeries = seriesList.find((s) => s.id === activeExam?.testSeriesId);
+  const activeExamResultIds = new Set((activeExam?.results || []).map((result) => result.registrationId));
+  const activeExamRegistrations = activeExamSeries?.registrations || [];
+  const pendingResultsCount = activeExamRegistrations.filter((registration) => !activeExamResultIds.has(registration.id)).length;
+  const publishedResultsCount = activeExamRegistrations.length - pendingResultsCount;
+  const visibleResultRegistrations = activeExamRegistrations.filter((registration) =>
+    resultView === "published"
+      ? activeExamResultIds.has(registration.id)
+      : !activeExamResultIds.has(registration.id)
+  );
+  const registrationSeries = seriesList.find((s) => s.id === regData.testSeriesId);
+  const candidateBatches = Array.from(
+    new Map(
+      enrolledStudents
+        .filter((student) => !registrationSeries || student.instituteId === registrationSeries.instituteId)
+        .flatMap((student) => student.enrollments.map((item) => [item.batch.id, item.batch] as const))
+    ).values()
+  ).sort((a, b) => a.name.localeCompare(b.name));
+  const eligibleStudents = enrolledStudents.filter((student) => {
+    if (registrationSeries && student.instituteId !== registrationSeries.instituteId) return false;
+    if (candidateBatch !== "ALL" && !student.enrollments.some((item) => item.batchId === candidateBatch)) return false;
+    const query = candidateSearch.trim().toLowerCase();
+    if (!query) return true;
+    return [student.name, student.studentId, student.admissionNo, student.phone || ""]
+      .some((value) => value.toLowerCase().includes(query));
+  });
 
   // Filter registrations by search and program
   const filteredRegistrations = allRegistrations.filter((r) => {
@@ -327,6 +377,12 @@ export function TestSeriesClient({ seriesList, stats, enrolledStudents }: Props)
         externalStudentName: regData.candidateType === "external" ? regData.externalStudentName : null,
         externalStudentPhone: regData.candidateType === "external" ? regData.externalStudentPhone : null,
         externalStudentEmail: regData.candidateType === "external" ? regData.externalStudentEmail : null,
+        externalDateOfBirth: regData.candidateType === "external" ? regData.externalDateOfBirth : null,
+        externalGender: regData.candidateType === "external" ? regData.externalGender : null,
+        externalParentName: regData.candidateType === "external" ? regData.externalParentName : null,
+        externalParentPhone: regData.candidateType === "external" ? regData.externalParentPhone : null,
+        externalAddress: regData.candidateType === "external" ? regData.externalAddress : null,
+        externalCity: regData.candidateType === "external" ? regData.externalCity : null,
         feeAmount: Number(regData.feeAmount),
         paymentMethod: regData.paymentMethod,
         paymentStatus: regData.paymentStatus,
@@ -360,6 +416,44 @@ export function TestSeriesClient({ seriesList, stats, enrolledStudents }: Props)
       remarks: reg.remarks || "",
     });
     setActionErrorMsg("");
+  };
+
+  const handleOpenRefundModal = (reg: any) => {
+    const remaining = Math.max(0, Number(reg.feeAmount) - Number(reg.refundedAmount || 0));
+    setRefundModalReg(reg);
+    setRefundAmount(String(Math.round(remaining * 100) / 100));
+    setRefundReason("");
+    setRefundError("");
+  };
+
+  const handleRefundSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!refundModalReg) return;
+    const amount = Number(refundAmount);
+    const remaining = Math.max(0, Number(refundModalReg.feeAmount) - Number(refundModalReg.refundedAmount || 0));
+    if (!Number.isFinite(amount) || amount <= 0 || amount > remaining) {
+      setRefundError(`Enter a refund amount up to ₹${remaining.toLocaleString("en-IN")}.`);
+      return;
+    }
+    if (!refundReason.trim()) {
+      setRefundError("Refund reason is required.");
+      return;
+    }
+    setRefundError("");
+    startTransition(async () => {
+      try {
+        await refundTestSeriesPayment({
+          registrationId: refundModalReg.id,
+          amount,
+          reason: refundReason.trim(),
+        });
+        setRefundModalReg(null);
+        setActionSuccessMsg(`₹${amount.toLocaleString("en-IN")} refunded from ${refundModalReg.receiptNo}.`);
+        router.refresh();
+      } catch (error) {
+        setRefundError(error instanceof Error ? error.message : "Refund could not be processed.");
+      }
+    });
   };
 
   // Handle Submit Payment Update
@@ -404,58 +498,83 @@ export function TestSeriesClient({ seriesList, stats, enrolledStudents }: Props)
 
   // Open Marks Entry for an exam
   const handleOpenMarksEntry = (exam: TestSeriesExamItem) => {
+    if (!canViewResults || savingResults || isPending) return;
+    if (Object.keys(marksEntries).length > 0 && !window.confirm("Discard unsaved result edits and open this test?")) return;
     setSelectedExamId(exam.id);
     setActiveTab("results");
 
-    const series = seriesList.find((s) => s.id === (exam as any).testSeriesId) || seriesList[0];
-    const initialMap: Record<string, { marks: number; attendance: "PRESENT" | "ABSENT"; remarks: string }> = {};
-
-    series?.registrations.forEach((reg) => {
-      const existingResult = exam.results?.find((r) => r.registrationId === reg.id);
-      if (existingResult) {
-        initialMap[reg.id] = {
-          marks: existingResult.marksObtained,
-          attendance: existingResult.attendance || "PRESENT",
-          remarks: existingResult.remarks || "",
-        };
-      } else {
-        initialMap[reg.id] = {
-          marks: 0,
-          attendance: "PRESENT",
-          remarks: "",
-        };
-      }
-    });
-
-    setMarksEntries(initialMap);
+    const series = seriesList.find((s) => s.exams.some((item) => item.id === exam.id));
+    const publishedIds = new Set((exam.results || []).map((result) => result.registrationId));
+    setResultView(series?.registrations.some((registration) => !publishedIds.has(registration.id)) ? "pending" : "published");
+    setEditingResultIds([]);
+    setMarksEntries({});
+    setActionErrorMsg("");
+    setActionSuccessMsg("");
   };
 
   // Submit Marks
-  const handleSubmitMarks = async () => {
-    if (!selectedExamId) return;
+  const handleSubmitMarks = async (onlyRegistrationId?: string) => {
+    if (!selectedExamId || savingResults || !canManageResults) return;
     const exam = allExams.find((e) => e.id === selectedExamId);
     if (!exam) return;
-
     setActionErrorMsg("");
     setActionSuccessMsg("");
 
-    const payload = Object.entries(marksEntries).map(([registrationId, data]) => ({
-      registrationId,
-      marksObtained: Number(data.marks),
-      maxMarks: exam.maxMarks,
-      attendance: data.attendance,
-      remarks: data.remarks,
-    }));
+    const publishedRegistrationIds = new Set((exam.results || []).map((result) => result.registrationId));
+    const series = seriesList.find((item) => item.id === (exam as any).testSeriesId);
+    const payload = (series?.registrations || [])
+      .filter((registration) => onlyRegistrationId
+        ? registration.id === onlyRegistrationId
+        : !publishedRegistrationIds.has(registration.id))
+      .map((registration) => {
+        const data = marksEntries[registration.id] || {
+          marks: 0,
+          attendance: "PRESENT" as const,
+          correct: 0,
+          wrong: 0,
+          unattempted: 0,
+          remarks: "",
+        };
+        return {
+        registrationId: registration.id,
+        marksObtained: Number(data.marks),
+        maxMarks: exam.maxMarks,
+        attendance: data.attendance,
+        correctCount: Number(data.correct),
+        incorrectCount: Number(data.wrong),
+        unattemptedCount: Number(data.unattempted),
+        remarks: data.remarks,
+        expectedUpdatedAt: "expectedUpdatedAt" in data ? data.expectedUpdatedAt : null,
+      };
+      });
+    if (payload.length === 0) {
+      setActionErrorMsg("No pending results. Use the pencil button to edit a published result.");
+      return;
+    }
+    if (payload.length > 500) {
+      setActionErrorMsg("Please save candidates individually for this large roster (maximum 500 per batch).");
+      return;
+    }
+    if (!onlyRegistrationId && !window.confirm(`Publish ${payload.length} pending results? Unedited rows will be saved as PRESENT with 0 marks. Please review marks and attendance first.`)) return;
 
-    startTransition(async () => {
+    setSavingResults(true);
+    try {
       const res = await submitTestResults(selectedExamId, payload);
       if (res.success) {
-        setActionSuccessMsg(`Results successfully calculated and published for ${res.count} students!`);
-        router.refresh();
+        const savedIds = new Set(payload.map((result) => result.registrationId));
+        setMarksEntries((previous) => Object.fromEntries(Object.entries(previous).filter(([id]) => !savedIds.has(id))));
+        setEditingResultIds((previous) => previous.filter((id) => !savedIds.has(id)));
+        setResultView("published");
+        setActionSuccessMsg(`${res.count} result${res.count === 1 ? "" : "s"} saved successfully.`);
+        startTransition(() => router.refresh());
       } else {
         setActionErrorMsg(res.error || "Failed to submit marks.");
       }
-    });
+    } catch {
+      setActionErrorMsg("Could not save results. Please try again.");
+    } finally {
+      setSavingResults(false);
+    }
   };
 
   // Open dedicated students list for a series
@@ -668,7 +787,7 @@ export function TestSeriesClient({ seriesList, stats, enrolledStudents }: Props)
           <span>Offline Tests ({allExams.length})</span>
         </button>
 
-        <button
+        {canViewResults && <button
           onClick={() => setActiveTab("results")}
           className={`py-2 px-4 rounded-xl transition-all flex items-center gap-2 ${
             activeTab === "results"
@@ -678,7 +797,7 @@ export function TestSeriesClient({ seriesList, stats, enrolledStudents }: Props)
         >
           <Award className="h-3.5 w-3.5" />
           <span>Results Entry &amp; Ranking</span>
-        </button>
+        </button>}
       </div>
 
       {/* ── TAB 1: Programs ── */}
@@ -905,6 +1024,11 @@ export function TestSeriesClient({ seriesList, stats, enrolledStudents }: Props)
                           >
                             {reg.paymentStatus}
                           </Badge>
+                          {Number(reg.refundedAmount || 0) > 0 && (
+                            <span className="mt-1 block text-[10px] font-semibold text-amber-600">
+                              ₹{Number(reg.refundedAmount).toLocaleString("en-IN")} refunded
+                            </span>
+                          )}
                         </td>
 
                         <td className="py-3 px-4 text-[11px]">
@@ -933,9 +1057,21 @@ export function TestSeriesClient({ seriesList, stats, enrolledStudents }: Props)
                               <span>{reg.paymentStatus === "PAID" ? "Payment" : "Update Payment"}</span>
                             </Button>
 
-                            {reg.student?.id && (
+                            {["PAID", "PARTIALLY_REFUNDED"].includes(reg.paymentStatus) &&
+                              Number(reg.refundedAmount || 0) < Number(reg.feeAmount) && (
+                              <Button
+                                onClick={() => handleOpenRefundModal(reg)}
+                                variant="outline"
+                                size="sm"
+                                className="h-7 rounded-lg border-amber-300 px-2 text-xs font-semibold text-amber-700 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950/30"
+                              >
+                                <RotateCcw className="mr-1 h-3 w-3" /> Refund
+                              </Button>
+                            )}
+
+                            {(reg.student?.id || reg.externalCandidate?.id) && (
                               <Link
-                                href={`/students/${reg.student.id}`}
+                                href={reg.student?.id ? `/students/${reg.student.id}` : `/test-series/external/${reg.externalCandidate.id}`}
                                 className="h-7 px-2 text-xs font-semibold rounded-lg border inline-flex items-center gap-1 hover:bg-muted text-muted-foreground hover:text-foreground"
                                 title="Open full student profile"
                               >
@@ -1042,13 +1178,13 @@ export function TestSeriesClient({ seriesList, stats, enrolledStudents }: Props)
 
                   <div className="pt-2 border-t flex items-center justify-between">
                     <span className="text-[11px] text-muted-foreground">{exam.paperType}</span>
-                    <Button
+                    {canViewResults && <Button
                       onClick={() => handleOpenMarksEntry(exam)}
                       className="h-8 text-xs font-semibold rounded-lg bg-primary text-primary-foreground gap-1"
                     >
                       <Award className="h-3.5 w-3.5" />
-                      <span>{exam.status === "RESULTS_PUBLISHED" ? "Edit Results" : "Enter Offline Marks"}</span>
-                    </Button>
+                      <span>{exam.status === "RESULTS_PUBLISHED" ? "View / Add Results" : "Enter Offline Marks"}</span>
+                    </Button>}
                   </div>
                 </CardContent>
               </Card>
@@ -1058,7 +1194,7 @@ export function TestSeriesClient({ seriesList, stats, enrolledStudents }: Props)
       )}
 
       {/* ── TAB 4: Offline Results & Ranking Entry ── */}
-      {activeTab === "results" && (
+      {activeTab === "results" && canViewResults && (
         <Card className="rounded-2xl border bg-card/60 shadow-2xs">
           <CardHeader className="p-4 border-b flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
@@ -1074,6 +1210,7 @@ export function TestSeriesClient({ seriesList, stats, enrolledStudents }: Props)
             <div className="flex items-center gap-2.5">
               <select
                 value={selectedExamId}
+                disabled={savingResults || isPending}
                 onChange={(e) => {
                   const exam = allExams.find((ex) => ex.id === e.target.value);
                   if (exam) handleOpenMarksEntry(exam);
@@ -1090,14 +1227,14 @@ export function TestSeriesClient({ seriesList, stats, enrolledStudents }: Props)
                 ))}
               </select>
 
-              {selectedExamId && (
+              {selectedExamId && canManageResults && (
                 <Button
-                  onClick={handleSubmitMarks}
-                  disabled={isPending}
+                  onClick={() => handleSubmitMarks()}
+                  disabled={savingResults || isPending || pendingResultsCount === 0}
                   className="h-9 text-xs font-semibold rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white gap-1.5 shadow-xs"
                 >
                   <FileCheck2 className="h-3.5 w-3.5" />
-                  <span>{isPending ? "Publishing..." : "Publish Results"}</span>
+                  <span>{savingResults ? "Saving..." : pendingResultsCount === 0 ? "All Results Published" : `Publish ${pendingResultsCount} Pending`}</span>
                 </Button>
               )}
             </div>
@@ -1114,6 +1251,31 @@ export function TestSeriesClient({ seriesList, stats, enrolledStudents }: Props)
               </div>
             ) : (
               <div className="overflow-x-auto">
+                {activeExam?.status === "RESULTS_PUBLISHED" && (
+                  <div className="m-4 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs font-medium text-amber-700 dark:text-amber-300">
+                    Use the pencil button to edit a published result. Saved changes update scores, ranks, and student result cards.
+                  </div>
+                )}
+                <div className="mx-4 mb-4 flex flex-wrap items-center gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={resultView === "pending" ? "default" : "outline"}
+                    onClick={() => setResultView("pending")}
+                    className="h-8 text-xs"
+                  >
+                    Pending Entry ({pendingResultsCount})
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={resultView === "published" ? "default" : "outline"}
+                    onClick={() => setResultView("published")}
+                    className="h-8 text-xs"
+                  >
+                    Published Results ({publishedResultsCount})
+                  </Button>
+                </div>
                 <table className="w-full text-xs text-left">
                   <thead className="bg-muted/40 text-muted-foreground font-medium text-[11px] border-b">
                     <tr>
@@ -1121,19 +1283,38 @@ export function TestSeriesClient({ seriesList, stats, enrolledStudents }: Props)
                       <th className="py-3 px-4">Candidate Name</th>
                       <th className="py-3 px-4">Attendance</th>
                       <th className="py-3 px-4">Marks Obtained</th>
+                      <th className="py-3 px-4">Correct</th>
+                      <th className="py-3 px-4">Wrong</th>
+                      <th className="py-3 px-4">Unattempted</th>
                       <th className="py-3 px-4">Percentage</th>
                       <th className="py-3 px-4">Faculty Remarks</th>
+                      <th className="py-3 px-4">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y">
-                    {activeExamSeries?.registrations.map((reg) => {
-                      const currentEntry = marksEntries[reg.id] || {
+                    {visibleResultRegistrations.map((reg) => {
+                      const existingResult = activeExam?.results?.find((result) => result.registrationId === reg.id);
+                      const isEditing = editingResultIds.includes(reg.id);
+                      const isReadOnly = !canManageResults || savingResults || isPending || (Boolean(existingResult) && !isEditing);
+                      const savedEntry = existingResult ? {
+                        marks: existingResult.marksObtained,
+                        attendance: existingResult.attendance as "PRESENT" | "ABSENT",
+                        correct: existingResult.correctCount ?? 0,
+                        wrong: existingResult.incorrectCount ?? 0,
+                        unattempted: existingResult.unattemptedCount ?? 0,
+                        remarks: existingResult.remarks || "",
+                        expectedUpdatedAt: new Date(existingResult.updatedAt).toISOString(),
+                      } : {
                         marks: 0,
-                        attendance: "PRESENT",
+                        attendance: "PRESENT" as const,
+                        correct: 0,
+                        wrong: 0,
+                        unattempted: 0,
                         remarks: "",
                       };
-                      const maxMarks = activeExam?.maxMarks || 720;
-                      const pct = maxMarks > 0 ? ((currentEntry.marks / maxMarks) * 100).toFixed(1) : "0";
+                      const currentEntry = (!existingResult || isEditing) ? marksEntries[reg.id] || savedEntry : savedEntry;
+                      const maxMarks = existingResult?.maxMarks ?? activeExam?.maxMarks ?? 720;
+                      const pct = currentEntry.attendance === "PRESENT" && maxMarks > 0 ? ((currentEntry.marks / maxMarks) * 100).toFixed(1) : "0";
 
                       return (
                         <tr key={reg.id} className="hover:bg-muted/30 transition-colors">
@@ -1148,10 +1329,14 @@ export function TestSeriesClient({ seriesList, stats, enrolledStudents }: Props)
                             <span className="text-[10px] text-muted-foreground">
                               {reg.student ? "Enrolled Student" : "External Candidate"}
                             </span>
+                            <Badge variant={existingResult ? "success" : "outline"} className="mt-1 block w-fit text-[9px]">
+                              {isEditing ? "Editing" : existingResult ? "Published" : "Pending Result"}
+                            </Badge>
                           </td>
 
                           <td className="py-3 px-4">
                             <select
+                              disabled={isReadOnly}
                               value={currentEntry.attendance}
                               onChange={(e) =>
                                 setMarksEntries((prev) => ({
@@ -1177,7 +1362,9 @@ export function TestSeriesClient({ seriesList, stats, enrolledStudents }: Props)
                             <div className="flex items-center gap-1.5">
                               <Input
                                 type="number"
-                                disabled={currentEntry.attendance === "ABSENT"}
+                                min={0}
+                                max={maxMarks}
+                                disabled={currentEntry.attendance === "ABSENT" || isReadOnly}
                                 value={currentEntry.marks}
                                 onChange={(e) =>
                                   setMarksEntries((prev) => ({
@@ -1192,7 +1379,27 @@ export function TestSeriesClient({ seriesList, stats, enrolledStudents }: Props)
                               />
                               <span className="text-muted-foreground text-[11px]">/ {maxMarks}</span>
                             </div>
+                            {existingResult && <span className="mt-1 block text-[9px] font-semibold text-emerald-600">Published score: {existingResult.marksObtained}/{existingResult.maxMarks}</span>}
                           </td>
+
+                          {(["correct", "wrong", "unattempted"] as const).map((field) => (
+                            <td key={field} className="py-3 px-4">
+                              <Input
+                                type="number"
+                                min={0}
+                                step={1}
+                                disabled={currentEntry.attendance === "ABSENT" || isReadOnly}
+                                value={currentEntry[field]}
+                                onChange={(e) =>
+                                  setMarksEntries((prev) => ({
+                                    ...prev,
+                                    [reg.id]: { ...currentEntry, [field]: Math.max(0, Number(e.target.value)) },
+                                  }))
+                                }
+                                className="h-8 w-20 rounded-lg text-xs font-semibold"
+                              />
+                            </td>
+                          ))}
 
                           <td className="py-3 px-4">
                             <Badge
@@ -1205,6 +1412,7 @@ export function TestSeriesClient({ seriesList, stats, enrolledStudents }: Props)
 
                           <td className="py-3 px-4">
                             <Input
+                              disabled={isReadOnly}
                               placeholder="e.g. Weak in Organic Chemistry"
                               value={currentEntry.remarks}
                               onChange={(e) =>
@@ -1219,9 +1427,44 @@ export function TestSeriesClient({ seriesList, stats, enrolledStudents }: Props)
                               className="h-8 text-xs rounded-lg max-w-xs"
                             />
                           </td>
+                          <td className="py-3 px-4">
+                            {!canManageResults ? <span className="text-muted-foreground">View only</span> : existingResult && !isEditing ? (
+                              <Button type="button" variant="outline" size="sm" disabled={savingResults || isPending}
+                                aria-label={`Edit result for ${reg.student?.name || reg.externalStudentName}`}
+                                title="Edit result"
+                                onClick={() => {
+                                  setMarksEntries((previous) => ({ ...previous, [reg.id]: savedEntry }));
+                                  setEditingResultIds((previous) => [...previous, reg.id]);
+                                }}>
+                                <Pencil className="h-3.5 w-3.5" />
+                              </Button>
+                            ) : (
+                              <div className="flex gap-2">
+                                <Button type="button" size="sm" disabled={savingResults || isPending} onClick={() => handleSubmitMarks(reg.id)}>Save</Button>
+                                {isEditing && <Button type="button" variant="outline" size="sm" disabled={savingResults || isPending}
+                                  onClick={() => {
+                                    setEditingResultIds((previous) => previous.filter((id) => id !== reg.id));
+                                    setMarksEntries((previous) => {
+                                      const next = { ...previous };
+                                      delete next[reg.id];
+                                      return next;
+                                    });
+                                  }}>Cancel</Button>}
+                              </div>
+                            )}
+                          </td>
                         </tr>
                       );
                     })}
+                    {visibleResultRegistrations.length === 0 && (
+                      <tr>
+                        <td colSpan={10} className="px-4 py-12 text-center text-muted-foreground">
+                          {resultView === "pending"
+                            ? "No pending candidates. Newly enrolled candidates will appear here automatically."
+                            : "No results have been published for this test yet."}
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -1364,9 +1607,9 @@ export function TestSeriesClient({ seriesList, stats, enrolledStudents }: Props)
                               <span>{reg.paymentStatus === "PAID" ? "Paid" : "Update"}</span>
                             </Button>
 
-                            {reg.student?.id && (
+                            {(reg.student?.id || reg.externalCandidate?.id) && (
                               <Link
-                                href={`/students/${reg.student.id}`}
+                                href={reg.student?.id ? `/students/${reg.student.id}` : `/test-series/external/${reg.externalCandidate.id}`}
                                 className="h-6 px-2 text-[11px] font-medium rounded border inline-flex items-center gap-1 hover:bg-muted text-muted-foreground hover:text-foreground"
                               >
                                 <Eye className="h-3 w-3" />
@@ -1780,7 +2023,14 @@ export function TestSeriesClient({ seriesList, stats, enrolledStudents }: Props)
                   value={regData.testSeriesId}
                   onChange={(e) => {
                     const s = seriesList.find((item) => item.id === e.target.value);
-                    setRegData({ ...regData, testSeriesId: e.target.value, feeAmount: s?.fee || 2500 });
+                    const firstStudent = enrolledStudents.find((student) => student.instituteId === s?.instituteId);
+                    setCandidateBatch("ALL");
+                    setRegData({
+                      ...regData,
+                      testSeriesId: e.target.value,
+                      feeAmount: s?.fee || 2500,
+                      studentId: firstStudent?.id || "",
+                    });
                   }}
                   className="w-full h-9 px-3 rounded-md border border-input bg-background text-xs"
                 >
@@ -1822,19 +2072,53 @@ export function TestSeriesClient({ seriesList, stats, enrolledStudents }: Props)
               </div>
 
               {regData.candidateType === "enrolled" ? (
-                <div className="space-y-1">
+                <div className="space-y-3 rounded-xl border bg-muted/20 p-3">
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                      <Input
+                        value={candidateSearch}
+                        onChange={(e) => setCandidateSearch(e.target.value)}
+                        placeholder="Search name, Student ID..."
+                        className="h-9 pl-8 text-xs"
+                      />
+                    </div>
+                    <select
+                      value={candidateBatch}
+                      onChange={(e) => {
+                        const batchId = e.target.value;
+                        const first = enrolledStudents.find((student) =>
+                          (!registrationSeries || student.instituteId === registrationSeries.instituteId) &&
+                          (batchId === "ALL" || student.enrollments.some((item) => item.batchId === batchId))
+                        );
+                        setCandidateBatch(batchId);
+                        setRegData({ ...regData, studentId: first?.id || "" });
+                      }}
+                      className="h-9 w-full rounded-md border border-input bg-background px-3 text-xs"
+                    >
+                      <option value="ALL">All Batches</option>
+                      {candidateBatches.map((batch) => (
+                        <option key={batch.id} value={batch.id}>{batch.name} ({batch.code})</option>
+                      ))}
+                    </select>
+                  </div>
                   <label className="font-semibold text-foreground">Select Student <span className="text-destructive">*</span></label>
                   <select
+                    required
                     value={regData.studentId}
                     onChange={(e) => setRegData({ ...regData, studentId: e.target.value })}
                     className="w-full h-9 px-3 rounded-md border border-input bg-background text-xs"
                   >
-                    {enrolledStudents.map((s) => (
+                    <option value="">{eligibleStudents.length ? "Select an existing student" : "No matching active students"}</option>
+                    {eligibleStudents.map((s) => (
                       <option key={s.id} value={s.id}>
-                        {s.name} ({s.studentId} • {s.gradeClass || "Active"})
+                        {s.name} ({s.studentId} • {s.enrollments[0]?.batch.name || s.gradeClass || "No batch"})
                       </option>
                     ))}
                   </select>
+                  <p className="text-[11px] text-muted-foreground">
+                    {eligibleStudents.length} active student{eligibleStudents.length === 1 ? "" : "s"} found for this test-series location.
+                  </p>
                 </div>
               ) : (
                 <div className="space-y-3 p-3 rounded-xl bg-muted/40 border">
@@ -1869,6 +2153,49 @@ export function TestSeriesClient({ seriesList, stats, enrolledStudents }: Props)
                       />
                     </div>
                   </div>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <div className="space-y-1">
+                      <label className="font-semibold text-foreground">Date of Birth</label>
+                      <Input
+                        type="date"
+                        value={regData.externalDateOfBirth}
+                        onChange={(e) => setRegData({ ...regData, externalDateOfBirth: e.target.value })}
+                        className="h-9 text-xs"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="font-semibold text-foreground">Gender</label>
+                      <select
+                        value={regData.externalGender}
+                        onChange={(e) => setRegData({ ...regData, externalGender: e.target.value })}
+                        className="h-9 w-full rounded-md border border-input bg-background px-3 text-xs"
+                      >
+                        <option value="">Select gender</option>
+                        <option value="MALE">Male</option>
+                        <option value="FEMALE">Female</option>
+                        <option value="OTHER">Other</option>
+                      </select>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="font-semibold text-foreground">Parent / Guardian</label>
+                      <Input value={regData.externalParentName} onChange={(e) => setRegData({ ...regData, externalParentName: e.target.value })} className="h-9 text-xs" />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="font-semibold text-foreground">Parent Phone</label>
+                      <Input value={regData.externalParentPhone} onChange={(e) => setRegData({ ...regData, externalParentPhone: e.target.value })} className="h-9 text-xs" />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="font-semibold text-foreground">City</label>
+                      <Input value={regData.externalCity} onChange={(e) => setRegData({ ...regData, externalCity: e.target.value })} className="h-9 text-xs" />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="font-semibold text-foreground">Address</label>
+                      <Input value={regData.externalAddress} onChange={(e) => setRegData({ ...regData, externalAddress: e.target.value })} className="h-9 text-xs" />
+                    </div>
+                  </div>
+                  <p className="rounded-lg border border-primary/20 bg-primary/5 p-2.5 text-[11px] text-muted-foreground">
+                    Phone number se reusable external profile banegi. Isi candidate ki future Test Series registrations aur results ek organized profile mein jama honge.
+                  </p>
                 </div>
               )}
 
@@ -2000,6 +2327,11 @@ export function TestSeriesClient({ seriesList, stats, enrolledStudents }: Props)
                 Close
               </Button>
             </div>
+            {!admitSlipModalData.student && (
+              <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-3 text-center text-[11px] text-emerald-700 dark:text-emerald-300">
+                Result publish hone ke baad <strong>futurexlearning.vercel.app/external-results</strong> par Roll Number aur Receipt Number se dekhein.
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -2120,6 +2452,53 @@ export function TestSeriesClient({ seriesList, stats, enrolledStudents }: Props)
                   className="flex-1 text-xs h-9 rounded-xl bg-primary text-primary-foreground font-semibold"
                 >
                   {isPending ? "Updating..." : "Confirm & Save Payment"}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {refundModalReg && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-md space-y-4 rounded-3xl border bg-card p-6 text-xs text-card-foreground shadow-2xl">
+            <div className="flex items-start justify-between border-b pb-3">
+              <div>
+                <h3 className="flex items-center gap-2 text-base font-extrabold">
+                  <RotateCcw className="h-4 w-4 text-amber-600" /> Test Series Fee Refund
+                </h3>
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  {refundModalReg.receiptNo} · {refundModalReg.student?.name || refundModalReg.externalStudentName}
+                </p>
+              </div>
+              <button onClick={() => setRefundModalReg(null)} disabled={isPending} className="rounded-lg p-1 hover:bg-muted">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <div className="rounded-xl border bg-muted/30 p-2.5"><span className="block text-[10px] text-muted-foreground">Paid</span><strong>₹{Number(refundModalReg.feeAmount).toLocaleString("en-IN")}</strong></div>
+              <div className="rounded-xl border bg-muted/30 p-2.5"><span className="block text-[10px] text-muted-foreground">Refunded</span><strong>₹{Number(refundModalReg.refundedAmount || 0).toLocaleString("en-IN")}</strong></div>
+              <div className="rounded-xl border border-amber-200 bg-amber-50 p-2.5 dark:bg-amber-950/30"><span className="block text-[10px] text-muted-foreground">Available</span><strong className="text-amber-700 dark:text-amber-400">₹{Math.max(0, Number(refundModalReg.feeAmount) - Number(refundModalReg.refundedAmount || 0)).toLocaleString("en-IN")}</strong></div>
+            </div>
+
+            <form onSubmit={handleRefundSubmit} className="space-y-3.5">
+              <label className="block space-y-1 font-semibold">
+                <span>Refund Amount *</span>
+                <Input type="number" min="0.01" step="0.01" max={Math.max(0, Number(refundModalReg.feeAmount) - Number(refundModalReg.refundedAmount || 0))} value={refundAmount} onChange={(event) => setRefundAmount(event.target.value)} required />
+              </label>
+              <label className="block space-y-1 font-semibold">
+                <span>Refund Reason *</span>
+                <textarea value={refundReason} onChange={(event) => setRefundReason(event.target.value)} rows={3} required placeholder="Reason for refund" className="w-full resize-none rounded-xl border bg-background px-3 py-2.5 outline-none focus:ring-2 focus:ring-primary/20" />
+              </label>
+              <div className="flex gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-[11px] text-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
+                <AlertCircle className="h-4 w-4 shrink-0" /> Registration and results remain unchanged; only collected revenue is adjusted and audit logged.
+              </div>
+              {refundError && <p className="rounded-lg bg-destructive/10 p-2.5 text-destructive">{refundError}</p>}
+              <div className="flex justify-end gap-2 pt-1">
+                <Button type="button" variant="outline" onClick={() => setRefundModalReg(null)} disabled={isPending}>Cancel</Button>
+                <Button type="submit" disabled={isPending} className="bg-amber-600 text-white hover:bg-amber-700">
+                  {isPending ? "Processing..." : "Confirm Refund"}
                 </Button>
               </div>
             </form>
