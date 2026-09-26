@@ -756,8 +756,9 @@ export function FacultyManager({
                         <p className="text-[10px] text-primary mt-0.5">{subject.institute?.name || "Global — All Locations"}</p>
                       </div>
                       <div className="flex items-center gap-1">
-                        <Button type="button" variant="ghost" size="sm" disabled={isPending} onClick={() => handleEditSubject(subject)} className="h-8 w-8 p-0 text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700" title="Edit subject">
+                        <Button type="button" variant="outline" size="sm" disabled={isPending} onClick={() => handleEditSubject(subject)} className="h-8 gap-1.5 px-2.5 text-xs text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700" title="Edit subject">
                           <Edit3 className="h-3.5 w-3.5" />
+                          <span>Edit</span>
                         </Button>
                         <Button type="button" variant="ghost" size="sm" disabled={isPending} onClick={() => handleDeleteSubject(subject)} className="h-8 w-8 p-0 text-red-600 hover:bg-red-50 hover:text-red-700" title="Delete subject">
                           <Trash2 className="h-3.5 w-3.5" />
