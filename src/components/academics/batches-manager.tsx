@@ -47,6 +47,7 @@ import {
   Sparkles,
   Filter,
   Building2,
+  CalendarDays,
 } from "lucide-react";
 
 interface BatchesManagerProps {
@@ -159,6 +160,7 @@ export function BatchesManager({
   const permissions = usePermissions();
   const isAdmin = permissions.includes("batches.manage");
   const canManageSubjects = permissions.includes("courses.manage");
+  const canViewTimetable = permissions.includes("timetable.view");
 
   // Create Form State (No Target Course / Program)
   const [formData, setFormData] = useState({
@@ -597,8 +599,17 @@ export function BatchesManager({
           </div>
         </div>
 
-        {(isAdmin || canManageSubjects) && (
-          <div className="flex items-center gap-2">
+        {(canViewTimetable || isAdmin || canManageSubjects) && (
+          <div className="flex flex-wrap items-center gap-2">
+            {canViewTimetable && (
+              <Link
+                href="/timetable"
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-input bg-card/80 px-4 text-xs font-semibold shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:bg-accent"
+              >
+                <CalendarDays className="h-4 w-4" />
+                <span>Weekly Timetable</span>
+              </Link>
+            )}
             {canManageSubjects && (
               <Button
                 type="button"
