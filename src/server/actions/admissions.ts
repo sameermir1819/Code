@@ -8,6 +8,7 @@ import { getActiveCampusId } from "./campus";
 import { createStudentUser } from "@/lib/student-user";
 import { authorizedCampusId } from "@/lib/campus-scope";
 import { allocateStudentIdentifiers } from "@/lib/student-identifiers";
+import { allocatePaymentReceiptNumber } from "@/lib/payment-receipts";
 
 export interface AdmissionPayload {
   // Student
@@ -74,9 +75,6 @@ export async function processAdmission(payload: AdmissionPayload) {
   const course = batch.course;
 
   const year = new Date().getFullYear();
-  const paymentCount = await db.payment.count();
-
-  const receiptNoStr = `REC-${year}-${String(paymentCount + 1).padStart(4, "0")}`;
 
   // Calculate fee sums
   const totalGross =
@@ -88,6 +86,7 @@ export async function processAdmission(payload: AdmissionPayload) {
   // Execute in an atomic transaction
   const result = await db.$transaction(async (tx) => {
     const { studentId: studentIdStr, admissionNo: admissionNoStr } = await allocateStudentIdentifiers(tx, campusId);
+    const receiptNoStr = paid > 0 ? await allocatePaymentReceiptNumber(tx, year) : null;
     // 1. Parent
     let parent = await tx.parent.findFirst({
       where: { phone: payload.parentPhone },
@@ -205,7 +204,7 @@ export async function processAdmission(payload: AdmissionPayload) {
     if (paid > 0) {
       paymentRecord = await tx.payment.create({
         data: {
-          receiptNo: receiptNoStr,
+          receiptNo: receiptNoStr!,
           studentId: student.id,
           feePlanId: feePlan.id,
           amount: paid,

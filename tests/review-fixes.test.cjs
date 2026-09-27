@@ -26,6 +26,28 @@ function load(file, mocks = {}) {
 const scope = load('src/lib/campus-scope.ts');
 const clean = (value) => JSON.parse(JSON.stringify(value));
 
+test('payment receipt allocation follows the highest existing number instead of row count', async () => {
+  const events = [];
+  const api = load('src/lib/payment-receipts.ts');
+  const tx = {
+    $queryRaw: async () => events.push('lock'),
+    payment: {
+      findMany: async query => {
+        events.push('read');
+        assert.equal(query.where.receiptNo.startsWith, 'REC-2026-');
+        return [
+          { receiptNo: 'REC-2026-0002' },
+          { receiptNo: 'REC-2026-0010' },
+          { receiptNo: 'REC-2026-VOID' },
+        ];
+      },
+    },
+  };
+
+  assert.equal(await api.allocatePaymentReceiptNumber(tx, 2026), 'REC-2026-0011');
+  assert.deepEqual(events, ['lock', 'read']);
+});
+
 test('assigned campus overrides forged selection; central staff must select a campus', () => {
   assert.equal(scope.authorizedCampusId({ role: 'ADMIN', instituteId: 'own' }, 'foreign'), 'own');
   assert.equal(scope.authorizedCampusId({ role: 'SUPER_ADMIN', instituteId: 'own' }, 'selected'), 'selected');
