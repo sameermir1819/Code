@@ -29,7 +29,7 @@ export function Tabs({
 
   return (
     <TabsContext.Provider value={{ value: activeValue, onValueChange: setActiveValue }}>
-      <div className={cn("w-full space-y-4", className)}>{children}</div>
+      <div className={cn("w-full space-y-5", className)}>{children}</div>
     </TabsContext.Provider>
   );
 }
@@ -44,7 +44,7 @@ export function TabsList({
   return (
     <div
       className={cn(
-        "inline-flex h-10 items-center justify-start rounded-lg bg-muted p-1 text-muted-foreground border",
+        "inline-flex min-h-11 max-w-full items-center justify-start gap-1 overflow-x-auto rounded-xl border bg-muted/70 p-1 text-muted-foreground shadow-inner",
         className
       )}
     >
@@ -71,7 +71,7 @@ export function TabsTrigger({
       type="button"
       onClick={() => context.onValueChange(value)}
       className={cn(
-        "inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
+        "inline-flex h-8 items-center justify-center whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
         isActive
           ? "bg-background text-foreground shadow-sm font-semibold"
           : "hover:bg-background/50 hover:text-foreground",
