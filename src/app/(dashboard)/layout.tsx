@@ -39,9 +39,6 @@ export default async function DashboardLayout({
 
   return (
     <div className="flex h-screen overflow-hidden bg-background print:h-auto print:overflow-visible print:block font-poppins">
-      <a href="#main-content" className="fixed left-3 top-3 z-[100] -translate-y-20 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-xl transition-transform focus:translate-y-0">
-        Skip to content
-      </a>
       <RouteProgressBar />
       <RealtimeListener />
       {/* Sidebar */}
@@ -60,9 +57,9 @@ export default async function DashboardLayout({
           userName={userName}
           unreadCount={unreadCount}
         />
-        <main id="main-content" tabIndex={-1} className="relative flex-1 overflow-auto bg-muted/15 p-4 sm:p-5 md:p-7 xl:p-8 print:p-0 print:overflow-visible print:bg-white print:block">
+        <main className="relative flex-1 overflow-auto bg-muted/15 p-4 sm:p-5 md:p-7 xl:p-8 print:p-0 print:overflow-visible print:bg-white print:block">
           <div className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-primary/[0.035] to-transparent" />
-          <PermissionProvider permissions={permissions}><div key={activeCampus?.id || "campus-root"} className="erp-route relative mx-auto max-w-[1600px] space-y-6 print:m-0 print:max-w-full print:space-y-0 print:p-0">{children}</div></PermissionProvider>
+          <PermissionProvider permissions={permissions}><div key={activeCampus?.id || "campus-root"} className="relative max-w-[1600px] mx-auto space-y-6 print:max-w-full print:m-0 print:p-0 print:space-y-0">{children}</div></PermissionProvider>
         </main>
       </div>
     </div>

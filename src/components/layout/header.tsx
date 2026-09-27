@@ -53,10 +53,8 @@ export function Header({
   const routeMeta = [
     ["/dashboard/batches", "Batches", "Academic operations"],
     ["/dashboard/users", "Users & Roles", "Access management"],
-    ["/timetable", "Classes & Timetable", "Weekly class schedule"],
     ["/finance", "Finance", "Payments and collections"],
     ["/students", "Students", "Student lifecycle"],
-    ["/admissions", "Admissions", "Student enrollment"],
     ["/faculty", "Faculty", "Teaching team"],
     ["/attendance", "Attendance", "Daily attendance"],
     ["/test-series", "Test Series", "Assessments"],
@@ -66,24 +64,18 @@ export function Header({
     ["/leads", "Leads & CRM", "Admissions pipeline"],
     ["/announcements", "Announcements", "Institute communication"],
     ["/notifications", "Notifications", "Activity inbox"],
-    ["/data-export", "Data Export", "Reports and downloads"],
-    ["/audit", "Audit Log", "System activity"],
-    ["/profile", "My Profile", "Account preferences"],
     ["/settings", "Settings", "Institute configuration"],
     ["/dashboard", "Dashboard", "ERP overview"],
   ].find(([path]) => pathname === path || pathname.startsWith(`${path}/`)) || ["", "Workspace", "Futurex ERP"];
 
   return (
-    <header className="sticky top-0 z-30 flex h-[4.5rem] shrink-0 items-center justify-between gap-2 border-b border-border/60 bg-background/80 pl-14 pr-2 font-poppins shadow-[0_1px_0_hsl(var(--border)/0.4)] backdrop-blur-xl sm:gap-3 sm:pr-4 lg:gap-6 lg:px-7 print:hidden">
-      <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-4 lg:gap-8">
-        <div className="min-w-0 flex-1 sm:min-w-36 sm:flex-none">
-          <div className="flex items-center gap-2">
-            <span className="hidden h-2 w-2 rounded-full bg-primary shadow-[0_0_0_4px_hsl(var(--primary)/0.1)] sm:block" />
-            <p className="truncate text-xs font-extrabold tracking-tight text-foreground sm:text-sm">{routeMeta[1]}</p>
-          </div>
-          <p className="hidden truncate pl-4 text-[10px] font-medium uppercase tracking-wider text-muted-foreground md:block">{routeMeta[2]}</p>
+    <header className="h-[4.5rem] shrink-0 border-b border-border/60 bg-background/80 backdrop-blur-xl pl-14 pr-2 sm:pr-4 lg:px-7 flex items-center justify-between gap-3 lg:gap-6 sticky top-0 z-30 font-poppins print:hidden shadow-[0_1px_0_hsl(var(--border)/0.4)]">
+      <div className="flex min-w-0 flex-1 items-center gap-4 lg:gap-8">
+        <div className="hidden min-w-36 lg:block">
+          <p className="truncate text-sm font-extrabold tracking-tight text-foreground">{routeMeta[1]}</p>
+          <p className="truncate text-[10px] font-medium uppercase tracking-wider text-muted-foreground">{routeMeta[2]}</p>
         </div>
-        <div className="w-10 shrink-0 sm:w-full sm:max-w-xl">
+        <div className="w-full max-w-xl">
           <GlobalSearchModal />
         </div>
       </div>
@@ -141,7 +133,7 @@ export function Header({
           size="sm"
           onClick={handleLogout}
           disabled={isPending}
-          className="hidden h-9 items-center gap-1.5 rounded-xl px-3 text-xs text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive sm:flex"
+          className="text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-xl flex items-center gap-1.5 px-3 h-9 transition-colors"
           title="Sign out of ERP"
         >
           <LogOut className="h-3.5 w-3.5" />

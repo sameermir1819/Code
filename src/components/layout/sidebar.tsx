@@ -235,7 +235,7 @@ export function Sidebar({ userRole, userName, logoUrl, permissions, instituteNam
       </div>
 
       {/* ── Navigation ──────────────────────────────── */}
-      <nav aria-label="Primary navigation" className="flex-1 overflow-y-auto px-3 py-4 space-y-1 text-xs">
+      <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1 text-xs">
         {NAV_GROUPS.map((group) => {
 
           const visibleItems = group.items.filter((item) =>

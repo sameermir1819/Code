@@ -125,7 +125,7 @@ export function GlobalSearchModal() {
       <button
         type="button"
         onClick={() => setIsOpen(true)}
-        className="flex h-10 w-full cursor-pointer select-none items-center justify-between gap-2 rounded-xl border border-border/70 bg-card/75 px-2.5 text-xs text-muted-foreground shadow-sm transition-all hover:border-primary/30 hover:bg-card sm:pl-3.5"
+        className="w-full h-10 pl-3.5 pr-2.5 rounded-xl border border-border/70 bg-card/75 hover:bg-card hover:border-primary/30 text-xs text-muted-foreground flex items-center justify-between gap-2 transition-all cursor-pointer shadow-sm select-none"
         title="Search ERP (Ctrl + K)"
       >
         <div className="flex min-w-0 items-center gap-2">
