@@ -6,7 +6,8 @@ import {
   getBatchAttendanceForDate,
   saveBatchAttendance,
   getMonthlyAttendanceReport, 
-  getAttendanceDefaulters 
+  getAttendanceDefaulters,
+  getAttendanceCampuses,
 } from "@/server/actions/attendance";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -19,21 +20,55 @@ import { QrCode, AlertTriangle, MessageCircle, BarChart2, CalendarCheck2 } from 
 export default function AttendancePage() {
   const [batches, setBatches] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState("qr-terminal");
+  const [campuses, setCampuses] = useState<Awaited<ReturnType<typeof getAttendanceCampuses>>["campuses"]>([]);
+  const [campusId, setCampusId] = useState("");
+  const [storageKey, setStorageKey] = useState("");
+  const [campusesLoading, setCampusesLoading] = useState(true);
+  const [pageError, setPageError] = useState("");
+  const [pendingScans, setPendingScans] = useState(0);
 
   useEffect(() => {
-    getBatches({ status: "ACTIVE" }).then(setBatches);
+    let cancelled = false;
+    async function loadCampuses() {
+      try {
+        const result = await getAttendanceCampuses();
+        if (cancelled) return;
+        let remembered = "";
+        try { remembered = window.localStorage.getItem(result.storageKey) ?? ""; } catch { /* Storage may be disabled. */ }
+        setCampuses(result.campuses);
+        setStorageKey(result.storageKey);
+        setCampusId(result.campuses.some((campus) => campus.id === remembered)
+          ? remembered : result.selectedCampusId);
+      } catch {
+        if (!cancelled) setPageError("Campuses could not be loaded. Refresh the page and try again.");
+      } finally {
+        if (!cancelled) setCampusesLoading(false);
+      }
+    }
+    void loadCampuses();
+    return () => { cancelled = true; };
+  }, []);
 
-    const handleAutoRefresh = () => {
-      getBatches({ status: "ACTIVE" }).then(setBatches);
-    };
+  useEffect(() => {
+    let cancelled = false;
+    setBatches([]);
+    if (!campusId) return;
+    async function handleAutoRefresh() {
+      try {
+        const next = await getBatches({ status: "ACTIVE", campusId });
+        if (!cancelled) { setBatches(next); setPageError(""); }
+      } catch {
+        if (!cancelled) setPageError("Campus batches could not be loaded. Refresh the page and try again.");
+      }
+    }
+    void handleAutoRefresh();
 
-    window.addEventListener("erp-campus-changed", handleAutoRefresh);
     window.addEventListener("erp-data-refresh", handleAutoRefresh);
     return () => {
-      window.removeEventListener("erp-campus-changed", handleAutoRefresh);
+      cancelled = true;
       window.removeEventListener("erp-data-refresh", handleAutoRefresh);
     };
-  }, []);
+  }, [campusId]);
 
   return (
     <div className="space-y-6">
@@ -44,7 +79,31 @@ export default function AttendancePage() {
         </p>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+      <div className="rounded-lg border bg-card p-4 space-y-2">
+        <label htmlFor="attendance-campus" className="block text-sm font-semibold">Attendance campus</label>
+        <select
+          id="attendance-campus"
+          className="w-full sm:max-w-sm rounded-md border bg-background px-3 py-2 text-sm"
+          value={campusId}
+          disabled={campusesLoading || pendingScans > 0 || campuses.length === 0}
+          onChange={(event) => {
+            const selected = event.target.value;
+            setBatches([]);
+            setCampusId(selected);
+            setPageError("");
+            try { window.localStorage.setItem(storageKey, selected); } catch { /* Selection still works without storage. */ }
+          }}
+        >
+          <option value="">{campusesLoading ? "Loading campuses..." : "Select a campus"}</option>
+          {campuses.map((campus) => <option key={campus.id} value={campus.id}>{campus.name} ({campus.code})</option>)}
+        </select>
+        <p className="text-xs text-muted-foreground">Select the campus where this scanner is being used. Attendance and reports below use this campus.</p>
+        {pendingScans > 0 && <p role="status" className="text-xs text-muted-foreground">Wait for pending scans to finish before changing campus.</p>}
+        {pageError && <p role="alert" className="text-sm text-destructive">{pageError}</p>}
+        {!campusesLoading && campuses.length === 0 && !pageError && <p role="alert" className="text-sm text-destructive">No authorized campus is available. Contact your administrator.</p>}
+      </div>
+
+      {campusId ? <Tabs key={campusId} value={activeTab} onValueChange={(tab) => { if (pendingScans === 0) setActiveTab(tab); }} className="w-full">
         <TabsList className="grid grid-cols-2 sm:grid-cols-4 h-auto min-h-12 w-full max-w-3xl bg-muted/50 p-1">
           <TabsTrigger value="qr-terminal" className="text-sm font-medium gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md">
             <QrCode className="h-4 w-4 text-blue-500" />
@@ -66,7 +125,7 @@ export default function AttendancePage() {
 
         <div className="mt-6">
           <TabsContent value="qr-terminal">
-            <QrDeviceTerminal />
+            <QrDeviceTerminal campusId={campusId} onPendingChange={setPendingScans} />
           </TabsContent>
           <TabsContent value="daily-register">
             <DailyRegisterTab batches={batches} />
@@ -75,10 +134,10 @@ export default function AttendancePage() {
             <ReportsTab batches={batches} />
           </TabsContent>
           <TabsContent value="defaulters">
-            <DefaultersTab />
+            <DefaultersTab campusId={campusId} />
           </TabsContent>
         </div>
-      </Tabs>
+      </Tabs> : <p className="text-sm text-muted-foreground">Select a campus above to start scanning or view attendance registers.</p>}
     </div>
   );
 }
@@ -290,7 +349,7 @@ function ReportsTab({ batches }: { batches: any[] }) {
 // ----------------------------------------------------------------------
 // TAB 3: DEFAULTERS
 // ----------------------------------------------------------------------
-function DefaultersTab() {
+function DefaultersTab({ campusId }: { campusId: string }) {
   const [threshold, setThreshold] = useState(75);
   const [defaulters, setDefaulters] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -298,7 +357,7 @@ function DefaultersTab() {
   async function fetchDefaulters() {
     setLoading(true);
     try {
-      const data = await getAttendanceDefaulters(threshold);
+      const data = await getAttendanceDefaulters(threshold, campusId);
       setDefaulters(data);
     } catch (e) {
       console.error(e);

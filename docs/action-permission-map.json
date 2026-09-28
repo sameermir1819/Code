@@ -31,6 +31,7 @@
     "updateStudentParent": "students.update"
   },
   "attendance": {
+    "getAttendanceCampuses": "attendance.view",
     "getBatchAttendanceForDate": "attendance.view",
     "saveBatchAttendance": "attendance.manage",
     "markBatchUnscannedAsAbsent": "attendance.manage",

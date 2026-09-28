@@ -17,6 +17,7 @@ function load(file, mocks = {}, Clock = Date) {
   return exports;
 }
 const scanner = load("src/lib/attendance-scanner.ts");
+const campusScope = load("src/lib/campus-scope.ts");
 
 test("each physical scan gets a unique retry-safe request identifier", () => {
   const first = scanner.createScanRequestId();
@@ -60,8 +61,18 @@ function fixture() {
   };
   let writes = 0;
   let logs = 0;
+  const campuses = [
+    { id: "campus-a", name: "Campus A", code: "A" },
+    { id: "campus-b", name: "Campus B", code: "B" },
+  ];
+  const queries = {};
   const db = {
-    student: { findFirst: async ({ where }) => student && where.instituteId === student.instituteId ? student : null },
+    institute: { findMany: async ({ where }) => campuses.filter((item) => !where.id || item.id === where.id) },
+    batch: { findFirst: async () => ({ id: "batch-b", name: "Batch B", instituteId: "campus-b" }) },
+    student: {
+      findFirst: async ({ where }) => student && where.instituteId === student.instituteId ? student : null,
+      findMany: async ({ where }) => { queries.defaulters = where; return []; },
+    },
     attendance: {
       findFirst: async ({ where }) => rows.find((r) => r.studentId === where.studentId && r.batchId === where.batchId && r.date >= where.date.gte && r.date < where.date.lt) || null,
       create: async ({ data }) => {
@@ -77,7 +88,8 @@ function fixture() {
         return row;
       },
       findMany: async ({ where }) => {
-        assert.equal(where.batch, undefined);
+        queries.feed = where;
+        assert.ok(where.batch.instituteId);
         assert.deepEqual(Array.from(where.status.in), ["PRESENT", "LATE"]);
         return [];
       },
@@ -93,14 +105,14 @@ function fixture() {
       if (!actor || (roles && !roles.includes(actor.role))) throw new Error("FORBIDDEN");
       return actor;
     } },
-    "@/lib/campus-scope": { authorizedCampusId: (_session, selectedCampusId) => selectedCampusId },
+    "@/lib/campus-scope": campusScope,
     "./audit": { logAudit: async () => { logs++; } },
     "./campus": { getActiveCampusId: async () => campus },
     "@/lib/attendance-scanner": scanner, "date-fns": require("date-fns"),
     "node:crypto": require("node:crypto"),
   }, TestDate);
   return {
-    actions, db, student, rows: () => rows, writes: () => writes, logs: () => logs,
+    actions, db, student, queries, rows: () => rows, writes: () => writes, logs: () => logs,
     actor: (value) => { actor = value; }, campus: (value) => { campus = value; },
     advance: (seconds) => { clock += seconds * 1000; },
   };
@@ -191,9 +203,45 @@ test("retry after a competing scan sees the committed record and does not write 
   assert.equal(f.writes(), 1);
 });
 
-test("gate feed is globally visible across campuses", async () => {
+test("gate feed follows the explicitly selected attendance campus", async () => {
   const f = fixture();
-  await f.actions.getTodayAttendanceLiveFeed();
+  await f.actions.getTodayAttendanceLiveFeed("campus-b");
+  assert.equal(f.queries.feed.batch.instituteId, "campus-b");
+});
+
+test("attendance selection overrides the unrelated ERP campus cookie", async () => {
+  const f = fixture();
+  f.campus("campus-b");
+  const scan = await f.actions.recordQrAttendanceSafe("STU-A", "campus-scan", "campus-a");
+  assert.equal(scan.success, true);
+  assert.equal(f.writes(), 1);
+  await f.actions.getAttendanceDefaulters(75, "campus-a");
+  assert.equal(f.queries.defaulters.instituteId, "campus-a");
+});
+
+test("campus options and backend checks restrict assigned staff", async () => {
+  const f = fixture();
+  f.actor({ id: "gate-staff", role: "ADMIN", instituteId: "campus-a", name: "Gate Operator" });
+  const options = await f.actions.getAttendanceCampuses();
+  assert.deepEqual(Array.from(options.campuses, item => item.id), ["campus-a"]);
+  assert.equal(options.selectedCampusId, "campus-a");
+  const scan = await f.actions.recordQrAttendanceSafe("STU-A", "foreign-scan", "campus-b");
+  assert.equal(scan.success, false);
+  assert.equal(f.writes(), 0);
+  await assert.rejects(f.actions.getTodayAttendanceLiveFeed("campus-b"), /permission/);
+  await assert.rejects(f.actions.getAttendanceDefaulters(75, "campus-b"), /permission/);
+  await assert.rejects(f.actions.getBatchAttendanceForDate("batch-b", "2026-09-24"), /permission/);
+  await assert.rejects(f.actions.getMonthlyAttendanceReport("batch-b", 9, 2026), /permission/);
+  assert.equal(f.queries.feed, undefined);
+  assert.equal(f.queries.defaulters, undefined);
+});
+
+test("central staff can choose campuses and must make an explicit initial selection", async () => {
+  const f = fixture();
+  f.actor({ id: "central", role: "SUPER_ADMIN", instituteId: "campus-a" });
+  const options = await f.actions.getAttendanceCampuses();
+  assert.deepEqual(Array.from(options.campuses, item => item.id), ["campus-a", "campus-b"]);
+  assert.equal(options.selectedCampusId, "");
 });
 
 test("later scan checks out while keeping attendance and the original check-in", async () => {

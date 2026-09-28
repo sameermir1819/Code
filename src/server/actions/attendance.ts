@@ -1,6 +1,6 @@
 "use server";
 
-import { assertCampusAccess } from "@/lib/campus-scope";
+import { assertCampusAccess, authorizedCampusId } from "@/lib/campus-scope";
 import { requireStaffPermission } from "@/lib/auth";
 
 import { db } from "@/lib/db";
@@ -23,13 +23,14 @@ async function logAttendanceAudit(entry: Parameters<typeof logAudit>[0]) {
 }
 
 export async function getBatchAttendanceForDate(batchId: string, dateStr: string) {
-  await requireStaffPermission("attendance.view");
+  const actor = await requireStaffPermission("attendance.view");
   const batch = await db.batch.findFirst({
     where: { id: batchId },
-    select: { id: true },
+    select: { id: true, instituteId: true },
   });
   if (!batch) throw new Error("Batch not found");
   const date = new Date(dateStr);
+  assertCampusAccess(actor, batch.instituteId);
   const dayStart = startOfDay(date);
   const dayEnd = endOfDay(date);
 
@@ -232,12 +233,15 @@ export async function markBatchUnscannedAsAbsent(batchId: string, dateStr: strin
   return { success: true, count: unscanned.length };
 }
 
-export async function getAttendanceDefaulters(thresholdPercentage = 75) {
-  await requireStaffPermission("attendance.view");
+export async function getAttendanceDefaulters(thresholdPercentage = 75, selectedCampusId?: string) {
+  const actor = await requireStaffPermission("attendance.view");
+  const campusId = selectedCampusId
+    ? assertCampusAccess(actor, selectedCampusId)
+    : authorizedCampusId(actor, await getActiveCampusId());
 
   // Calculate attendance rate per active student
   const students = await db.student.findMany({
-    where: { status: "ACTIVE" },
+    where: { status: "ACTIVE", instituteId: campusId },
     include: {
       parent: true,
       enrollments: {
@@ -307,7 +311,7 @@ export async function getMonthlyAttendanceReport(
   month: number, // 1-12
   year: number
 ): Promise<MonthlyAttendanceReport> {
-  await requireStaffPermission("attendance.view");
+  const actor = await requireStaffPermission("attendance.view");
 
   const monthStart = startOfMonth(new Date(year, month - 1, 1));
   const monthEnd = endOfMonth(new Date(year, month - 1, 1));
@@ -315,9 +319,10 @@ export async function getMonthlyAttendanceReport(
   // Get batch info
   const batch = await db.batch.findFirst({
     where: { id: batchId },
-    select: { name: true },
+    select: { name: true, instituteId: true },
   });
   if (!batch) throw new Error("Batch not found");
+  assertCampusAccess(actor, batch.instituteId);
 
   // Get all active enrollments for this batch
   const enrollments = await db.enrollment.findMany({
@@ -400,14 +405,31 @@ async function scannerTransaction<T>(work: (tx: Prisma.TransactionClient) => Pro
   }
 }
 
-export async function recordQrAttendance(qrPayload: string, requestId?: string) {
+export async function getAttendanceCampuses() {
+  const actor = await requireStaffPermission("attendance.view");
+  const assignedCampusId = actor.role !== "SUPER_ADMIN" ? actor.instituteId : null;
+  const campuses = await db.institute.findMany({
+    where: assignedCampusId ? { id: assignedCampusId } : {},
+    select: { id: true, name: true, code: true },
+    orderBy: { createdAt: "asc" },
+  });
+  return {
+    campuses,
+    selectedCampusId: assignedCampusId ?? "",
+    storageKey: `attendance-campus-${actor.id}`,
+  };
+}
+
+export async function recordQrAttendance(qrPayload: string, requestId?: string, selectedCampusId?: string) {
   const actor = await requireStaffPermission("attendance.manage");
   const rawCode = parseStudentCard(qrPayload);
   const scanId = requestId ?? randomUUID();
   if (typeof scanId !== "string" || !/^[a-zA-Z0-9_-]{1,128}$/.test(scanId)) {
     throw new Error("Invalid scan request. Please scan the card again.");
   }
-  const campusId = await getActiveCampusId();
+  const campusId = selectedCampusId
+    ? assertCampusAccess(actor, selectedCampusId)
+    : authorizedCampusId(actor, await getActiveCampusId());
   if (!campusId) throw new Error("Select a campus before scanning cards.");
   const now = new Date();
   const { start, end } = attendanceDay(now);
@@ -503,12 +525,12 @@ export async function recordQrAttendance(qrPayload: string, requestId?: string) 
   return result;
 }
 
-export async function recordQrAttendanceSafe(qrPayload: string, requestId?: string) {
+export async function recordQrAttendanceSafe(qrPayload: string, requestId?: string, selectedCampusId?: string) {
   // Keep authorization outside the error conversion so revoked accounts are
   // still blocked before any scanner/database work.
   await requireStaffPermission("attendance.manage");
   try {
-    return await recordQrAttendance(qrPayload, requestId);
+    return await recordQrAttendance(qrPayload, requestId, selectedCampusId);
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Attendance could not be recorded.";
     const safe = /invalid|recognised|inactive|active batch|campus|permission|forbidden|attendance|scan|sign in/i.test(message);
@@ -521,13 +543,17 @@ export async function recordQrAttendanceSafe(qrPayload: string, requestId?: stri
   }
 }
 
-export async function getTodayAttendanceLiveFeed() {
-  await requireStaffPermission("attendance.view");
+export async function getTodayAttendanceLiveFeed(selectedCampusId?: string) {
+  const actor = await requireStaffPermission("attendance.view");
+  const campusId = selectedCampusId
+    ? assertCampusAccess(actor, selectedCampusId)
+    : authorizedCampusId(actor, await getActiveCampusId());
   const { start, end } = attendanceDay();
   const records = await db.attendance.findMany({
     where: {
       date: { gte: start, lt: end },
       status: { in: ["PRESENT", "LATE"] },
+      batch: { instituteId: campusId },
     },
     orderBy: { updatedAt: "desc" },
     take: 30,

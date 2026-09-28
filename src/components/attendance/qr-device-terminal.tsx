@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 type LiveEntry = Awaited<ReturnType<typeof getTodayAttendanceLiveFeed>>[number];
 type PendingScan = { code: string; requestId: string };
 
-export function QrDeviceTerminal() {
+export function QrDeviceTerminal({ campusId, onPendingChange }: { campusId: string; onPendingChange: (count: number) => void }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const autoSubmitTimer = useRef<number | null>(null);
   const backgroundScanTimer = useRef<number | null>(null);
@@ -32,12 +32,14 @@ export function QrDeviceTerminal() {
 
   const loadLiveFeed = useCallback(async () => {
     try {
-      const entries = await getTodayAttendanceLiveFeed();
+      const entries = await getTodayAttendanceLiveFeed(campusId);
       if (mounted.current) { setLiveFeed(entries); setFeedError(""); }
     } catch {
       if (mounted.current) setFeedError("Live entries could not be refreshed. Check your connection and try again.");
     }
-  }, []);
+  }, [campusId]);
+
+  useEffect(() => { onPendingChange(pending); }, [pending, onPendingChange]);
 
   useEffect(() => {
     mounted.current = true;
@@ -81,7 +83,7 @@ export function QrDeviceTerminal() {
         const { code: next, requestId } = queue.current.shift()!;
         if (mounted.current) setStatus({ text: `Recording ${next}...`, type: "info" });
         try {
-          const result = await recordQrAttendanceSafe(next, requestId);
+          const result = await recordQrAttendanceSafe(next, requestId, campusId);
           if (!result.success) throw new Error(result.error);
           if (mounted.current) {
             setFailedScans((previous) => previous.filter((scan) => scan.code !== next));
@@ -141,6 +143,7 @@ export function QrDeviceTerminal() {
     function isEditableTarget(target: EventTarget | null) {
       return target instanceof HTMLInputElement
         || target instanceof HTMLTextAreaElement
+        || target instanceof HTMLSelectElement
         || (target instanceof HTMLElement && target.isContentEditable);
     }
 
