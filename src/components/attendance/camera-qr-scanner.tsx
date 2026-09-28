@@ -88,14 +88,14 @@ export function CameraQrScanner({ onScan }: { onScan: (code: string) => void }) 
 
   return (
     <div className="space-y-3">
-      <div className="relative aspect-square max-h-[55svh] w-full overflow-hidden rounded-xl bg-slate-950">
-        <video ref={videoRef} muted playsInline aria-label="Student QR camera preview" className="h-full w-full object-contain" />
+      <div className="relative mx-auto aspect-square w-full max-w-[55svh] overflow-hidden rounded-xl bg-slate-950">
+        <video ref={videoRef} muted playsInline aria-label="Student QR camera preview" className="h-full w-full object-cover" />
         {state !== "running" ? (
           <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-3 p-5 text-center text-white">
             {state === "starting" ? <Loader2 className="h-10 w-10 animate-spin" /> : <Camera className="h-12 w-12 text-white/60" />}
             <p className="text-sm">{state === "starting" ? "Opening camera..." : "Start camera to scan a student card"}</p>
           </div>
-        ) : <div className="pointer-events-none absolute inset-[18%] rounded-2xl border-2 border-white/70" />}
+        ) : <div className="pointer-events-none absolute inset-[10%] rounded-2xl border-2 border-white/70" />}
       </div>
       <div className="flex flex-wrap gap-2">
         <Button type="button" className="min-h-11 flex-1 gap-2" onClick={() => void start()} disabled={state !== "stopped"}>
@@ -105,7 +105,7 @@ export function CameraQrScanner({ onScan }: { onScan: (code: string) => void }) 
         {hasTorch && <Button type="button" variant="outline" className="min-h-11 gap-2" aria-pressed={torch} onClick={() => void toggleTorch()}><Flashlight className="h-4 w-4" />{torch ? "Torch off" : "Torch on"}</Button>}
       </div>
       {error && <p role="alert" className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">{error}</p>}
-      <p className="text-xs text-muted-foreground">Point the rear camera at the QR code. After scanning, remove the card and show the next one. Keep this page open.</p>
+      <p className="text-xs text-muted-foreground">Keep the QR inside the box and hold steady in good light. If blurry, move the card slightly farther away. “Recording” means the QR was read; wait for the saved confirmation. Then show the next card.</p>
     </div>
   );
 }

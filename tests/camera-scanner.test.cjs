@@ -55,7 +55,7 @@ test('next card can scan after short pause and repeats obey the 60-second cooldo
   assert.equal(accept('STU-A', 60000), true);
 });
 
-function sessionFixture({ acquire, playbackError, decode } = {}) {
+function sessionFixture({ acquire, playbackError, decode, focusModes, focusError, drawImage, getImageData } = {}) {
   let stops = 0;
   let clock = 0;
   let timerId = 0;
@@ -63,14 +63,22 @@ function sessionFixture({ acquire, playbackError, decode } = {}) {
   const constraints = [];
   const decoded = [];
   const errors = [];
-  const track = { stop() { stops++; } };
+  const draws = [];
+  const focusConstraints = [];
+  const track = {
+    stop() { stops++; },
+    getCapabilities: () => ({ focusMode: focusModes }),
+    getConstraints: () => ({ facingMode: 'environment' }),
+    async applyConstraints(options) { focusConstraints.push(options); if (focusError) throw focusError; },
+  };
   const stream = { getTracks: () => [track], getVideoTracks: () => [track] };
   const video = {
     srcObject: null, readyState: 2, videoWidth: 1280, videoHeight: 720,
     play: async () => { if (playbackError) throw playbackError; }, pause() {},
   };
   const canvas = { width: 0, height: 0, getContext: () => ({
-    drawImage() {}, getImageData: () => ({ data: new Uint8ClampedArray(), width: canvas.width, height: canvas.height }),
+    drawImage(...args) { draws.push(args); drawImage?.(...args); },
+    getImageData: () => getImageData ? getImageData(canvas.width, canvas.height) : ({ data: new Uint8ClampedArray(), width: canvas.width, height: canvas.height }),
   }) };
   class Clock extends Date { static now() { return clock; } }
   const api = load('src/lib/camera-scanner.ts', {
@@ -81,7 +89,7 @@ function sessionFixture({ acquire, playbackError, decode } = {}) {
   }, { './attendance-scanner': attendance });
   const session = api.createCameraSession(video, decode ?? (() => ({ data: 'STU-A' })), code => decoded.push(code), error => errors.push(error));
   return {
-    session, stream, video, canvas, decoded, errors, constraints, stops: () => stops, timers,
+    session, stream, video, canvas, decoded, errors, constraints, draws, focusConstraints, stops: () => stops, timers,
     frame(time) { clock = time; const [id, scheduled] = timers.entries().next().value; timers.delete(id); scheduled.fn(); },
   };
 }
@@ -91,8 +99,10 @@ test('camera uses rear video only, bounds image size, and releases tracks and ti
   assert.equal(await f.session.start(), true);
   assert.equal(f.constraints[0].audio, false);
   assert.equal(f.constraints[0].video.facingMode.ideal, 'environment');
-  assert.equal(f.canvas.width, 640);
-  assert.equal(f.canvas.height, 360);
+  assert.equal(f.canvas.width, 512);
+  assert.equal(f.canvas.height, 512);
+  assert.deepEqual(f.draws[0].slice(1), [352, 72, 576, 576, 0, 0, 512, 512]);
+  assert.equal([...f.timers.values()][0].delay, 100, 'no fixed 200ms wait after decoding');
   assert.deepEqual(f.decoded, ['STU-A']);
   f.frame(200);
   assert.deepEqual(f.decoded, ['STU-A']);
@@ -100,6 +110,67 @@ test('camera uses rear video only, bounds image size, and releases tracks and ti
   assert.equal(f.stops(), 1);
   assert.equal(f.video.srcObject, null);
   assert.equal(f.timers.size, 0);
+});
+
+test('whole-frame fallback still detects cards outside the faster central scan box', async () => {
+  const sizes = [];
+  const f = sessionFixture({ decode: (_pixels, width, height) => {
+    sizes.push([width, height]);
+    return width === 640 && height === 360 ? { data: 'STU-OFF-CENTRE' } : null;
+  } });
+  await f.session.start();
+  f.frame(100);
+  f.frame(200);
+  assert.deepEqual(sizes, [[512, 512], [512, 512], [640, 360]]);
+  assert.deepEqual(f.draws[2].slice(1), [0, 0, 1280, 720, 0, 0, 640, 360]);
+  assert.deepEqual(f.decoded, ['STU-OFF-CENTRE']);
+  f.session.stop();
+});
+
+test('small legacy QR is decoded from the high-detail central crop', async () => {
+  const payload = '{"studentId":"STU-MAIN-2026-0001"}';
+  const modules = QRCode.create(payload).modules;
+  const native = new Uint8ClampedArray(1280 * 720 * 4).fill(255);
+  const originX = Math.floor((1280 - modules.size * 3) / 2);
+  const originY = Math.floor((720 - modules.size * 3) / 2);
+  for (let row = 0; row < modules.size; row++) for (let col = 0; col < modules.size; col++) {
+    if (!modules.get(row, col)) continue;
+    for (let y = 0; y < 3; y++) for (let x = 0; x < 3; x++) {
+      const offset = ((originY + row * 3 + y) * 1280 + originX + col * 3 + x) * 4;
+      native[offset] = native[offset + 1] = native[offset + 2] = 0;
+    }
+  }
+  let region;
+  const f = sessionFixture({ decode: jsQR,
+    drawImage: (_video, ...args) => { region = args; },
+    getImageData(width, height) {
+      const [sx, sy, sw, sh] = region;
+      const data = new Uint8ClampedArray(width * height * 4);
+      for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {
+        const source = (Math.floor(sy + y * sh / height) * 1280 + Math.floor(sx + x * sw / width)) * 4;
+        data.set(native.subarray(source, source + 4), (y * width + x) * 4);
+      }
+      return { data, width, height };
+    },
+  });
+  assert.equal(await f.session.start(), true);
+  assert.deepEqual(f.decoded, [payload], 'small QR should be read on the very first crop');
+  f.session.stop();
+});
+
+test('continuous autofocus is optional, preserves constraints, and does not block startup', async () => {
+  for (const focusError of [undefined, new Error('Unsupported focus')]) {
+    const f = sessionFixture({ focusModes: ['manual', 'continuous'], focusError });
+    assert.equal(await f.session.start(), true);
+    assert.equal(f.focusConstraints[0].facingMode, 'environment');
+    assert.equal(f.focusConstraints[0].advanced[0].focusMode, 'continuous');
+    assert.equal(f.errors.length, 0);
+    f.session.stop();
+  }
+  const f = sessionFixture({ focusModes: ['manual'] });
+  assert.equal(await f.session.start(), true);
+  assert.equal(f.focusConstraints.length, 0);
+  f.session.stop();
 });
 
 test('cancelled permission request releases the camera even when access arrives late', async () => {
