@@ -216,7 +216,7 @@ export function QrDeviceTerminal() {
             </Button>
           </form>
           <p className="text-xs text-muted-foreground">Set the scanner to keyboard/HID mode. Attendance saves automatically after the QR code is received; Enter or Tab is optional.</p>
-          <p className="text-xs text-muted-foreground">Repeat scans within 30 seconds of entry are ignored. Each day records one check-in and one check-out.</p>
+          <p className="text-xs text-muted-foreground">Repeat scans of the same card within 60 seconds are ignored. Other students can scan immediately.</p>
           {pending > 0 && <p role="status" className="text-sm font-medium">{pending} scan{pending === 1 ? "" : "s"} waiting to finish. Keep this page open.</p>}
           <div role="status" aria-live="polite" aria-atomic="true" className={`rounded-lg p-3 text-sm ${
             status.type === "error" ? "bg-red-50 text-red-800" : status.type === "success" ? "bg-green-50 text-green-800" : "bg-muted text-foreground"

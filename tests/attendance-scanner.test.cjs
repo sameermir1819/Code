@@ -211,10 +211,10 @@ test("later scan checks out while keeping attendance and the original check-in",
   assert.equal(f.logs(), 2);
 });
 
-test("30-second duplicate guard applies across different request IDs", async () => {
+test("60-second duplicate guard applies across different request IDs", async () => {
   const f = fixture();
   await f.actions.recordQrAttendance("STU-A", "entry-1");
-  f.advance(29);
+  f.advance(59);
   const duplicate = await f.actions.recordQrAttendance("STU-A", "noise-1");
   assert.equal(duplicate.isAlreadyMarked, true);
   assert.equal(duplicate.record.checkOutAt, null);

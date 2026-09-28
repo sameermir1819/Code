@@ -454,7 +454,7 @@ export async function recordQrAttendance(qrPayload: string, requestId?: string) 
     } else if (existing?.checkInAt) {
       if (now.getTime() - existing.checkInAt.getTime() < SCAN_COOLDOWN_SECONDS * 1000) {
         isAlreadyMarked = true;
-        message = "Check-in saved. Repeat scan ignored; check-out is available after 30 seconds.";
+        message = `Check-in saved. Repeat scan ignored; check-out is available after ${SCAN_COOLDOWN_SECONDS} seconds.`;
       } else {
         action = "CHECK_OUT";
         record = await tx.attendance.update({

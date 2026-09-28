@@ -37,7 +37,7 @@ export function attendanceTime(date: Date) {
   return date.toLocaleTimeString("en-IN", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit", second: "2-digit" });
 }
 
-export const SCAN_COOLDOWN_SECONDS = 30;
+export const SCAN_COOLDOWN_SECONDS = 60;
 
 export function createScanRequestId() {
   // getRandomValues also works for terminals served on a local HTTP network.
