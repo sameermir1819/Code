@@ -5,7 +5,7 @@ const path = require("node:path");
 const vm = require("node:vm");
 const ts = require("typescript");
 
-function fixture({ receiptConflicts = 0 } = {}) {
+function fixture({ receiptConflicts = 0, auditFailure = false } = {}) {
   const saved = { enrollment: null, feePlan: null, installments: [], activeEnrollmentCount: 0, transactionAttempts: 0 };
   const session = { id: "admin", name: "Admissions Admin", role: "ADMIN", instituteId: "campus-a" };
   const tx = {
@@ -56,7 +56,9 @@ function fixture({ receiptConflicts = 0 } = {}) {
       const mocks = {
         "@/lib/auth": { requireStaffPermission: async () => session },
         "@/lib/db": { db },
-        "./audit": { logAudit: async () => {} },
+        "./audit": { logAudit: async () => {
+          if (auditFailure) throw new Error("Audit storage unavailable");
+        } },
         "./campus": { getActiveCampusId: async () => "campus-a" },
         "@/lib/student-user": { createStudentUser: async () => {} },
         "@/lib/campus-scope": { authorizedCampusId: (_actor, campusId) => campusId },
@@ -149,4 +151,12 @@ test("receipt number conflicts retry automatically without asking staff to resub
   assert.equal(result.success, true);
   assert.equal(result.receiptNo, "REC-2026-0001");
   assert.equal(f.saved.transactionAttempts, 2);
+});
+
+test("an audit-log outage never turns a committed admission into a visible failure", async () => {
+  const f = fixture({ auditFailure: true });
+  const result = await f.actions.processAdmission(payload);
+  assert.equal(result.success, true);
+  assert.equal(f.saved.enrollment.studentId, "student-a");
+  assert.equal(f.saved.transactionAttempts, 1);
 });

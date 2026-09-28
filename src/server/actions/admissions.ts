@@ -333,12 +333,18 @@ async function processAdmissionOrThrow(payload: AdmissionPayload) {
     };
   });
 
-  await logAudit({
-    action: "ADMISSION_PROCESSED",
-    entity: "Student",
-    entityId: result.student.id,
-    details: `Admission created: ${result.student.name} (${result.student.studentId}) in batch ${batch.name}, fee: ₹${finalFee}, paid: ₹${paid}`,
-  });
+  // Admission is committed already. Audit telemetry must never turn a saved
+  // admission into a visible failure that could encourage a duplicate retry.
+  try {
+    await logAudit({
+      action: "ADMISSION_PROCESSED",
+      entity: "Student",
+      entityId: result.student.id,
+      details: `Admission created: ${result.student.name} (${result.student.studentId}) in batch ${batch.name}, fee: ₹${finalFee}, paid: ₹${paid}`,
+    });
+  } catch (auditError) {
+    console.error("Admission saved, but audit logging failed:", auditError);
+  }
 
   return {
     success: true as const,
