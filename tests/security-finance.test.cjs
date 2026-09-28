@@ -198,6 +198,7 @@ function financeFixture() {
   };
   const options = [];
   const db = {
+    $executeRaw: async () => 1,
     student: { findUnique: async () => student },
     institute: { findUnique: async ({ where }) => ({ id: where.id }) },
     feePlan: {
@@ -211,6 +212,7 @@ function financeFixture() {
     },
     feeInstallment: { update: async ({ where, data }) => Object.assign(state.installments.find((i) => i.id === where.id), data) },
     payment: {
+      findMany: async ({ where }) => state.payments.filter((p) => p.receiptNo.startsWith(where.receiptNo.startsWith)),
       count: async () => state.payments.length,
       create: async ({ data }) => {
         const payment = { id: `payment-${state.payments.length + 1}`, ...data };
@@ -242,6 +244,7 @@ function financeFixture() {
   const transaction = load("src/lib/finance-transaction.ts", { "@/lib/db": { db } });
   const actions = load("src/server/actions/finance.ts", {
     "@/lib/db": { db }, "@/lib/finance-transaction": transaction,
+    "@/lib/payment-receipts": load("src/lib/payment-receipts.ts", {}),
     "@/lib/campus-scope": load("src/lib/campus-scope.ts", {}),
     "@/lib/collection-totals": load("src/lib/collection-totals.ts", { "./db": { db } }),
     "@/lib/auth": { requireAuth: async (roles) => {

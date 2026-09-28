@@ -8,7 +8,8 @@ export async function allocatePaymentReceiptNumber(
 
   // Admissions can be submitted concurrently. Serialize number allocation for
   // this year so two transactions cannot issue the same receipt number.
-  await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${`payment-receipt-${year}`}))`;
+  // PostgreSQL returns void here; executeRaw avoids Prisma trying to deserialize it.
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`payment-receipt-${year}`}))`;
 
   const existingReceipts = await tx.payment.findMany({
     where: { receiptNo: { startsWith: prefix } },

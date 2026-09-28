@@ -17,7 +17,7 @@ function load(file, mocks = {}) {
     process: { cwd: () => process.cwd(), env: { NODE_ENV: 'test', JWT_SECRET: 'test-secret-for-isolated-tests-32-chars' } },
     require(id) {
       if (Object.hasOwn(mocks, id)) return mocks[id];
-      if (['path', 'crypto', 'fs/promises', 'next/server', 'jose', 'bcryptjs'].includes(id)) return require(id);
+      if (['path', 'crypto', 'node:crypto', 'fs/promises', 'next/server', 'jose', 'bcryptjs'].includes(id)) return require(id);
       throw new Error('Missing mock: ' + id);
     },
   }, { filename: file });
@@ -30,7 +30,7 @@ test('payment receipt allocation follows the highest existing number instead of 
   const events = [];
   const api = load('src/lib/payment-receipts.ts');
   const tx = {
-    $queryRaw: async () => events.push('lock'),
+    $executeRaw: async () => events.push('lock'),
     payment: {
       findMany: async query => {
         events.push('read');
@@ -494,12 +494,15 @@ test('student self-enrollment never marks an unverified payment paid', async () 
   let created;
   const student = { id: 'student-a', instituteId: 'own' };
   const api = load('src/server/actions/test-series.ts', {
+    '@/lib/test-series-numbering': require('./test-series-numbering-fixture.cjs'),
     '@/lib/auth': { requireAuth: async () => ({ role: 'STUDENT', studentId: student.id }) },
     '@/lib/campus-scope': { authorizedCampusId: (_session, selectedCampusId) => selectedCampusId },
     '@/server/actions/campus': { getActiveCampusId: async () => 'own' },
     '@/lib/db': { db: {
-      testSeries: { findUnique: async () => ({ id: 'series-a', instituteId: 'own', status: 'ACTIVE', fee: 500 }) },
-      testSeriesRegistration: { findFirst: async () => null, count: async () => 0, create: async ({ data }) => { created = data; return data; } },
+      $executeRaw: async () => 1,
+      async $transaction(callback) { return callback(this); },
+      testSeries: { findUnique: async () => ({ id: 'series-a', code: 'SERIES-A', instituteId: 'own', status: 'ACTIVE', fee: 500 }) },
+      testSeriesRegistration: { findFirst: async () => null, findMany: async () => [], create: async ({ data }) => { created = data; return data; } },
     } },
     '@/server/actions/portal': { resolveCurrentStudent: async () => ({ student }) },
     './audit': { logAudit: async () => {} },

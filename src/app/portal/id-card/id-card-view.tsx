@@ -13,6 +13,7 @@ import {
   Calendar,
 } from "lucide-react";
 import { StudentQrCode } from "@/components/ui/student-qr-code";
+import { A4PrintScope } from "@/components/ui/a4-print-scope";
 
 interface StudentIDProps {
   student: {
@@ -50,6 +51,16 @@ export function StudentIDCardView({ student, institute }: StudentIDProps) {
 
   return (
     <div className="space-y-6">
+      <A4PrintScope target="#id-card-element" />
+      <style>{`@media print {
+        #id-card-element {
+          width: 105mm !important;
+          max-width: 100% !important;
+          margin: 20mm auto 0 !important;
+          box-shadow: none !important;
+          break-inside: avoid !important;
+        }
+      }`}</style>
       {/* Top Header & Actions */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 print:hidden">
         <div>
@@ -148,7 +159,7 @@ export function StudentIDCardView({ student, institute }: StudentIDProps) {
                 </h3>
                 <div className="space-y-0.5 text-xs text-zinc-300">
                   <div className="font-mono text-primary font-bold">
-                    ID: {student.studentId}
+                    Roll No: {student.studentId}
                   </div>
                   <div className="text-[11px] text-zinc-400">
                     ADM: {student.admissionNo}

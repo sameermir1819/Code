@@ -1,6 +1,7 @@
 import { getReceiptDetails } from "@/server/actions/finance";
 import { OfficialReceiptView } from "@/components/finance/official-receipt-view";
 import { notFound } from "next/navigation";
+import { createReceiptVerificationPath } from "@/lib/receipt-verification";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +20,7 @@ export default async function ReceiptDetailPage({ params }: ReceiptPageProps) {
       <OfficialReceiptView
         payment={payment as unknown as Parameters<typeof OfficialReceiptView>[0]["payment"]}
         institute={institute}
+        verificationPath={createReceiptVerificationPath(payment.receiptNo, payment.student.studentId)}
       />
     );
   } catch {

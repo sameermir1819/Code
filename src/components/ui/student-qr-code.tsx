@@ -21,18 +21,21 @@ export function StudentQrCode({
   const [dataUrl, setDataUrl] = useState<string>("");
 
   useEffect(() => {
+    let active = true;
+    setDataUrl("");
     if (!value) return;
     QRCode.toDataURL(value, {
       width: Math.max(size * 3, 180), // High DPI for crisp printing and scanning
-      margin: 1,
+      margin: 4,
       color: {
         dark: darkColor,
         light: lightColor,
       },
       errorCorrectionLevel: "M",
     })
-      .then((url) => setDataUrl(url))
+      .then((url) => { if (active) setDataUrl(url); })
       .catch((err) => console.error("Student QR generation error:", err));
+    return () => { active = false; };
   }, [value, size, darkColor, lightColor]);
 
   if (!dataUrl) {

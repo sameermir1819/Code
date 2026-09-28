@@ -11,6 +11,9 @@ import { resolveCurrentStudent } from "@/server/actions/portal";
 import { logAudit } from "./audit";
 import { revalidatePath } from "next/cache";
 import type { SessionUser } from "@/lib/permissions";
+import { allocateTestSeriesNumbers, compactTestSeriesRolls, lockTestSeriesNumbers } from "@/lib/test-series-numbering";
+import { randomUUID } from "node:crypto";
+import type { Prisma } from "@prisma/client";
 
 type TestSeriesFormInput = {
   instituteId?: string;
@@ -393,7 +396,13 @@ export async function registerStudentForTestSeries(formData: {
   paymentStatus?: string;
   remarks?: string;
   leadId?: string;
-}) {
+}): Promise<{
+  success: boolean;
+  error?: string;
+  registration?: Prisma.TestSeriesRegistrationGetPayload<{
+    include: { testSeries: true; student: true; externalCandidate: true };
+  }>;
+}> {
   await requireStaffPermission("fees.create");
   const session = await requireStaffPermission("test-series.manage");
 
@@ -411,11 +420,21 @@ export async function registerStudentForTestSeries(formData: {
     return { success: false, error: "Phone number is required for an external candidate profile." };
   }
 
+  if (!Number.isFinite(formData.feeAmount) || formData.feeAmount < 0 ||
+      Math.abs(Math.round(formData.feeAmount * 100) / 100 - formData.feeAmount) > 1e-8) {
+    return { success: false, error: "Fee must be non-negative with at most two decimal places." };
+  }
+  if (formData.paymentStatus && !["PAID", "PENDING", "EXEMPTED"].includes(formData.paymentStatus)) {
+    return { success: false, error: "Invalid payment status." };
+  }
   try {
-    // Generate unique roll number & receipt number
+    const outcome = await db.$transaction(async (tx) => {
+    await lockTestSeriesNumbers(tx);
+    const db = tx;
+    // Candidate, registration and lead conversion must commit together.
     const series = await db.testSeries.findUnique({
       where: { id: formData.testSeriesId },
-      select: { id: true, instituteId: true, institute: { select: { code: true } } },
+      select: { id: true, code: true, instituteId: true, institute: { select: { code: true } } },
     });
     if (!series) {
       return { success: false, error: "Test Series not found." };
@@ -477,13 +496,11 @@ export async function registerStudentForTestSeries(formData: {
     if (!registrationInstitute) {
       return { success: false, error: "Selected registration location was not found." };
     }
-    const count = await db.testSeriesRegistration.count({
-      where: { testSeriesId: formData.testSeriesId },
-    });
     const year = new Date().getFullYear();
-    const rollSeq = String(count + 1).padStart(4, "0");
-    const rollNumber = `TS-${year}-ROLL-${rollSeq}`;
-    const receiptNo = `TS-REC-${year}-${rollSeq}`;
+    const { rollNumber, receiptNo } = await allocateTestSeriesNumbers(tx, series.code, year);
+    if (formData.studentId && await tx.testSeriesRegistration.findFirst({ where: { testSeriesId: series.id, studentId: formData.studentId } })) {
+      throw new Error("Student is already registered in this test series.");
+    }
     let externalCandidateId: string | null = null;
     if (!formData.studentId) {
       const phone = formData.externalStudentPhone!.trim().replace(/\s+/g, " ");
@@ -492,6 +509,9 @@ export async function registerStudentForTestSeries(formData: {
         select: { id: true },
       });
       if (existingCandidate) {
+        if (await tx.testSeriesRegistration.findFirst({ where: { testSeriesId: series.id, externalCandidateId: existingCandidate.id } })) {
+          throw new Error("Candidate is already registered in this test series.");
+        }
         const candidate = await db.externalCandidate.update({
           where: { id: existingCandidate.id },
           data: {
@@ -507,11 +527,10 @@ export async function registerStudentForTestSeries(formData: {
         });
         externalCandidateId = candidate.id;
       } else {
-        const candidateCount = await db.externalCandidate.count({ where: { instituteId: registrationInstituteId } });
         const candidate = await db.externalCandidate.create({
           data: {
             instituteId: registrationInstituteId,
-            candidateNo: `EXT-${registrationInstitute.code}-${year}-${String(candidateCount + 1).padStart(5, "0")}`,
+            candidateNo: `EXT-${registrationInstitute.code}-${year}-${randomUUID()}`,
             name: formData.externalStudentName!.trim(),
             phone,
             email: formData.externalStudentEmail?.trim().toLowerCase() || null,
@@ -540,7 +559,7 @@ export async function registerStudentForTestSeries(formData: {
         paymentStatus: formData.paymentStatus || "PAID",
         paymentMethod: formData.paymentMethod || "UPI",
         receiptNo,
-        paidAt: formData.paymentStatus === "PENDING" ? null : new Date(),
+        paidAt: !formData.paymentStatus || formData.paymentStatus === "PAID" ? new Date() : null,
         status: "CONFIRMED",
         remarks: formData.remarks?.trim(),
       },
@@ -562,11 +581,12 @@ export async function registerStudentForTestSeries(formData: {
           convertedTestSeriesRegistrationId: reg.id,
         },
       });
-      revalidatePath("/leads");
     }
-
-    revalidateTestSeriesPaths();
     return { success: true, registration: reg };
+    }, { maxWait: 10000, timeout: 20000 });
+    if (formData.leadId) revalidatePath("/leads");
+    revalidateTestSeriesPaths();
+    return outcome;
   } catch (err: unknown) {
     return {
       success: false,
@@ -867,16 +887,14 @@ export async function enrollStudentSelf(testSeriesId: string, paymentMethod: str
     return { success: false, error: "You are already enrolled in this test series." };
   }
 
-  const count = await db.testSeriesRegistration.count({
-    where: { testSeriesId },
-  });
-  const year = new Date().getFullYear();
-  const rollSeq = String(count + 1).padStart(4, "0");
-  const rollNumber = `TS-${year}-ROLL-${rollSeq}`;
-  const receiptNo = `TS-REC-${year}-${rollSeq}`;
-
   try {
-    const reg = await db.testSeriesRegistration.create({
+    const reg = await db.$transaction(async (tx) => {
+    await lockTestSeriesNumbers(tx);
+    if (await tx.testSeriesRegistration.findFirst({ where: { testSeriesId, studentId: student.id } })) {
+      throw new Error("You are already enrolled in this test series.");
+    }
+    const { rollNumber, receiptNo } = await allocateTestSeriesNumbers(tx, series.code, new Date().getFullYear());
+    return tx.testSeriesRegistration.create({
       data: {
         testSeriesId,
         studentId: student.id,
@@ -889,6 +907,7 @@ export async function enrollStudentSelf(testSeriesId: string, paymentMethod: str
         status: "CONFIRMED",
         remarks: "Self-registered via Student Portal",
       },
+    });
     });
 
     revalidateTestSeriesPaths();
@@ -999,11 +1018,23 @@ export async function deleteExternalCandidate(candidateId: string) {
     assertCampusAccess(session, candidate.instituteId);
 
     await db.$transaction(async (tx) => {
+      await lockTestSeriesNumbers(tx);
+      const removedRegistrations = await tx.testSeriesRegistration.findMany({
+        where: { externalCandidateId: candidate.id },
+        select: { testSeriesId: true },
+      });
+
       // Results cascade from registrations. Removing both ensures the person no
       // longer remains in any Test Series candidate or result list.
       await tx.testSeriesRegistration.deleteMany({
         where: { externalCandidateId: candidate.id },
       });
+
+      // Roll numbers are displayed as a continuous queue. After deletion,
+      // shift later registrations forward so the removed position is reused.
+      const affectedSeriesIds = [...new Set(removedRegistrations.map((registration) => registration.testSeriesId))];
+      await compactTestSeriesRolls(tx, affectedSeriesIds);
+
       await tx.externalCandidate.delete({ where: { id: candidate.id } });
     });
 

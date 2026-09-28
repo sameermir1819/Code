@@ -23,6 +23,8 @@ function loadTestSeriesActions(db) {
     URL,
     console,
     require(id) {
+      if (id === "node:crypto") return require(id);
+      if (id === "@/lib/test-series-numbering") return require("./test-series-numbering-fixture.cjs");
       if (id === "@/lib/db") return { db };
       if (id === "@/lib/campus-scope") return {
         authorizedCampusId: () => "campus-a",
@@ -211,7 +213,7 @@ test("the exam maximum is authoritative and out-of-range late scores are rejecte
   assert.equal(transactions, 0);
 });
 
-test("external candidate deletion removes linked registrations and profile atomically", async () => {
+test("external candidate deletion removes linked registrations and closes the roll-number gap atomically", async () => {
   const committed = [];
   const candidate = {
     id: "external-1", instituteId: "campus-a", name: "External Student", candidateNo: "EXT-1",
@@ -221,8 +223,16 @@ test("external candidate deletion removes linked registrations and profile atomi
     $transaction: async (callback) => {
       const pending = [];
       const result = await callback({
+        $executeRaw: async () => 1,
         testSeriesRegistration: {
+          findMany: async (args) => args.where?.externalCandidateId
+            ? [{ testSeriesId: "series-1" }]
+            : [
+                { id: "reg-1", testSeriesId: "series-1", rollNumber: "TS-2026-ROLL-0001" },
+                { id: "reg-3", testSeriesId: "series-1", rollNumber: "TS-2026-ROLL-0003" },
+              ],
           deleteMany: async (args) => pending.push(["registrations", args]),
+          update: async (args) => pending.push(["roll", args]),
         },
         externalCandidate: {
           delete: async (args) => pending.push(["candidate", args]),
@@ -237,6 +247,7 @@ test("external candidate deletion removes linked registrations and profile atomi
   assert.equal(result.success, true);
   assert.deepEqual(JSON.parse(JSON.stringify(committed)), [
     ["registrations", { where: { externalCandidateId: candidate.id } }],
+    ["roll", { where: { id: "reg-3" }, data: { rollNumber: "TS-2026-ROLL-0002" } }],
     ["candidate", { where: { id: candidate.id } }],
   ]);
 });

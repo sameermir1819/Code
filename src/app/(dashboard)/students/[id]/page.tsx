@@ -331,12 +331,28 @@ export default async function StudentProfilePage({ params }: StudentProfilePageP
             <CardContent>
               <div className="divide-y text-xs">
                 {student.enrollments.map((enr) => (
-                  <div key={enr.id} className="py-3 flex items-center justify-between">
-                    <div>
+                  <div key={enr.id} className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="space-y-1">
                       <p className="font-semibold text-foreground">{enr.batch.name}</p>
                       <p className="text-muted-foreground text-[11px]">
                         Course: {enr.course.name} • Enrolled: {formatDate(enr.startDate)}
                       </p>
+                      <p className="text-muted-foreground text-[11px]">
+                        Source: {enr.source === "SCHOLARSHIP_TEST" ? "Scholarship Test" : "Direct Admission"}
+                      </p>
+                      {enr.source === "SCHOLARSHIP_TEST" && (
+                        <div className="mt-2 rounded-lg border border-emerald-200 bg-emerald-50/70 dark:bg-emerald-950/20 px-3 py-2 text-[11px] text-emerald-900 dark:text-emerald-300">
+                          <p className="font-semibold flex items-center gap-1.5">
+                            <Award className="h-3.5 w-3.5" />
+                            {enr.scholarshipTestName}
+                          </p>
+                          <p className="mt-1">
+                            Roll: <strong>{enr.scholarshipRollNumber}</strong> • Score: <strong>{enr.scholarshipMarks}/{enr.scholarshipMaxMarks} ({enr.scholarshipPercentage}%)</strong>
+                            {enr.scholarshipRank ? <> • Rank: <strong>{enr.scholarshipRank}</strong></> : null}
+                          </p>
+                          <p>Test Date: {formatDate(enr.scholarshipTestDate)}</p>
+                        </div>
+                      )}
                     </div>
                     <Badge variant={enr.status === "ACTIVE" ? "success" : "secondary"}>
                       {enr.status}

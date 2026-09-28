@@ -1,5 +1,7 @@
 "use client";
 
+import { A4PrintScope } from "@/components/ui/a4-print-scope";
+
 import React, { useState } from "react";
 import {
   Printer,
@@ -98,13 +100,11 @@ export function StudentIdCard({
 }: StudentIdCardProps) {
   const [orientation, setOrientation] = useState<"portrait" | "landscape">("portrait");
   const [isFlipped, setIsFlipped] = useState(false);
-  const [printLayout, setPrintLayout] = useState<"both" | "front" | "back">("both");
 
   const instName = institute?.name || "FUTUREX LEARNING";
   const logoUrl = institute?.logoUrl || "/logo.png";
   const batchName = activeEnrollment?.batch?.name || "Regular Batch";
   const courseName = activeEnrollment?.course?.name || "Academic Coaching Program";
-  const bloodGroup = student.bloodGroup || "O+ve";
 
   const handlePrint = () => {
     window.print();
@@ -183,25 +183,51 @@ export function StudentIdCard({
       <style
         dangerouslySetInnerHTML={{
           __html: `
+            @page {
+              size: A4 portrait;
+              margin: 12mm;
+            }
             @media print {
-              body * {
-                visibility: hidden !important;
-              }
-              .id-card-print-stage, .id-card-print-stage * {
-                visibility: visible !important;
+              html, body {
+                margin: 0 !important;
+                padding: 0 !important;
+                background: #ffffff !important;
               }
               .id-card-print-stage {
-                position: absolute !important;
-                left: 0 !important;
-                top: 0 !important;
+                position: relative !important;
+                width: 186mm !important;
+                height: 273mm !important;
+                box-sizing: border-box !important;
+                display: flex !important;
+                flex-direction: column !important;
+                justify-content: center !important;
+                align-items: center !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                overflow: visible !important;
+                print-color-adjust: exact !important;
+                -webkit-print-color-adjust: exact !important;
+              }
+              .id-card-print-stage .id-card-pair {
                 width: 100% !important;
                 display: flex !important;
                 flex-direction: row !important;
-                flex-wrap: wrap !important;
-                gap: 24px !important;
+                flex-wrap: nowrap !important;
                 justify-content: center !important;
                 align-items: center !important;
-                padding: 24px !important;
+                gap: 10mm !important;
+              }
+              .id-card-print-stage .id-card-face {
+                display: flex !important;
+                box-shadow: none !important;
+                break-inside: avoid !important;
+                page-break-inside: avoid !important;
+              }
+              .id-card-print-stage .portrait-card {
+                zoom: 0.85;
+              }
+              .id-card-print-stage .landscape-card {
+                zoom: 0.94;
               }
               .no-print {
                 display: none !important;
@@ -214,14 +240,15 @@ export function StudentIdCard({
       {/* ══════════════════════════════════════════════════════════════════
           CARD VIEWPORT CONTAINER
       ══════════════════════════════════════════════════════════════════ */}
+      <A4PrintScope target=".id-card-print-stage" />
       <div className="id-card-print-stage flex flex-col items-center justify-center py-6 min-h-[460px]">
         {/* ================================================================
             OPTION A: PORTRAIT LANYARD BADGE (54mm × 85.6mm / 240px × 380px)
         ================================================================ */}
         {orientation === "portrait" && (
-          <div className="flex flex-col md:flex-row items-center justify-center gap-10">
+          <div className="id-card-pair flex flex-col md:flex-row items-center justify-center gap-10">
             {/* ── PORTRAIT FRONT ── */}
-            <div className={`w-[240px] h-[380px] rounded-3xl border-2 border-zinc-800 bg-white text-zinc-950 shadow-2xl overflow-hidden flex flex-col justify-between relative shrink-0 select-none print:shadow-none print:border-zinc-800 transition-all duration-500 ${isFlipped ? "hidden md:flex" : "flex"}`}>
+            <div className={`id-card-face portrait-card w-[240px] h-[380px] rounded-3xl border-2 border-zinc-800 bg-white text-zinc-950 shadow-2xl overflow-hidden flex flex-col justify-between relative shrink-0 select-none print:shadow-none print:border-zinc-800 transition-all duration-500 ${isFlipped ? "hidden md:flex" : "flex"}`}>
               {/* Lanyard Hole Clip Guide */}
               <div className="absolute top-1.5 left-1/2 -translate-x-1/2 w-9 h-1.5 rounded-full bg-zinc-300/50 z-20"></div>
 
@@ -289,10 +316,6 @@ export function StudentIdCard({
                     <span className="text-zinc-500 font-medium">Class:</span>
                     <strong className="text-zinc-900">{student.gradeClass || "Class 11"}</strong>
                   </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-zinc-500 font-medium">Blood Group:</span>
-                    <strong className="text-red-700 font-black">{bloodGroup}</strong>
-                  </div>
                 </div>
 
                 {/* Smart Chip & NFC */}
@@ -313,7 +336,7 @@ export function StudentIdCard({
             </div>
 
             {/* ── PORTRAIT BACK ── */}
-            <div className={`w-[240px] h-[380px] rounded-3xl border-2 border-zinc-800 bg-white text-zinc-950 shadow-2xl overflow-hidden flex flex-col justify-between relative shrink-0 select-none print:shadow-none print:border-zinc-800 transition-all duration-500 ${!isFlipped ? "hidden md:flex" : "flex"}`}>
+            <div className={`id-card-face portrait-card w-[240px] h-[380px] rounded-3xl border-2 border-zinc-800 bg-white text-zinc-950 shadow-2xl overflow-hidden flex flex-col justify-between relative shrink-0 select-none print:shadow-none print:border-zinc-800 transition-all duration-500 ${!isFlipped ? "hidden md:flex" : "flex"}`}>
               {/* Top Magnetic Stripe */}
               <div className="w-full h-8 bg-gradient-to-r from-zinc-900 via-zinc-800 to-zinc-900 flex items-center px-3 relative shrink-0">
                 <div className="w-full h-1 bg-white/10 rounded-full"></div>
@@ -371,9 +394,9 @@ export function StudentIdCard({
             OPTION B: LANDSCAPE WALLET CARD (85.6mm × 54mm / 344px × 216px)
         ================================================================ */}
         {orientation === "landscape" && (
-          <div className="flex flex-col md:flex-row items-center justify-center gap-8">
+          <div className="id-card-pair flex flex-col md:flex-row items-center justify-center gap-8">
             {/* ── LANDSCAPE FRONT ── */}
-            <div className={`w-[344px] h-[216px] rounded-2xl border-2 border-zinc-800 bg-white text-zinc-950 shadow-2xl overflow-hidden flex flex-col justify-between relative shrink-0 select-none print:shadow-none print:border-zinc-800 transition-all duration-500 ${isFlipped ? "hidden md:flex" : "flex"}`}>
+            <div className={`id-card-face landscape-card w-[344px] h-[216px] rounded-2xl border-2 border-zinc-800 bg-white text-zinc-950 shadow-2xl overflow-hidden flex flex-col justify-between relative shrink-0 select-none print:shadow-none print:border-zinc-800 transition-all duration-500 ${isFlipped ? "hidden md:flex" : "flex"}`}>
               {/* Header Ribbon */}
               <div className="bg-gradient-to-r from-[#0a192f] via-[#0f2b5c] to-[#1e3a8a] text-white px-3.5 py-2 flex items-center justify-between shrink-0 border-b border-amber-400/40">
                 <div className="flex items-center gap-2">
@@ -437,9 +460,6 @@ export function StudentIdCard({
                     </div>
                     <div className="flex items-center gap-3 pt-0.5">
                       <span className="text-[8px] font-bold text-zinc-600">
-                        Blood: <strong className="text-red-700 font-black">{bloodGroup}</strong>
-                      </span>
-                      <span className="text-[8px] font-bold text-zinc-600">
                         Class: <strong className="text-zinc-900">{student.gradeClass || "Class 11"}</strong>
                       </span>
                     </div>
@@ -460,7 +480,7 @@ export function StudentIdCard({
             </div>
 
             {/* ── LANDSCAPE BACK ── */}
-            <div className={`w-[344px] h-[216px] rounded-2xl border-2 border-zinc-800 bg-white text-zinc-950 shadow-2xl overflow-hidden flex flex-col justify-between relative shrink-0 select-none print:shadow-none print:border-zinc-800 transition-all duration-500 ${!isFlipped ? "hidden md:flex" : "flex"}`}>
+            <div className={`id-card-face landscape-card w-[344px] h-[216px] rounded-2xl border-2 border-zinc-800 bg-white text-zinc-950 shadow-2xl overflow-hidden flex flex-col justify-between relative shrink-0 select-none print:shadow-none print:border-zinc-800 transition-all duration-500 ${!isFlipped ? "hidden md:flex" : "flex"}`}>
               {/* Magnetic Stripe */}
               <div className="w-full h-8 bg-gradient-to-r from-zinc-900 via-zinc-800 to-zinc-900 flex items-center px-4 relative shrink-0">
                 <div className="w-full h-1 bg-white/10 rounded-full"></div>
@@ -522,7 +542,7 @@ export function StudentIdCard({
       {/* ── Printing & Physical Card Tips ── */}
       <div className="text-center text-xs text-muted-foreground no-print space-y-1">
         <p>
-          💡 <strong>Printing Advice:</strong> Use standard CR80 PVC blank cards (85.6mm × 54mm) on card printers like Zebra, Fargo, or Evolis.
+          💡 <strong>Printing Advice:</strong> Select A4 paper, Portrait orientation, 100% / Actual Size, and enable Background Graphics. Both sides print at CR80 size for cutting or lamination.
         </p>
         <p className="text-[11px] text-zinc-500">
           Use the <strong>&quot;Flip 3D&quot;</strong> button to inspect the card sides or switch between Portrait Lanyard and Landscape Wallet formats.

@@ -202,7 +202,7 @@ export function StudentProfileClient({ student }: ProfileProps) {
           {student.name}
         </h2>
         <p className="text-xs text-zinc-400 font-mono mt-1">
-          {student.studentId} • Admission: {student.admissionNo}
+          Roll No: <span className="font-bold text-indigo-300">{student.studentId}</span> • Admission: {student.admissionNo}
         </p>
 
         {/* iOS Badges Bar */}
@@ -233,6 +233,30 @@ export function StudentProfileClient({ student }: ProfileProps) {
         </span>
 
         <div className="rounded-2xl bg-[#121726]/90 border border-white/10 divide-y divide-white/5 overflow-hidden shadow-md">
+          {/* Roll Number */}
+          <div className="flex items-center justify-between p-3.5 hover:bg-white/[0.02] transition-colors">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-xl bg-indigo-500 flex items-center justify-center text-white shadow-sm shrink-0">
+                <GraduationCap className="w-4 h-4" />
+              </div>
+              <div>
+                <span className="text-xs text-zinc-400 block">Roll Number</span>
+                <span className="text-sm font-bold text-white font-mono">{student.studentId}</span>
+              </div>
+            </div>
+            <button
+              onClick={() => handleCopy(student.studentId, "rollNumber")}
+              className="p-2 rounded-xl text-zinc-400 hover:text-white hover:bg-white/5 transition-colors"
+              title="Copy Roll Number"
+            >
+              {copiedField === "rollNumber" ? (
+                <Check className="w-4 h-4 text-emerald-400" />
+              ) : (
+                <Copy className="w-4 h-4" />
+              )}
+            </button>
+          </div>
+
           {/* Phone */}
           <div className="flex items-center justify-between p-3.5 hover:bg-white/[0.02] transition-colors">
             <div className="flex items-center gap-3">

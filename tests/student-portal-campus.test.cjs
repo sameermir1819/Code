@@ -18,6 +18,8 @@ function load(file, mocks) {
     exports,
     console: { error() {} },
     require(id) {
+      if (id === 'node:crypto') return require(id);
+      if (id === '@/lib/test-series-numbering') return require('./test-series-numbering-fixture.cjs');
       if (Object.hasOwn(mocks, id)) return mocks[id];
       throw new Error('Missing mock: ' + id);
     },

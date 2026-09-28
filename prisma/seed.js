@@ -1,6 +1,10 @@
 const { PrismaClient } = require("@prisma/client");
 const bcrypt = require("bcryptjs");
 
+if (process.env.NODE_ENV === "production" || process.env.ALLOW_DESTRUCTIVE_SEED !== "true") {
+  throw new Error("Seed deletes existing data. Use only a disposable development database and explicitly set ALLOW_DESTRUCTIVE_SEED=true. Production seeding is disabled.");
+}
+
 const prisma = new PrismaClient({
   datasources: {
     db: {

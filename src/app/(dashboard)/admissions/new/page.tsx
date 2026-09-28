@@ -10,7 +10,7 @@ import { formatCurrency } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, CheckCircle2, UserPlus, CreditCard, Layers, Phone, Sparkles } from "lucide-react";
+import { ArrowLeft, Award, CheckCircle2, UserPlus, CreditCard, Layers, Phone, Sparkles } from "lucide-react";
 import Link from "next/link";
 
 function AdmissionForm() {
@@ -35,26 +35,33 @@ function AdmissionForm() {
     name: queryName || "",
     email: "",
     phone: queryPhone || "",
-    dob: "2008-01-01",
+    dob: "",
     gender: "MALE",
     admissionDate: new Date().toISOString().split("T")[0],
     address: "",
     city: "Srinagar",
     state: "Jammu & Kashmir",
-    schoolCollege: "Burn Hall School / DPS",
+    schoolCollege: "",
     gradeClass: "Class 11",
     parentName: queryParentName || "",
     parentPhone: queryParentPhone || "",
     parentRelation: "Father",
-    parentOccupation: "Business / Professional",
+    parentOccupation: "",
+    admissionSource: "DIRECT_ADMISSION" as "DIRECT_ADMISSION" | "SCHOLARSHIP_TEST",
+    scholarshipTestName: "",
+    scholarshipTestDate: new Date().toISOString().split("T")[0],
+    scholarshipRollNumber: "",
+    scholarshipMarks: 0,
+    scholarshipMaxMarks: 100,
+    scholarshipRank: "",
     admissionFee: 10000,
     tuitionFee: 120000,
     materialFee: 10000,
     examFee: 5000,
-    discountAmount: 10000,
-    discountReason: "Merit / Early Bird Scholarship",
+    discountAmount: 0,
+    discountReason: "",
     installmentCount: 2,
-    initialPaymentAmount: 50000,
+    initialPaymentAmount: 0,
     paymentMethod: "UPI",
     paymentDate: new Date().toISOString().split("T")[0],
     referenceNo: "",
@@ -70,7 +77,7 @@ function AdmissionForm() {
     const firstBatch = campusBatches[0];
     setSelectedBatchId(firstBatch?.id || "");
     if (firstBatch?.course) {
-      setFormData((prev) => ({ ...prev, tuitionFee: Math.max(0, firstBatch.course.standardFee - 25000) }));
+      setFormData((prev) => ({ ...prev, tuitionFee: Math.max(0, firstBatch.course.standardFee - prev.admissionFee - prev.materialFee - prev.examFee) }));
     }
   }, []);
 
@@ -115,7 +122,7 @@ function AdmissionForm() {
     if (chosenBatch?.course) {
       setFormData((prev) => ({
         ...prev,
-        tuitionFee: Math.max(0, chosenBatch.course.standardFee - 25000),
+        tuitionFee: Math.max(0, chosenBatch.course.standardFee - prev.admissionFee - prev.materialFee - prev.examFee),
       }));
     }
   };
@@ -127,6 +134,9 @@ function AdmissionForm() {
     Number(formData.examFee);
   const finalFee = Math.max(0, totalGross - Number(formData.discountAmount || 0));
   const remainingBalance = Math.max(0, finalFee - Number(formData.initialPaymentAmount || 0));
+  const scholarshipPercentage = formData.scholarshipMaxMarks > 0
+    ? Math.round((Number(formData.scholarshipMarks) / Number(formData.scholarshipMaxMarks)) * 10000) / 100
+    : 0;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -136,6 +146,16 @@ function AdmissionForm() {
     if (!formData.parentName.trim()) return setErrorMsg("Parent name is required");
     if (!formData.parentPhone.trim()) return setErrorMsg("Parent phone is required");
     if (!selectedBatchId) return setErrorMsg("Please select a batch");
+    if (formData.admissionSource === "SCHOLARSHIP_TEST") {
+      if (!formData.scholarshipTestName.trim()) return setErrorMsg("Scholarship test name is required");
+      if (!formData.scholarshipTestDate) return setErrorMsg("Scholarship test date is required");
+      if (!formData.scholarshipRollNumber.trim()) return setErrorMsg("Scholarship test roll number is required");
+      if (formData.scholarshipMaxMarks <= 0 || formData.scholarshipMarks < 0 || formData.scholarshipMarks > formData.scholarshipMaxMarks) {
+        return setErrorMsg("Scholarship marks must be between zero and maximum marks");
+      }
+    }
+    if (formData.discountAmount > totalGross) return setErrorMsg("Scholarship discount cannot exceed total fee");
+    if (formData.initialPaymentAmount > finalFee) return setErrorMsg("Initial payment cannot exceed final fee");
 
     startTransition(async () => {
       try {
@@ -150,6 +170,9 @@ function AdmissionForm() {
           discountAmount: Number(formData.discountAmount),
           installmentCount: Number(formData.installmentCount),
           initialPaymentAmount: Number(formData.initialPaymentAmount),
+          scholarshipMarks: Number(formData.scholarshipMarks),
+          scholarshipMaxMarks: Number(formData.scholarshipMaxMarks),
+          scholarshipRank: formData.scholarshipRank ? Number(formData.scholarshipRank) : undefined,
         });
 
         if (res.success) {
@@ -166,6 +189,8 @@ function AdmissionForm() {
             }
           }
           window.dispatchEvent(new CustomEvent("erp-data-refresh"));
+        } else {
+          setErrorMsg(res.error || "Admission could not be saved. Please check the form and try again.");
         }
       } catch (err: any) {
         setErrorMsg(err.message || "Failed to process admission");
@@ -187,7 +212,7 @@ function AdmissionForm() {
         <div className="bg-muted p-4 rounded-xl text-left text-xs space-y-2 max-w-md mx-auto">
           <div className="flex justify-between">
             <span className="text-muted-foreground">Student ID:</span>
-            <span className="font-bold text-foreground">{result.studentId}</span>
+            <span className="font-bold text-foreground">{result.rollNumber}</span>
           </div>
           <div className="flex justify-between">
             <span className="text-muted-foreground">Admission No:</span>
@@ -197,6 +222,12 @@ function AdmissionForm() {
             <div className="flex justify-between">
               <span className="text-muted-foreground">Fee Receipt No:</span>
               <span className="font-bold text-primary">{result.receiptNo}</span>
+            </div>
+          )}
+          {result.admissionSource === "SCHOLARSHIP_TEST" && (
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Scholarship Test:</span>
+              <span className="font-bold text-emerald-600">{result.scholarshipPercentage}% Score</span>
             </div>
           )}
         </div>
@@ -377,12 +408,112 @@ function AdmissionForm() {
           </CardContent>
         </Card>
 
-        {/* 3. Batch Allocation */}
+        {/* 3. Admission Source */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Award className="h-4 w-4 text-primary" />
+              <span>3. Admission Source &amp; Scholarship Test</span>
+            </CardTitle>
+            <CardDescription>Record whether this is a direct admission or based on a scholarship test result.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4 text-xs">
+            <div>
+              <label className="font-semibold block mb-1">Admission Type *</label>
+              <select
+                value={formData.admissionSource}
+                onChange={(e) => {
+                  const admissionSource = e.target.value as "DIRECT_ADMISSION" | "SCHOLARSHIP_TEST";
+                  setFormData({
+                    ...formData,
+                    admissionSource,
+                    discountReason: admissionSource === "SCHOLARSHIP_TEST" ? "Scholarship Test Award" : "",
+                  });
+                }}
+                className="w-full h-9 px-3 rounded-md border border-input bg-background"
+              >
+                <option value="DIRECT_ADMISSION">Direct Admission / Counseling</option>
+                <option value="SCHOLARSHIP_TEST">Scholarship Test Admission</option>
+              </select>
+            </div>
+
+            {formData.admissionSource === "SCHOLARSHIP_TEST" && (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 rounded-xl border bg-emerald-50/50 dark:bg-emerald-950/10 p-4">
+                <div className="sm:col-span-2">
+                  <label className="font-semibold block mb-1">Scholarship Test Name *</label>
+                  <Input
+                    required
+                    value={formData.scholarshipTestName}
+                    onChange={(e) => setFormData({ ...formData, scholarshipTestName: e.target.value })}
+                    placeholder="e.g. Futurex Talent Search 2027"
+                  />
+                </div>
+                <div>
+                  <label className="font-semibold block mb-1">Test Date *</label>
+                  <Input
+                    required
+                    type="date"
+                    value={formData.scholarshipTestDate}
+                    onChange={(e) => setFormData({ ...formData, scholarshipTestDate: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="font-semibold block mb-1">Test Roll Number *</label>
+                  <Input
+                    required
+                    value={formData.scholarshipRollNumber}
+                    onChange={(e) => setFormData({ ...formData, scholarshipRollNumber: e.target.value.toUpperCase() })}
+                    placeholder="SCH-2027-001"
+                  />
+                </div>
+                <div>
+                  <label className="font-semibold block mb-1">Marks Obtained *</label>
+                  <Input
+                    required
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    value={formData.scholarshipMarks}
+                    onChange={(e) => setFormData({ ...formData, scholarshipMarks: Number(e.target.value) })}
+                  />
+                </div>
+                <div>
+                  <label className="font-semibold block mb-1">Maximum Marks *</label>
+                  <Input
+                    required
+                    type="number"
+                    min={0.01}
+                    step="0.01"
+                    value={formData.scholarshipMaxMarks}
+                    onChange={(e) => setFormData({ ...formData, scholarshipMaxMarks: Number(e.target.value) })}
+                  />
+                </div>
+                <div>
+                  <label className="font-semibold block mb-1">Rank (Optional)</label>
+                  <Input
+                    type="number"
+                    min={1}
+                    step={1}
+                    value={formData.scholarshipRank}
+                    onChange={(e) => setFormData({ ...formData, scholarshipRank: e.target.value })}
+                    placeholder="e.g. 12"
+                  />
+                </div>
+                <div className="sm:col-span-2 flex items-center justify-between rounded-lg border border-emerald-200 bg-white/70 dark:bg-background/60 px-4 py-2">
+                  <span className="font-semibold text-muted-foreground">Calculated Percentage</span>
+                  <span className="text-lg font-black text-emerald-600">{scholarshipPercentage}%</span>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* 4. Batch Allocation */}
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
               <Layers className="h-4 w-4 text-primary" />
-              <span>3. Batch Allocation</span>
+              <span>4. Batch Allocation</span>
             </CardTitle>
           </CardHeader>
           <CardContent className="text-xs">
@@ -422,12 +553,12 @@ function AdmissionForm() {
           </CardContent>
         </Card>
 
-        {/* 4. Fee Plan & Initial Collection */}
+        {/* 5. Fee Plan & Initial Collection */}
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
               <CreditCard className="h-4 w-4 text-primary" />
-              <span>4. Fee Structure & Admission Receipt</span>
+              <span>5. Fee Structure &amp; Admission Receipt</span>
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4 text-xs">
@@ -476,6 +607,14 @@ function AdmissionForm() {
                 />
               </div>
               <div>
+                <label className="font-semibold block mb-1">Discount / Scholarship Reason</label>
+                <Input
+                  value={formData.discountReason}
+                  onChange={(e) => setFormData({ ...formData, discountReason: e.target.value })}
+                  placeholder="Reason recorded on fee plan"
+                />
+              </div>
+              <div className="sm:col-span-2">
                 <label className="font-semibold block mb-1">Installments Count</label>
                 <select
                   value={formData.installmentCount}
@@ -555,7 +694,7 @@ function AdmissionForm() {
           >
             Cancel
           </Link>
-          <Button type="submit" disabled={isPending} className="px-6 py-2.5 text-xs font-semibold">
+          <Button type="submit" disabled={isPending || isLoadingCampusData || !selectedBatchId} className="px-6 py-2.5 text-xs font-semibold">
             {isPending ? "Processing Admission & Ledger..." : "Confirm & Admit Student"}
           </Button>
         </div>

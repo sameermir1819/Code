@@ -9,6 +9,7 @@ import { authorizedCampusId } from "@/lib/campus-scope";
 import { financeMetrics } from "@/lib/collection-totals";
 import type { SessionUser } from "@/lib/permissions";
 import { financeTransaction, roundMoney, validateAmount } from "@/lib/finance-transaction";
+import { allocatePaymentReceiptNumber } from "@/lib/payment-receipts";
 
 function assertFeeAccess(session: SessionUser, student: { id: string; parentId: string | null }) {
   if (!["STUDENT", "PARENT"].includes(session.role)) return;
@@ -254,8 +255,7 @@ export async function recordPayment(data: {
     }
 
     const year = new Date().getFullYear();
-    const paymentCount = await tx.payment.count();
-    const receiptNo = `REC-${year}-${String(paymentCount + 1).padStart(4, "0")}`;
+    const receiptNo = await allocatePaymentReceiptNumber(tx, year);
 
     // 1. Create Payment record
     const payment = await tx.payment.create({

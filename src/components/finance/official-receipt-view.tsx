@@ -1,7 +1,9 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { formatCurrency, formatDate, numberToWords } from "@/lib/utils";
+import { StudentQrCode } from "@/components/ui/student-qr-code";
+import { A4PrintScope } from "@/components/ui/a4-print-scope";
 import {
   Printer,
   ArrowLeft,
@@ -10,7 +12,6 @@ import {
   FileCheck,
   Building2,
   CreditCard,
-  QrCode,
   Copy,
   Check,
   Sparkles,
@@ -85,6 +86,7 @@ interface OfficialReceiptViewProps {
   } | null;
   backHref?: string;
   backLabel?: string;
+  verificationPath: string;
 }
 
 // ─── SVG Vectors & Security Graphics ─────────────────────────────────────────
@@ -113,34 +115,16 @@ function BarcodeSvg({ code, color = "#0f2b5c" }: { code: string; color?: string 
   );
 }
 
-function SecurityQrCode({ receiptNo, studentId, color = "#0f2b5c" }: { receiptNo: string; studentId: string; color?: string }) {
+function SecurityQrCode({ receiptNo, verificationPath, color = "#0f2b5c" }: { receiptNo: string; verificationPath: string; color?: string }) {
+  const [verificationUrl, setVerificationUrl] = useState("");
+
+  useEffect(() => {
+    setVerificationUrl(new URL(verificationPath, window.location.origin).toString());
+  }, [verificationPath]);
+
   return (
     <div className="flex items-center gap-2 border border-zinc-300 p-1.5 rounded-lg bg-zinc-50/80">
-      <svg width="46" height="46" viewBox="0 0 44 44" className="shrink-0">
-        <rect width="44" height="44" fill="#ffffff" />
-        <rect x="2" y="2" width="12" height="12" fill={color} rx="1" />
-        <rect x="4" y="4" width="8" height="8" fill="#ffffff" />
-        <rect x="6" y="6" width="4" height="4" fill={color} />
-        <rect x="30" y="2" width="12" height="12" fill={color} rx="1" />
-        <rect x="32" y="4" width="8" height="8" fill="#ffffff" />
-        <rect x="34" y="6" width="4" height="4" fill={color} />
-        <rect x="2" y="30" width="12" height="12" fill={color} rx="1" />
-        <rect x="4" y="32" width="8" height="8" fill="#ffffff" />
-        <rect x="6" y="34" width="4" height="4" fill={color} />
-        <rect x="18" y="4" width="3" height="3" fill={color} />
-        <rect x="24" y="4" width="3" height="3" fill={color} />
-        <rect x="16" y="16" width="12" height="12" fill={color} />
-        <rect x="18" y="18" width="8" height="8" fill="#ffffff" />
-        <rect x="20" y="20" width="4" height="4" fill={color} />
-        <rect x="4" y="18" width="3" height="3" fill={color} />
-        <rect x="10" y="22" width="3" height="3" fill={color} />
-        <rect x="18" y="32" width="3" height="3" fill={color} />
-        <rect x="24" y="36" width="3" height="3" fill={color} />
-        <rect x="32" y="18" width="3" height="3" fill={color} />
-        <rect x="36" y="24" width="3" height="3" fill={color} />
-        <rect x="32" y="32" width="4" height="4" fill={color} />
-        <rect x="38" y="38" width="3" height="3" fill={color} />
-      </svg>
+      <StudentQrCode value={verificationUrl} size={96} darkColor={color} lightColor="#ffffff" />
       <div className="text-[7.5px] leading-tight text-zinc-600">
         <p className="font-bold text-zinc-900 uppercase">Scan to Verify</p>
         <p className="font-mono text-zinc-500">ID: {receiptNo.slice(-6)}</p>
@@ -217,6 +201,7 @@ export function OfficialReceiptView({
   institute,
   backHref = "/finance/payments",
   backLabel = "Back to Fee Ledger",
+  verificationPath,
 }: OfficialReceiptViewProps) {
   const [copyType, setCopyType] = useState<"STUDENT" | "OFFICE" | "AUDIT">("STUDENT");
   const [isCopied, setIsCopied] = useState(false);
@@ -321,24 +306,32 @@ export function OfficialReceiptView({
       <style
         dangerouslySetInnerHTML={{
           __html: `
+            @page {
+              size: A4 portrait;
+              margin: 10mm;
+            }
             @media print {
-              body * {
-                visibility: hidden !important;
-              }
-              .receipt-sheet-container, .receipt-sheet-container * {
-                visibility: visible !important;
+              html, body {
+                margin: 0 !important;
+                padding: 0 !important;
+                background: #ffffff !important;
               }
               .receipt-sheet-container {
-                position: absolute !important;
-                left: 0 !important;
-                top: 0 !important;
-                width: 100% !important;
+                position: relative !important;
+                width: 190mm !important;
+                max-width: 100% !important;
+                min-height: 0 !important;
+                box-sizing: border-box !important;
                 border: 2px solid ${currentCopy.themeColor} !important;
                 box-shadow: none !important;
                 border-radius: 0 !important;
                 margin: 0 !important;
-                padding: 14px 18px !important;
+                padding: 5mm 6mm !important;
+                overflow: visible !important;
                 page-break-inside: avoid !important;
+                break-inside: avoid !important;
+                print-color-adjust: exact !important;
+                -webkit-print-color-adjust: exact !important;
               }
               .no-print {
                 display: none !important;
@@ -349,6 +342,7 @@ export function OfficialReceiptView({
       />
 
       {/* ── THE OFFICIAL A4 VOUCHER SHEET ── */}
+      <A4PrintScope target=".receipt-sheet-container" />
       <div className={`receipt-sheet-container bg-white text-zinc-950 border-2 ${currentCopy.borderColor} rounded-2xl p-6 sm:p-8 space-y-3 relative shadow-2xl overflow-hidden print:p-3 print:space-y-2.5 transition-colors duration-300`}>
         
         {/* Diagonal Security Watermark */}
@@ -592,7 +586,7 @@ export function OfficialReceiptView({
           </div>
 
           <div className="col-span-4 flex flex-col items-end text-right space-y-1">
-            <SecurityQrCode receiptNo={payment.receiptNo} studentId={payment.student.studentId} color={currentCopy.themeColor} />
+            <SecurityQrCode receiptNo={payment.receiptNo} verificationPath={verificationPath} color={currentCopy.themeColor} />
             <div className="pt-1 w-full flex justify-end">
               <DigitizedSignature name={payment.collectedBy} color={currentCopy.themeColor} />
             </div>
@@ -602,7 +596,7 @@ export function OfficialReceiptView({
         {/* Bottom Micro-Security Border */}
         <div className="border-t border-dashed border-zinc-400 pt-1 flex justify-between items-center text-[7px] font-mono text-zinc-500 uppercase relative z-10">
           <span>Official System Document • {instName} Central ERP</span>
-          <span>Security Hash: SHA256-FL-{payment.receiptNo.replace(/[^0-9]/g, "")}-DEL</span>
+          <span>Scan QR to verify this receipt</span>
           <span>Page 1 of 1</span>
         </div>
       </div>
