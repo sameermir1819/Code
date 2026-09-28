@@ -2,6 +2,7 @@
 
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
+import type { SessionUser } from "@/lib/permissions";
 
 export async function logAudit({
   action,
@@ -9,15 +10,19 @@ export async function logAudit({
   entityId,
   details,
   ipAddress,
+  actor,
 }: {
   action: string;
   entity: string;
   entityId?: string;
   details?: string | Record<string, unknown>;
   ipAddress?: string;
+  // Trusted internal callers may carry their already-authorized actor into a
+  // post-response audit task. This module is not a remotely callable action.
+  actor?: Pick<SessionUser, "id" | "name" | "role" | "instituteId">;
 }) {
   try {
-    const session = await getSession();
+    const session = actor ?? await getSession();
     const detailsStr = typeof details === "object" ? JSON.stringify(details) : details;
     const instituteId = session?.instituteId || null;
 

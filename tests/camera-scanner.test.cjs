@@ -318,9 +318,9 @@ function terminalFixture(results, fetchFeed = async () => []) {
     '@/components/ui/card': components, '@/components/ui/button': components,
     '@/components/ui/badge': components, '@/components/ui/input': components,
     '@/lib/attendance-scanner': attendance, '@/lib/audio-chime': { playCheckInChime() {} },
-    '@/server/actions/attendance': {
-      getTodayAttendanceLiveFeed: async () => { feedRequests++; return fetchFeed(); },
-      recordQrAttendanceSafe: async (...args) => {
+    '@/lib/attendance-terminal-client': {
+      fetchAttendanceFeed: async () => { feedRequests++; return fetchFeed(); },
+      saveAttendanceScan: async (...args) => {
         submissions.push(args);
         return await (results.shift() ?? savedScan());
       },

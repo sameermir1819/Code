@@ -8,6 +8,7 @@ import type { Prisma } from "@prisma/client";
 import { getActiveCampusId } from "./campus";
 import { parseStudentCard, attendanceDay, attendanceTime, SCAN_COOLDOWN_SECONDS } from "@/lib/attendance-scanner";
 import { randomUUID } from "node:crypto";
+import { after } from "next/server";
 
 import { logAudit } from "./audit";
 import { startOfDay, endOfDay, startOfMonth, endOfMonth } from "date-fns";
@@ -534,11 +535,14 @@ async function recordAuthorizedQrAttendance(
   });
 
   if (!result.isAlreadyMarked) {
-    await logAttendanceAudit({
+    // The row is committed. Let the framework keep the audit task alive after
+    // sending confirmation, rather than making the scanner wait for telemetry.
+    after(() => logAttendanceAudit({
       action: result.action === "CHECK_IN" ? "ATTENDANCE_CHECK_IN" : "ATTENDANCE_CHECK_OUT",
       entity: "Attendance", entityId: result.record.id,
       details: "QR " + result.action + " for " + result.student.studentId + " by " + actor.name,
-    });
+      actor: { ...actor, instituteId: campusId },
+    }));
   }
   return result;
 }

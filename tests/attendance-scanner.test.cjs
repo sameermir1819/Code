@@ -46,7 +46,7 @@ test("attendance day rolls over at midnight in India, independently of server ti
   assert.equal(after.end.toISOString(), "2026-09-25T18:30:00.000Z");
 });
 
-function fixture() {
+function fixture({ deferAudit = false } = {}) {
   let clock = new Date("2026-09-24T04:00:00Z").getTime();
   class TestDate extends Date {
     constructor(...args) { super(...(args.length ? args : [clock])); }
@@ -62,6 +62,7 @@ function fixture() {
   let writes = 0;
   let logs = 0;
   let authChecks = 0;
+  const auditTasks = [];
   const campuses = [
     { id: "campus-a", name: "Campus A", code: "A" },
     { id: "campus-b", name: "Campus B", code: "B" },
@@ -112,9 +113,10 @@ function fixture() {
     "./campus": { getActiveCampusId: async () => campus },
     "@/lib/attendance-scanner": scanner, "date-fns": require("date-fns"),
     "node:crypto": require("node:crypto"),
+    "next/server": { after: callback => { if (deferAudit) auditTasks.push(callback); else void callback(); } },
   }, TestDate);
   return {
-    actions, db, student, queries, rows: () => rows, writes: () => writes, logs: () => logs, authChecks: () => authChecks,
+    actions, db, student, queries, auditTasks, rows: () => rows, writes: () => writes, logs: () => logs, authChecks: () => authChecks,
     actor: (value) => { actor = value; }, campus: (value) => { campus = value; },
     advance: (seconds) => { clock += seconds * 1000; },
   };
@@ -176,6 +178,19 @@ test("inactive students, wrong campuses, and students without a batch cannot che
   f.student.enrollments = [];
   await assert.rejects(f.actions.recordQrAttendance("STU-A"), /active batch/);
   assert.equal(f.writes(), 0);
+});
+
+test("save confirmation does not wait for the audit task and retries do not duplicate audits", async () => {
+  const f = fixture({ deferAudit: true });
+  const result = await f.actions.recordQrAttendanceSafe('STU-A', 'confirmed-scan');
+  assert.equal(result.success, true);
+  assert.equal(f.rows().length, 1, 'attendance must already be committed');
+  assert.equal(f.logs(), 0, 'audit has not run while confirmation is returned');
+  assert.equal(f.auditTasks.length, 1);
+  await f.actions.recordQrAttendanceSafe('STU-A', 'confirmed-scan');
+  assert.equal(f.auditTasks.length, 1);
+  await f.auditTasks[0]();
+  assert.equal(f.logs(), 1);
 });
 
 test("safe scan authorizes once and returns the committed live entry for immediate display", async () => {

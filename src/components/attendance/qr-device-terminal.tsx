@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Camera, QrCode, UserCheck, Usb } from "lucide-react";
 import { CameraQrScanner } from "./camera-qr-scanner";
-import { recordQrAttendanceSafe, getTodayAttendanceLiveFeed } from "@/server/actions/attendance";
+import { saveAttendanceScan, fetchAttendanceFeed, type AttendanceLiveEntry } from "@/lib/attendance-terminal-client";
 import { parseStudentCard, createScanRequestId } from "@/lib/attendance-scanner";
 import { playCheckInChime } from "@/lib/audio-chime";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 
-type LiveEntry = Awaited<ReturnType<typeof getTodayAttendanceLiveFeed>>[number];
+type LiveEntry = AttendanceLiveEntry;
 type PendingScan = { code: string; requestId: string };
 
 export function QrDeviceTerminal({ campusId, onPendingChange }: { campusId: string; onPendingChange: (count: number) => void }) {
@@ -41,7 +41,7 @@ export function QrDeviceTerminal({ campusId, onPendingChange }: { campusId: stri
     feedRefreshing.current = true;
     const revision = feedRevision.current;
     try {
-      const entries = await getTodayAttendanceLiveFeed(campusId);
+      const entries = await fetchAttendanceFeed(campusId);
       if (mounted.current && revision === feedRevision.current) { setLiveFeed(entries); setFeedError(""); }
     } catch {
       if (mounted.current && revision === feedRevision.current) setFeedError("Live entries could not be refreshed. Check your connection and try again.");
@@ -107,7 +107,7 @@ export function QrDeviceTerminal({ campusId, onPendingChange }: { campusId: stri
         const { code: next, requestId } = queue.current.shift()!;
         if (mounted.current) setStatus({ text: `Recording ${next}...`, type: "info" });
         try {
-          const result = await recordQrAttendanceSafe(next, requestId, campusId);
+          const result = await saveAttendanceScan(next, requestId, campusId);
           if (!result.success) throw new Error(result.error);
           if (mounted.current) {
             feedRevision.current++;
