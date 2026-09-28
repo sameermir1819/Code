@@ -3,6 +3,8 @@
 import { useState, useEffect } from "react";
 import { getBatches } from "@/server/actions/academics";
 import { 
+  getBatchAttendanceForDate,
+  saveBatchAttendance,
   getMonthlyAttendanceReport, 
   getAttendanceDefaulters 
 } from "@/server/actions/attendance";
@@ -12,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { QrDeviceTerminal } from "@/components/attendance/qr-device-terminal";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { QrCode, Search, AlertTriangle, MessageCircle, BarChart2 } from "lucide-react";
+import { QrCode, AlertTriangle, MessageCircle, BarChart2, CalendarCheck2 } from "lucide-react";
 
 export default function AttendancePage() {
   const [batches, setBatches] = useState<any[]>([]);
@@ -43,10 +45,14 @@ export default function AttendancePage() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid grid-cols-3 h-12 w-full max-w-2xl bg-muted/50 p-1">
+        <TabsList className="grid grid-cols-2 sm:grid-cols-4 h-auto min-h-12 w-full max-w-3xl bg-muted/50 p-1">
           <TabsTrigger value="qr-terminal" className="text-sm font-medium gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md">
             <QrCode className="h-4 w-4 text-blue-500" />
             Card Scanner
+          </TabsTrigger>
+          <TabsTrigger value="daily-register" className="text-sm font-medium gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md">
+            <CalendarCheck2 className="h-4 w-4 text-emerald-500" />
+            Daily Register
           </TabsTrigger>
           <TabsTrigger value="reports" className="text-sm font-medium gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md">
             <BarChart2 className="h-4 w-4 text-purple-500" />
@@ -62,6 +68,9 @@ export default function AttendancePage() {
           <TabsContent value="qr-terminal">
             <QrDeviceTerminal />
           </TabsContent>
+          <TabsContent value="daily-register">
+            <DailyRegisterTab batches={batches} />
+          </TabsContent>
           <TabsContent value="reports">
             <ReportsTab batches={batches} />
           </TabsContent>
@@ -71,6 +80,118 @@ export default function AttendancePage() {
         </div>
       </Tabs>
     </div>
+  );
+}
+
+type DailyRosterRow = {
+  studentId: string;
+  studentCode: string;
+  admissionNo: string;
+  name: string;
+  status: "PRESENT" | "ABSENT";
+  remarks: string;
+  isMarked: boolean;
+};
+
+function indiaDate() {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit",
+  }).format(new Date());
+}
+
+function DailyRegisterTab({ batches }: { batches: any[] }) {
+  const [batchId, setBatchId] = useState("");
+  const [date, setDate] = useState(indiaDate);
+  const [rows, setRows] = useState<DailyRosterRow[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState<{ text: string; error: boolean } | null>(null);
+
+  async function loadRegister() {
+    if (!batchId) return;
+    setLoading(true);
+    setMessage(null);
+    try {
+      const result = await getBatchAttendanceForDate(batchId, date);
+      setRows(result.roster as DailyRosterRow[]);
+      if (result.roster.length === 0) setMessage({ text: "No active students are enrolled in this batch.", error: true });
+    } catch (error) {
+      setRows([]);
+      setMessage({ text: error instanceof Error ? error.message : "Register could not be loaded.", error: true });
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function saveRegister() {
+    if (!batchId || rows.length === 0) return;
+    setSaving(true);
+    setMessage(null);
+    try {
+      await saveBatchAttendance(batchId, date, rows.map(({ studentId, status, remarks }) => ({ studentId, status, remarks })));
+      setRows((current) => current.map((row) => ({ ...row, isMarked: true })));
+      setMessage({ text: `Attendance saved for ${rows.length} students.`, error: false });
+      window.dispatchEvent(new CustomEvent("erp-data-refresh"));
+    } catch (error) {
+      setMessage({ text: error instanceof Error ? error.message : "Attendance could not be saved.", error: true });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function setAll(status: "PRESENT" | "ABSENT") {
+    setRows((current) => current.map((row) => ({ ...row, status })));
+  }
+
+  return (
+    <Card className="shadow-sm">
+      <CardHeader className="border-b bg-muted/10">
+        <CardTitle className="text-lg">Daily Manual Attendance</CardTitle>
+        <CardDescription>Select a batch and date, mark students, then save the complete register.</CardDescription>
+        <div className="flex flex-wrap gap-3 pt-3">
+          <select className="min-w-52 rounded-md border bg-background px-3 py-2 text-sm" value={batchId} onChange={(event) => { setBatchId(event.target.value); setRows([]); setMessage(null); }}>
+            <option value="">Select Batch...</option>
+            {batches.map((batch) => <option key={batch.id} value={batch.id}>{batch.name}</option>)}
+          </select>
+          <Input type="date" className="w-auto" value={date} onChange={(event) => { setDate(event.target.value); setRows([]); setMessage(null); }} />
+          <Button onClick={loadRegister} disabled={!batchId || !date || loading}>{loading ? "Loading..." : "Load Students"}</Button>
+        </div>
+      </CardHeader>
+      <CardContent className="p-0">
+        {message && <div role="alert" className={`m-4 rounded-lg px-4 py-3 text-sm ${message.error ? "bg-red-50 text-red-800" : "bg-emerald-50 text-emerald-800"}`}>{message.text}</div>}
+        {rows.length > 0 && (
+          <>
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b p-4">
+              <p className="text-sm text-muted-foreground">{rows.length} active student{rows.length === 1 ? "" : "s"}</p>
+              <div className="flex gap-2">
+                <Button type="button" variant="outline" size="sm" onClick={() => setAll("PRESENT")}>Mark all Present</Button>
+                <Button type="button" variant="outline" size="sm" onClick={() => setAll("ABSENT")}>Mark all Absent</Button>
+              </div>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-muted/20"><tr><th className="p-3">Student</th><th className="p-3">Roll No</th><th className="p-3">Status</th><th className="p-3">Remarks</th></tr></thead>
+                <tbody className="divide-y">
+                  {rows.map((row, index) => (
+                    <tr key={row.studentId}>
+                      <td className="p-3 font-semibold">{row.name}</td>
+                      <td className="p-3 font-mono text-xs">{row.studentCode}</td>
+                      <td className="p-3">
+                        <select className="rounded-md border bg-background px-3 py-2" value={row.status} onChange={(event) => setRows((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, status: event.target.value as "PRESENT" | "ABSENT" } : item))}>
+                          <option value="PRESENT">Present</option><option value="ABSENT">Absent</option>
+                        </select>
+                      </td>
+                      <td className="p-3"><Input value={row.remarks} maxLength={500} placeholder="Optional" onChange={(event) => setRows((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, remarks: event.target.value } : item))} /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="flex justify-end border-t p-4"><Button onClick={saveRegister} disabled={saving}>{saving ? "Saving..." : "Save Attendance"}</Button></div>
+          </>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 

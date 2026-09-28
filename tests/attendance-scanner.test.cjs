@@ -164,6 +164,15 @@ test("inactive students, wrong campuses, and students without a batch cannot che
   assert.equal(f.writes(), 0);
 });
 
+test("scanner UI receives the real operational reason instead of a redacted server error", async () => {
+  const f = fixture();
+  f.student.status = "INACTIVE";
+  const result = await f.actions.recordQrAttendanceSafe("STU-A");
+  assert.equal(result.success, false);
+  assert.match(result.error, /inactive/i);
+  assert.equal(f.writes(), 0);
+});
+
 test("retry after a competing scan sees the committed record and does not write twice", async () => {
   const f = fixture();
   const transaction = f.db.$transaction;

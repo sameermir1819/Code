@@ -12,6 +12,16 @@ import { randomUUID } from "node:crypto";
 import { logAudit } from "./audit";
 import { startOfDay, endOfDay, startOfMonth, endOfMonth } from "date-fns";
 
+async function logAttendanceAudit(entry: Parameters<typeof logAudit>[0]) {
+  try {
+    await logAudit(entry);
+  } catch (error) {
+    // Attendance is already committed. Never report a saved entry as failed
+    // only because telemetry is temporarily unavailable.
+    console.error("Attendance saved, but audit logging failed:", error);
+  }
+}
+
 export async function getBatchAttendanceForDate(batchId: string, dateStr: string) {
   await requireStaffPermission("attendance.view");
   const batch = await db.batch.findFirst({
@@ -77,6 +87,13 @@ export async function saveBatchAttendance(
   records: Array<{ studentId: string; status: string; remarks?: string }>
 ) {
   const session = await requireStaffPermission("attendance.manage");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr) || !Array.isArray(records) || records.length === 0) {
+    throw new Error("Select a valid date and at least one student.");
+  }
+  if (records.some((record) => !record?.studentId || !["PRESENT", "ABSENT"].includes(record.status) ||
+      (record.remarks !== undefined && (typeof record.remarks !== "string" || record.remarks.length > 500)))) {
+    throw new Error("Attendance contains an invalid student or status.");
+  }
   const batch = await db.batch.findFirst({
     where: { id: batchId },
     select: { id: true, instituteId: true },
@@ -150,7 +167,7 @@ export async function saveBatchAttendance(
     }
   });
 
-  await logAudit({
+  await logAttendanceAudit({
     action: "ATTENDANCE_MARKED",
     entity: "Attendance",
     entityId: batchId,
@@ -204,7 +221,7 @@ export async function markBatchUnscannedAsAbsent(batchId: string, dateStr: strin
       }
     });
 
-    await logAudit({
+    await logAttendanceAudit({
       action: "ATTENDANCE_MARKED",
       entity: "Attendance",
       entityId: batchId,
@@ -461,7 +478,7 @@ export async function recordQrAttendance(qrPayload: string, requestId?: string) 
     if (!record) throw new Error("Attendance could not be recorded. Please scan again.");
 
     return {
-      success: true,
+      success: true as const,
       isAlreadyMarked,
       action,
       message,
@@ -477,13 +494,31 @@ export async function recordQrAttendance(qrPayload: string, requestId?: string) 
   });
 
   if (!result.isAlreadyMarked) {
-    await logAudit({
+    await logAttendanceAudit({
       action: result.action === "CHECK_IN" ? "ATTENDANCE_CHECK_IN" : "ATTENDANCE_CHECK_OUT",
       entity: "Attendance", entityId: result.record.id,
       details: "QR " + result.action + " for " + result.student.studentId + " by " + actor.name,
     });
   }
   return result;
+}
+
+export async function recordQrAttendanceSafe(qrPayload: string, requestId?: string) {
+  // Keep authorization outside the error conversion so revoked accounts are
+  // still blocked before any scanner/database work.
+  await requireStaffPermission("attendance.manage");
+  try {
+    return await recordQrAttendance(qrPayload, requestId);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Attendance could not be recorded.";
+    const safe = /invalid|recognised|inactive|active batch|campus|permission|forbidden|attendance|scan|sign in/i.test(message);
+    return {
+      success: false as const,
+      error: safe && message.length <= 240
+        ? message.replace(/^FORBIDDEN:\s*/i, "")
+        : "Attendance could not be recorded. Refresh the page and scan again.",
+    };
+  }
 }
 
 export async function getTodayAttendanceLiveFeed() {

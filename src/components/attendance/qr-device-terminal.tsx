@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { QrCode, UserCheck, Usb } from "lucide-react";
-import { recordQrAttendance, getTodayAttendanceLiveFeed } from "@/server/actions/attendance";
+import { recordQrAttendanceSafe, getTodayAttendanceLiveFeed } from "@/server/actions/attendance";
 import { parseStudentCard, createScanRequestId } from "@/lib/attendance-scanner";
 import { playCheckInChime } from "@/lib/audio-chime";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -71,7 +71,8 @@ export function QrDeviceTerminal() {
         const { code: next, requestId } = queue.current.shift()!;
         if (mounted.current) setStatus({ text: `Recording ${next}...`, type: "info" });
         try {
-          const result = await recordQrAttendance(next, requestId);
+          const result = await recordQrAttendanceSafe(next, requestId);
+          if (!result.success) throw new Error(result.error);
           if (mounted.current) {
             setFailedScans((previous) => previous.filter((scan) => scan.code !== next));
             setStatus({
