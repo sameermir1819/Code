@@ -205,10 +205,11 @@ test('camera permission and unavailable-device errors have actionable messages',
   assert.match(camera.cameraErrorMessage({ name: 'NotReadableError' }), /Close other apps/);
 });
 
-function terminalFixture(results) {
+function terminalFixture(results, fetchFeed = async () => []) {
   const cells = [];
   let cursor = 0;
   const submissions = [];
+  let feedRequests = 0;
   const hooks = {
     useState(initial) {
       const i = cursor++;
@@ -228,10 +229,10 @@ function terminalFixture(results) {
     '@/components/ui/badge': components, '@/components/ui/input': components,
     '@/lib/attendance-scanner': attendance, '@/lib/audio-chime': { playCheckInChime() {} },
     '@/server/actions/attendance': {
-      getTodayAttendanceLiveFeed: async () => [],
+      getTodayAttendanceLiveFeed: async () => { feedRequests++; return fetchFeed(); },
       recordQrAttendanceSafe: async (...args) => {
         submissions.push(args);
-        return results.shift() ?? { success: true, isAlreadyMarked: false, student: { name: 'Aisha' }, message: 'Checked in.' };
+        return await (results.shift() ?? savedScan());
       },
     },
   });
@@ -241,8 +242,72 @@ function terminalFixture(results) {
     return [node, ...flatten(node.props?.children)];
   }
   function render() { cursor = 0; return flatten(api.QrDeviceTerminal({ campusId: 'campus-b', onPendingChange() {} })); }
-  return { render, submissions, scan: payload => render().find(node => node.type === 'CameraQrScanner').props.onScan(payload) };
+  return { render, submissions, feedRequests: () => feedRequests,
+    refresh: () => render().find(node => node.type === 'Button' && node.props.children === 'Refresh').props.onClick(),
+    scan: payload => render().find(node => node.type === 'CameraQrScanner').props.onScan(payload) };
 }
+
+function savedScan(overrides = {}) {
+  return { success: true, isAlreadyMarked: false, student: { name: 'Aisha' }, message: 'Checked in.',
+    liveEntry: { id: 'attendance-a', studentId: 'student-a', studentCode: 'STU-A', studentName: 'Aisha',
+      batchName: 'Batch A', status: 'PRESENT', markedBy: 'Staff', remarks: '', timestamp: '09:30 AM',
+      checkInTime: '09:30 AM', checkOutTime: null, gateStatus: 'INSIDE', ...overrides },
+  };
+}
+
+function visibleText(nodes) {
+  return nodes.map(node => node.props?.children).flat(Infinity).filter(value => typeof value === 'string').join(' ');
+}
+
+test('confirmed check-in appears immediately without requesting the feed again', async () => {
+  const f = terminalFixture([savedScan()]);
+  f.scan('STU-A');
+  await new Promise(setImmediate);
+  assert.match(visibleText(f.render()), /Aisha/);
+  assert.match(visibleText(f.render()), /Inside/);
+  assert.match(visibleText(f.render()), /09:30 AM/);
+  assert.equal(f.feedRequests(), 0, 'no second server request to reflect the saved scan');
+});
+
+test('confirmed checkout replaces the same row instead of duplicating it', async () => {
+  const f = terminalFixture([savedScan(), savedScan({ checkOutTime: '10:00 AM', gateStatus: 'CHECKED_OUT' })]);
+  f.scan('STU-A');
+  await new Promise(setImmediate);
+  f.scan('STU-A');
+  await new Promise(setImmediate);
+  const nodes = f.render();
+  assert.equal(nodes.filter(node => node.key === 'attendance-a').length, 1);
+  assert.match(visibleText(nodes), /Checked out/);
+  assert.match(visibleText(nodes), /10:00 AM/);
+  assert.equal(f.feedRequests(), 0);
+});
+
+test('a slow stale feed request cannot erase a newer confirmed scan', async () => {
+  let complete;
+  const response = new Promise(resolve => { complete = resolve; });
+  const f = terminalFixture([savedScan()], () => response);
+  f.refresh();
+  f.refresh();
+  assert.equal(f.feedRequests(), 1, 'overlapping feed requests are suppressed');
+  f.scan('STU-A');
+  await new Promise(setImmediate);
+  complete([]);
+  await new Promise(setImmediate);
+  assert.match(visibleText(f.render()), /Inside/);
+  assert.equal(f.render().filter(node => node.key === 'attendance-a').length, 1);
+});
+
+test('pending or failed scans are never shown as saved attendance', async () => {
+  let complete;
+  const response = new Promise(resolve => { complete = resolve; });
+  const f = terminalFixture([response]);
+  f.scan('STU-A');
+  assert.equal(f.render().filter(node => node.key === 'attendance-a').length, 0);
+  complete({ success: false, error: 'Save failed. Please retry.' });
+  await new Promise(setImmediate);
+  assert.equal(f.render().filter(node => node.key === 'attendance-a').length, 0);
+  assert.match(visibleText(f.render()), /Save failed/);
+});
 
 test('camera scans use the selected campus and preserve request IDs on a failed-scan retry', async () => {
   const f = terminalFixture([{ success: false, error: 'Connection unavailable. Try again.' }]);

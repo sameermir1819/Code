@@ -422,6 +422,13 @@ export async function getAttendanceCampuses() {
 
 export async function recordQrAttendance(qrPayload: string, requestId?: string, selectedCampusId?: string) {
   const actor = await requireStaffPermission("attendance.manage");
+  return recordAuthorizedQrAttendance(actor, qrPayload, requestId, selectedCampusId);
+}
+
+async function recordAuthorizedQrAttendance(
+  actor: Awaited<ReturnType<typeof requireStaffPermission>>,
+  qrPayload: string, requestId?: string, selectedCampusId?: string,
+) {
   const rawCode = parseStudentCard(qrPayload);
   const scanId = requestId ?? randomUUID();
   if (typeof scanId !== "string" || !/^[a-zA-Z0-9_-]{1,128}$/.test(scanId)) {
@@ -506,6 +513,17 @@ export async function recordQrAttendance(qrPayload: string, requestId?: string, 
       message,
       checkInTime: record.checkInAt ? attendanceTime(record.checkInAt) : null,
       checkOutTime: record.checkOutAt ? attendanceTime(record.checkOutAt) : null,
+      // Return the committed row with the save response: the terminal need not
+      // make a second network/database request just to display this scan.
+      liveEntry: {
+        id: record.id, studentId: student.id, studentCode: student.studentId,
+        studentName: student.name, batchName: batch.name, status: record.status,
+        markedBy: record.markedBy || "Campus staff", remarks: record.remarks || "",
+        timestamp: attendanceTime(record.updatedAt),
+        checkInTime: record.checkInAt ? attendanceTime(record.checkInAt) : null,
+        checkOutTime: record.checkOutAt ? attendanceTime(record.checkOutAt) : null,
+        gateStatus: record.checkOutAt ? "CHECKED_OUT" : record.checkInAt ? "INSIDE" : "NOT_SCANNED",
+      },
       student: {
         id: student.id, name: student.name, studentId: student.studentId,
         admissionNo: student.admissionNo, batchName: batch.name,
@@ -528,9 +546,9 @@ export async function recordQrAttendance(qrPayload: string, requestId?: string, 
 export async function recordQrAttendanceSafe(qrPayload: string, requestId?: string, selectedCampusId?: string) {
   // Keep authorization outside the error conversion so revoked accounts are
   // still blocked before any scanner/database work.
-  await requireStaffPermission("attendance.manage");
+  const actor = await requireStaffPermission("attendance.manage");
   try {
-    return await recordQrAttendance(qrPayload, requestId, selectedCampusId);
+    return await recordAuthorizedQrAttendance(actor, qrPayload, requestId, selectedCampusId);
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Attendance could not be recorded.";
     const safe = /invalid|recognised|inactive|active batch|campus|permission|forbidden|attendance|scan|sign in/i.test(message);

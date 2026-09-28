@@ -24,6 +24,8 @@ export function QrDeviceTerminal({ campusId, onPendingChange }: { campusId: stri
   const pendingCodes = useRef(new Set<string>());
   const processing = useRef(false);
   const mounted = useRef(true);
+  const feedRevision = useRef(0);
+  const feedRefreshing = useRef(false);
   const [pending, setPending] = useState(0);
   const [focused, setFocused] = useState(false);
   const [scanMode, setScanMode] = useState<"camera" | "usb">("camera");
@@ -35,12 +37,15 @@ export function QrDeviceTerminal({ campusId, onPendingChange }: { campusId: stri
   const [status, setStatus] = useState({ text: "", type: "info" });
 
   const loadLiveFeed = useCallback(async () => {
+    if (feedRefreshing.current) return;
+    feedRefreshing.current = true;
+    const revision = feedRevision.current;
     try {
       const entries = await getTodayAttendanceLiveFeed(campusId);
-      if (mounted.current) { setLiveFeed(entries); setFeedError(""); }
+      if (mounted.current && revision === feedRevision.current) { setLiveFeed(entries); setFeedError(""); }
     } catch {
-      if (mounted.current) setFeedError("Live entries could not be refreshed. Check your connection and try again.");
-    }
+      if (mounted.current && revision === feedRevision.current) setFeedError("Live entries could not be refreshed. Check your connection and try again.");
+    } finally { feedRefreshing.current = false; }
   }, [campusId]);
 
   useEffect(() => { onPendingChange(pending); }, [pending, onPendingChange]);
@@ -65,10 +70,15 @@ export function QrDeviceTerminal({ campusId, onPendingChange }: { campusId: stri
   useEffect(() => {
     mounted.current = true;
     void loadLiveFeed();
-    const interval = window.setInterval(() => void loadLiveFeed(), 10000);
+    const refreshVisible = () => { if (!document.hidden && !processing.current) void loadLiveFeed(); };
+    const interval = window.setInterval(refreshVisible, 3000);
+    window.addEventListener("focus", refreshVisible);
+    document.addEventListener("visibilitychange", refreshVisible);
     return () => {
       mounted.current = false;
       window.clearInterval(interval);
+      window.removeEventListener("focus", refreshVisible);
+      document.removeEventListener("visibilitychange", refreshVisible);
       if (autoSubmitTimer.current !== null) window.clearTimeout(autoSubmitTimer.current);
       if (backgroundScanTimer.current !== null) window.clearTimeout(backgroundScanTimer.current);
     };
@@ -100,6 +110,9 @@ export function QrDeviceTerminal({ campusId, onPendingChange }: { campusId: stri
           const result = await recordQrAttendanceSafe(next, requestId, campusId);
           if (!result.success) throw new Error(result.error);
           if (mounted.current) {
+            feedRevision.current++;
+            setLiveFeed((entries) => [result.liveEntry, ...entries.filter((entry) => entry.id !== result.liveEntry.id)].slice(0, 30));
+            setFeedError("");
             setFailedScans((previous) => previous.filter((scan) => scan.code !== next));
             setStatus({
               text: `${result.student.name} — ${result.message}`,
@@ -107,7 +120,6 @@ export function QrDeviceTerminal({ campusId, onPendingChange }: { campusId: stri
             });
             playCheckInChime(result.isAlreadyMarked ? "warning" : "success");
             if (!result.isAlreadyMarked) { try { navigator.vibrate?.(80); } catch { /* Optional device feedback. */ } }
-            void loadLiveFeed();
           }
         } catch (error) {
           if (mounted.current) {

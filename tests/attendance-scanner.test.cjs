@@ -61,6 +61,7 @@ function fixture() {
   };
   let writes = 0;
   let logs = 0;
+  let authChecks = 0;
   const campuses = [
     { id: "campus-a", name: "Campus A", code: "A" },
     { id: "campus-b", name: "Campus B", code: "B" },
@@ -102,6 +103,7 @@ function fixture() {
   const actions = load("src/server/actions/attendance.ts", {
     "@/lib/db": { db },
     "@/lib/auth": { requireAuth: async (roles) => {
+      authChecks++;
       if (!actor || (roles && !roles.includes(actor.role))) throw new Error("FORBIDDEN");
       return actor;
     } },
@@ -112,7 +114,7 @@ function fixture() {
     "node:crypto": require("node:crypto"),
   }, TestDate);
   return {
-    actions, db, student, queries, rows: () => rows, writes: () => writes, logs: () => logs,
+    actions, db, student, queries, rows: () => rows, writes: () => writes, logs: () => logs, authChecks: () => authChecks,
     actor: (value) => { actor = value; }, campus: (value) => { campus = value; },
     advance: (seconds) => { clock += seconds * 1000; },
   };
@@ -174,6 +176,26 @@ test("inactive students, wrong campuses, and students without a batch cannot che
   f.student.enrollments = [];
   await assert.rejects(f.actions.recordQrAttendance("STU-A"), /active batch/);
   assert.equal(f.writes(), 0);
+});
+
+test("safe scan authorizes once and returns the committed live entry for immediate display", async () => {
+  const f = fixture();
+  const first = await f.actions.recordQrAttendanceSafe('STU-A', 'scan-one');
+  assert.equal(first.success, true);
+  assert.equal(f.authChecks(), 1);
+  assert.equal(first.liveEntry.id, f.rows()[0].id);
+  assert.equal(first.liveEntry.studentCode, 'STU-A');
+  assert.equal(first.liveEntry.studentName, 'Test Student');
+  assert.equal(first.liveEntry.checkInTime, first.checkInTime);
+  assert.equal(first.liveEntry.gateStatus, 'INSIDE');
+  f.advance(61);
+  const second = await f.actions.recordQrAttendanceSafe('STU-A', 'scan-two');
+  assert.equal(second.liveEntry.id, first.liveEntry.id);
+  assert.equal(second.liveEntry.checkInTime, first.liveEntry.checkInTime);
+  assert.equal(second.liveEntry.checkOutTime, second.checkOutTime);
+  assert.equal(second.liveEntry.gateStatus, 'CHECKED_OUT');
+  f.actor(null);
+  await assert.rejects(f.actions.recordQrAttendanceSafe('STU-A'), /FORBIDDEN/);
 });
 
 test("scanner UI receives the real operational reason instead of a redacted server error", async () => {
