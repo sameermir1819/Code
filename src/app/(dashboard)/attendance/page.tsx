@@ -71,11 +71,11 @@ export default function AttendancePage() {
   }, [campusId]);
 
   return (
-    <div className="space-y-6">
+    <div className="min-w-0 space-y-4 sm:space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Gate Attendance Terminal</h1>
         <p className="text-muted-foreground text-sm mt-1">
-          Scan student ID cards using your USB or Bluetooth QR scanner.
+          Scan student cards with your phone camera or a USB / Bluetooth QR scanner.
         </p>
       </div>
 
@@ -83,7 +83,7 @@ export default function AttendancePage() {
         <label htmlFor="attendance-campus" className="block text-sm font-semibold">Attendance campus</label>
         <select
           id="attendance-campus"
-          className="w-full sm:max-w-sm rounded-md border bg-background px-3 py-2 text-sm"
+          className="min-h-11 w-full sm:max-w-sm rounded-md border bg-background px-3 py-2 text-base sm:text-sm"
           value={campusId}
           disabled={campusesLoading || pendingScans > 0 || campuses.length === 0}
           onChange={(event) => {
@@ -104,7 +104,7 @@ export default function AttendancePage() {
       </div>
 
       {campusId ? <Tabs key={campusId} value={activeTab} onValueChange={(tab) => { if (pendingScans === 0) setActiveTab(tab); }} className="w-full">
-        <TabsList className="grid grid-cols-2 sm:grid-cols-4 h-auto min-h-12 w-full max-w-3xl bg-muted/50 p-1">
+        <TabsList className="grid grid-cols-2 gap-1 sm:grid-cols-4 h-auto w-full max-w-3xl bg-muted/50 p-1 [&>button]:min-h-11 [&>button]:whitespace-normal">
           <TabsTrigger value="qr-terminal" className="text-sm font-medium gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md">
             <QrCode className="h-4 w-4 text-blue-500" />
             Card Scanner
@@ -204,16 +204,16 @@ function DailyRegisterTab({ batches }: { batches: any[] }) {
 
   return (
     <Card className="shadow-sm">
-      <CardHeader className="border-b bg-muted/10">
+      <CardHeader className="border-b bg-muted/10 p-4 sm:p-6">
         <CardTitle className="text-lg">Daily Manual Attendance</CardTitle>
         <CardDescription>Select a batch and date, mark students, then save the complete register.</CardDescription>
-        <div className="flex flex-wrap gap-3 pt-3">
-          <select className="min-w-52 rounded-md border bg-background px-3 py-2 text-sm" value={batchId} onChange={(event) => { setBatchId(event.target.value); setRows([]); setMessage(null); }}>
+        <div className="grid gap-3 pt-3 sm:flex sm:flex-wrap">
+          <select aria-label="Daily attendance batch" className="min-h-11 w-full min-w-0 sm:w-auto sm:min-w-52 rounded-md border bg-background px-3 py-2 text-base sm:text-sm" value={batchId} onChange={(event) => { setBatchId(event.target.value); setRows([]); setMessage(null); }}>
             <option value="">Select Batch...</option>
             {batches.map((batch) => <option key={batch.id} value={batch.id}>{batch.name}</option>)}
           </select>
-          <Input type="date" className="w-auto" value={date} onChange={(event) => { setDate(event.target.value); setRows([]); setMessage(null); }} />
-          <Button onClick={loadRegister} disabled={!batchId || !date || loading}>{loading ? "Loading..." : "Load Students"}</Button>
+          <Input aria-label="Attendance date" type="date" className="min-h-11 w-full min-w-0 text-base sm:w-auto" value={date} onChange={(event) => { setDate(event.target.value); setRows([]); setMessage(null); }} />
+          <Button className="min-h-11" onClick={loadRegister} disabled={!batchId || !date || loading}>{loading ? "Loading..." : "Load Students"}</Button>
         </div>
       </CardHeader>
       <CardContent className="p-0">
@@ -222,12 +222,26 @@ function DailyRegisterTab({ batches }: { batches: any[] }) {
           <>
             <div className="flex flex-wrap items-center justify-between gap-3 border-b p-4">
               <p className="text-sm text-muted-foreground">{rows.length} active student{rows.length === 1 ? "" : "s"}</p>
-              <div className="flex gap-2">
-                <Button type="button" variant="outline" size="sm" onClick={() => setAll("PRESENT")}>Mark all Present</Button>
-                <Button type="button" variant="outline" size="sm" onClick={() => setAll("ABSENT")}>Mark all Absent</Button>
+              <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto">
+                <Button type="button" variant="outline" className="min-h-11 px-2 text-xs sm:text-sm" onClick={() => setAll("PRESENT")}>Mark all Present</Button>
+                <Button type="button" variant="outline" className="min-h-11 px-2 text-xs sm:text-sm" onClick={() => setAll("ABSENT")}>Mark all Absent</Button>
               </div>
             </div>
-            <div className="overflow-x-auto">
+            <div className="divide-y md:hidden">
+              {rows.map((row, index) => (
+                <div key={row.studentId} className="space-y-3 p-4">
+                  <div className="min-w-0 break-words"><p className="font-semibold">{row.name}</p><p className="text-xs text-muted-foreground">{row.studentCode}</p></div>
+                  <label className="block space-y-1 text-sm">
+                    <span>Status</span>
+                    <select className="min-h-11 w-full rounded-md border bg-background px-3 py-2 text-base" value={row.status} onChange={(event) => setRows((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, status: event.target.value as "PRESENT" | "ABSENT" } : item))}>
+                      <option value="PRESENT">Present</option><option value="ABSENT">Absent</option>
+                    </select>
+                  </label>
+                  <label className="block space-y-1 text-sm"><span>Remarks</span><Input className="min-h-11 text-base" value={row.remarks} maxLength={500} placeholder="Optional" onChange={(event) => setRows((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, remarks: event.target.value } : item))} /></label>
+                </div>
+              ))}
+            </div>
+            <div className="hidden overflow-x-auto md:block">
               <table className="w-full text-left text-sm">
                 <thead className="bg-muted/20"><tr><th className="p-3">Student</th><th className="p-3">Roll No</th><th className="p-3">Status</th><th className="p-3">Remarks</th></tr></thead>
                 <tbody className="divide-y">
@@ -246,7 +260,7 @@ function DailyRegisterTab({ batches }: { batches: any[] }) {
                 </tbody>
               </table>
             </div>
-            <div className="flex justify-end border-t p-4"><Button onClick={saveRegister} disabled={saving}>{saving ? "Saving..." : "Save Attendance"}</Button></div>
+            <div className="flex justify-end border-t p-4"><Button className="min-h-11 w-full sm:w-auto" onClick={saveRegister} disabled={saving}>{saving ? "Saving..." : "Save Attendance"}</Button></div>
           </>
         )}
       </CardContent>
@@ -279,19 +293,19 @@ function ReportsTab({ batches }: { batches: any[] }) {
 
   return (
     <Card className="shadow-sm">
-      <CardHeader className="border-b bg-muted/10">
+      <CardHeader className="border-b bg-muted/10 p-4 sm:p-6">
         <CardTitle className="text-lg">Monthly Attendance Register</CardTitle>
         <CardDescription>View consolidated attendance history</CardDescription>
-        <div className="flex flex-wrap gap-3 mt-4">
-          <select className="border rounded-md px-3 py-2 text-sm bg-background" value={batchId} onChange={e => setBatchId(e.target.value)}>
+        <div className="grid grid-cols-2 gap-3 pt-3 sm:flex sm:flex-wrap">
+          <select aria-label="Monthly attendance batch" className="col-span-2 min-h-11 min-w-0 border rounded-md px-3 py-2 text-base sm:text-sm bg-background" value={batchId} onChange={e => { setBatchId(e.target.value); setReport(null); }}>
             <option value="">Select Batch...</option>
             {batches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
           </select>
-          <select className="border rounded-md px-3 py-2 text-sm bg-background" value={month} onChange={e => setMonth(parseInt(e.target.value))}>
+          <select aria-label="Report month" className="min-h-11 min-w-0 border rounded-md px-3 py-2 text-base sm:text-sm bg-background" value={month} onChange={e => setMonth(parseInt(e.target.value))}>
             {Array.from({length: 12}).map((_, i) => <option key={i+1} value={i+1}>{new Date(2000, i, 1).toLocaleString('default', { month: 'long' })}</option>)}
           </select>
-          <input type="number" className="border rounded-md px-3 py-2 text-sm w-24 bg-background" value={year} onChange={e => setYear(parseInt(e.target.value))} />
-          <Button onClick={fetchReport} disabled={loading || !batchId}>
+          <input aria-label="Report year" type="number" className="min-h-11 min-w-0 border rounded-md px-3 py-2 text-base sm:text-sm w-full sm:w-24 bg-background" value={year} onChange={e => setYear(parseInt(e.target.value))} />
+          <Button className="col-span-2 min-h-11" onClick={fetchReport} disabled={loading || !batchId}>
             {loading ? "Loading..." : "Generate Register"}
           </Button>
         </div>
@@ -299,12 +313,25 @@ function ReportsTab({ batches }: { batches: any[] }) {
       
       {report && (
         <CardContent className="p-0">
-          <div className="bg-muted/30 p-4 border-b flex gap-6 text-sm">
+          <div className="bg-muted/30 p-4 border-b flex flex-wrap gap-3 sm:gap-6 text-sm">
             <div><span className="text-muted-foreground">Class:</span> <span className="font-semibold">{report.batchName}</span></div>
             <div><span className="text-muted-foreground">Total Enrolled:</span> <span className="font-semibold">{report.totalStudents}</span></div>
             <div><span className="text-muted-foreground">Average Attendance:</span> <span className="font-semibold">{report.avgPercentage}%</span></div>
           </div>
-          <div className="overflow-x-auto">
+          <div className="divide-y md:hidden">
+            {report.students.length === 0 ? <p className="p-6 text-center text-sm text-muted-foreground">No records found for this month.</p> : report.students.map((student: any) => (
+              <div key={student.studentId} className="space-y-3 p-4">
+                <div className="min-w-0 break-words"><p className="font-semibold">{student.name}</p><p className="text-xs text-muted-foreground">{student.studentCode}</p></div>
+                <dl className="grid grid-cols-2 gap-2 text-sm">
+                  <div><dt className="text-muted-foreground">Present</dt><dd className="font-semibold text-green-600">{student.present}</dd></div>
+                  <div><dt className="text-muted-foreground">Absent</dt><dd className="font-semibold text-red-600">{student.absent}</dd></div>
+                  <div><dt className="text-muted-foreground">Total days</dt><dd className="font-semibold">{student.totalDays}</dd></div>
+                  <div><dt className="text-muted-foreground">Attendance</dt><dd className="font-semibold">{student.percentage}%</dd></div>
+                </dl>
+              </div>
+            ))}
+          </div>
+          <div className="hidden overflow-x-auto md:block">
             <table className="w-full text-left text-sm">
               <thead className="bg-muted/20">
                 <tr>
@@ -368,26 +395,37 @@ function DefaultersTab({ campusId }: { campusId: string }) {
 
   return (
     <Card className="shadow-sm border-red-100">
-      <CardHeader className="border-b bg-red-50/50">
+      <CardHeader className="border-b bg-red-50/50 p-4 sm:p-6">
         <CardTitle className="text-lg text-red-800 flex items-center gap-2">
           <AlertTriangle className="h-5 w-5" />
           Shortage Defaulters
         </CardTitle>
         <CardDescription>Identify students with attendance below threshold</CardDescription>
-        <div className="flex items-center gap-3 mt-4">
-          <label className="text-sm font-medium">Minimum Required %:</label>
+        <div className="grid grid-cols-2 items-center gap-3 pt-3 sm:flex sm:flex-wrap">
+          <label htmlFor="attendance-threshold" className="text-sm font-medium">Minimum Required %:</label>
           <Input 
+            id="attendance-threshold"
             type="number" 
-            className="w-24 bg-background" 
+            className="min-h-11 min-w-0 w-full sm:w-24 text-base bg-background"
             value={threshold} 
             onChange={(e) => setThreshold(parseInt(e.target.value) || 0)}
           />
-          <Button variant="destructive" onClick={fetchDefaulters} disabled={loading}>
+          <Button className="col-span-2 min-h-11" variant="destructive" onClick={fetchDefaulters} disabled={loading}>
             {loading ? "Searching..." : "Find Defaulters"}
           </Button>
         </div>
       </CardHeader>
       <CardContent className="p-0">
+        <div className="divide-y md:hidden">
+          {defaulters.length === 0 ? <p className="p-6 text-center text-sm text-muted-foreground">No defaulters found at this threshold.</p> : defaulters.map((student: any) => (
+            <div key={student.studentId} className="space-y-3 p-4">
+              <div className="min-w-0 break-words"><p className="font-semibold">{student.name}</p><p className="text-xs text-muted-foreground">{student.code} · {student.batchName}</p></div>
+              <p className="text-sm"><span className="font-bold text-red-600">{student.percentage}%</span> <span className="text-muted-foreground">({student.presentClasses}/{student.totalClasses} days)</span></p>
+              {student.parentPhone && <a className="inline-flex min-h-11 items-center gap-2 rounded-lg border px-4 text-sm font-medium text-green-700" href={`https://wa.me/${student.parentPhone.replace(/\D/g, '')}?text=${encodeURIComponent(`Dear Parent, your ward ${student.name} has only ${student.percentage}% attendance at Futurex Learning. Please ensure regular attendance.`)}`} target="_blank" rel="noopener noreferrer"><MessageCircle className="h-4 w-4" />Notify Parent</a>}
+            </div>
+          ))}
+        </div>
+        <div className="hidden overflow-x-auto md:block">
         <table className="w-full text-left text-sm">
           <thead className="bg-muted/20">
             <tr>
@@ -404,12 +442,12 @@ function DefaultersTab({ campusId }: { campusId: string }) {
               <tr key={d.studentId} className="hover:bg-muted/10 transition-colors">
                 <td className="p-3">
                   <div className="font-semibold text-red-700">{d.name}</div>
-                  <div className="text-xs text-muted-foreground">{d.studentCode}</div>
+                  <div className="text-xs text-muted-foreground">{d.code}</div>
                 </td>
                 <td className="p-3">{d.batchName}</td>
                 <td className="p-3">
                   <span className="font-bold text-red-600">{d.percentage}%</span>
-                  <span className="text-xs text-muted-foreground ml-2">({d.present}/{d.totalDays} days)</span>
+                  <span className="text-xs text-muted-foreground ml-2">({d.presentClasses}/{d.totalClasses} days)</span>
                 </td>
                 <td className="p-3 text-right">
                   <a 
@@ -427,6 +465,7 @@ function DefaultersTab({ campusId }: { campusId: string }) {
             ))}
           </tbody>
         </table>
+        </div>
       </CardContent>
     </Card>
   );
