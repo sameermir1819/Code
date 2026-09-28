@@ -16,6 +16,9 @@ type PendingScan = { code: string; requestId: string };
 export function QrDeviceTerminal() {
   const inputRef = useRef<HTMLInputElement>(null);
   const autoSubmitTimer = useRef<number | null>(null);
+  const backgroundScanTimer = useRef<number | null>(null);
+  const backgroundScanBuffer = useRef("");
+  const scanCardRef = useRef<(payload: string) => Promise<void>>(async () => undefined);
   const queue = useRef<PendingScan[]>([]);
   const pendingCodes = useRef(new Set<string>());
   const processing = useRef(false);
@@ -41,12 +44,17 @@ export function QrDeviceTerminal() {
     void loadLiveFeed();
     const interval = window.setInterval(() => void loadLiveFeed(), 10000);
     const focusInput = () => inputRef.current?.focus();
+    const initialFocus = window.requestAnimationFrame(focusInput);
     window.addEventListener("focus", focusInput);
+    document.addEventListener("visibilitychange", focusInput);
     return () => {
       mounted.current = false;
       window.clearInterval(interval);
+      window.cancelAnimationFrame(initialFocus);
       if (autoSubmitTimer.current !== null) window.clearTimeout(autoSubmitTimer.current);
+      if (backgroundScanTimer.current !== null) window.clearTimeout(backgroundScanTimer.current);
       window.removeEventListener("focus", focusInput);
+      document.removeEventListener("visibilitychange", focusInput);
     };
   }, [loadLiveFeed]);
 
@@ -104,6 +112,8 @@ export function QrDeviceTerminal() {
     }
   }
 
+  scanCardRef.current = scanCard;
+
   function submitScan() {
     if (autoSubmitTimer.current !== null) {
       window.clearTimeout(autoSubmitTimer.current);
@@ -116,6 +126,59 @@ export function QrDeviceTerminal() {
     input.focus();
     if (code.trim()) void scanCard(code);
   }
+
+  useEffect(() => {
+    function submitBackgroundScan() {
+      if (backgroundScanTimer.current !== null) {
+        window.clearTimeout(backgroundScanTimer.current);
+        backgroundScanTimer.current = null;
+      }
+      const code = backgroundScanBuffer.current;
+      backgroundScanBuffer.current = "";
+      if (code.trim()) void scanCardRef.current(code);
+    }
+
+    function isEditableTarget(target: EventTarget | null) {
+      return target instanceof HTMLInputElement
+        || target instanceof HTMLTextAreaElement
+        || (target instanceof HTMLElement && target.isContentEditable);
+    }
+
+    function handleBackgroundKey(event: KeyboardEvent) {
+      // Barcode to PC may send keystrokes to the page instead of the scan input
+      // when focus changes. Capture only fast printable input outside form fields.
+      if (event.target === inputRef.current || isEditableTarget(event.target)) return;
+      if (event.key === "Enter" || event.key === "Tab") {
+        if (backgroundScanBuffer.current) {
+          event.preventDefault();
+          submitBackgroundScan();
+        }
+        return;
+      }
+      if (event.ctrlKey || event.altKey || event.metaKey || event.key.length !== 1) return;
+
+      backgroundScanBuffer.current += event.key;
+      if (backgroundScanTimer.current !== null) window.clearTimeout(backgroundScanTimer.current);
+      backgroundScanTimer.current = window.setTimeout(submitBackgroundScan, 250);
+    }
+
+    function handleBackgroundPaste(event: ClipboardEvent) {
+      if (event.target === inputRef.current || isEditableTarget(event.target)) return;
+      const code = event.clipboardData?.getData("text") ?? "";
+      if (!code.trim()) return;
+      event.preventDefault();
+      backgroundScanBuffer.current = "";
+      void scanCardRef.current(code);
+    }
+
+    window.addEventListener("keydown", handleBackgroundKey);
+    window.addEventListener("paste", handleBackgroundPaste);
+    return () => {
+      window.removeEventListener("keydown", handleBackgroundKey);
+      window.removeEventListener("paste", handleBackgroundPaste);
+      if (backgroundScanTimer.current !== null) window.clearTimeout(backgroundScanTimer.current);
+    };
+  }, []);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
