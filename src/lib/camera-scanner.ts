@@ -2,15 +2,38 @@ import { SCAN_COOLDOWN_SECONDS } from "./attendance-scanner";
 
 type Decoder = (data: Uint8ClampedArray, width: number, height: number, options: { inversionAttempts: "dontInvert" }) => { data: string } | null;
 
-async function configureCameraFocus(track: MediaStreamTrack | undefined) {
+// Lens names are browser/device supplied. Prefer a labelled main rear camera;
+// never guess a physical lens from an opaque device ID or pick the last camera.
+export function selectPrimaryRearCamera(devices: ReadonlyArray<Pick<MediaDeviceInfo, "kind" | "label" | "deviceId">>, currentId?: string) {
+  const candidates = devices.filter((device) => device.kind === "videoinput" && device.deviceId
+    && /back|rear|environment/i.test(device.label)
+    && !/front|selfie|ultra[\s_-]*wide|telephoto|tele[\s_-]*lens|macro|depth|infrared|0[.,]5\s*[x×]/i.test(device.label));
+  function score(label: string) {
+    if (/primary|main|standard|\b1\s*[x×](?:\b|$)/i.test(label)) return 100;
+    if (/dual|triple|logical|virtual/i.test(label)) return 10;
+    if (/wide/i.test(label)) return 40; // ordinary wide-angle is commonly the 1x lens
+    if (/^(back|rear)(\s+camera)?$/i.test(label.trim())) return 60;
+    return 30;
+  }
+  candidates.sort((a, b) => score(b.label) - score(a.label)
+    || Number(b.deviceId === currentId) - Number(a.deviceId === currentId));
+  return candidates[0]?.deviceId;
+}
+
+async function configureCameraLens(track: MediaStreamTrack | undefined) {
   try {
-    const capabilities = track?.getCapabilities?.() as (MediaTrackCapabilities & { focusMode?: string[] }) | undefined;
-    if (!capabilities?.focusMode?.includes("continuous")) return;
+    const capabilities = track?.getCapabilities?.() as (MediaTrackCapabilities & { focusMode?: string[]; zoom?: { min: number; max: number } }) | undefined;
+    const advanced: MediaTrackConstraintSet[] = [];
+    if (capabilities?.zoom && capabilities.zoom.min <= 1 && capabilities.zoom.max >= 1) {
+      advanced.push({ zoom: 1 } as MediaTrackConstraintSet);
+    }
+    if (capabilities?.focusMode?.includes("continuous")) advanced.push({ focusMode: "continuous" } as MediaTrackConstraintSet);
+    if (!advanced.length) return;
     await track?.applyConstraints({
       ...track.getConstraints(),
-      advanced: [{ focusMode: "continuous" } as MediaTrackConstraintSet],
+      advanced,
     });
-  } catch { /* Optional autofocus must not prevent scanning on other phones. */ }
+  } catch { /* Optional lens controls must not prevent scanning on other phones. */ }
 }
 
 // A card held in front of the lens must not turn check-in into check-out.
@@ -99,7 +122,34 @@ export function createCameraSession(video: HTMLVideoElement, decode: Decoder, on
         });
         if (stopped) { acquired.getTracks().forEach((track) => track.stop()); return false; }
         stream = acquired;
-        void configureCameraFocus(stream.getVideoTracks()[0]);
+        // Permission reveals camera labels. Switch from the browser's default
+        // rear lens to the main physical lens when it can be identified.
+        let devices: MediaDeviceInfo[] = [];
+        try { devices = await navigator.mediaDevices.enumerateDevices?.() ?? []; } catch { /* Keep the working rear camera. */ }
+        if (stopped) return false;
+        const currentId = stream.getVideoTracks()[0]?.getSettings?.().deviceId;
+        const primaryId = selectPrimaryRearCamera(devices, currentId);
+        if (primaryId && primaryId !== currentId) {
+          stream.getTracks().forEach((track) => track.stop());
+          stream = null;
+          let replacement: MediaStream;
+          try {
+            replacement = await navigator.mediaDevices.getUserMedia({ audio: false,
+              video: { deviceId: { exact: primaryId }, width: { ideal: 1280 }, height: { ideal: 720 } },
+            });
+          } catch (error) {
+            if (stopped) return false;
+            const name = error && typeof error === "object" && "name" in error ? error.name : "";
+            if (name === "NotAllowedError" || name === "SecurityError") throw error;
+            replacement = await navigator.mediaDevices.getUserMedia({ audio: false,
+              video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } },
+            });
+          }
+          if (stopped) { replacement.getTracks().forEach((track) => track.stop()); return false; }
+          stream = replacement;
+        }
+        await configureCameraLens(stream.getVideoTracks()[0]);
+        if (stopped) return false;
         video.srcObject = stream;
         await video.play();
         if (stopped) return false;

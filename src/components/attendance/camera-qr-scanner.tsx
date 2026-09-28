@@ -17,6 +17,7 @@ export function CameraQrScanner({ onScan }: { onScan: (code: string) => void }) 
   const [error, setError] = useState("");
   const [hasTorch, setHasTorch] = useState(false);
   const [torch, setTorch] = useState(false);
+  const [scanBox, setScanBox] = useState(0.64);
 
   const stop = useCallback(() => {
     generation.current++;
@@ -81,7 +82,9 @@ export function CameraQrScanner({ onScan }: { onScan: (code: string) => void }) 
     if (!track) return;
     const next = !torch;
     try {
-      await track.applyConstraints({ advanced: [{ torch: next } as MediaTrackConstraintSet] });
+      const constraints = track.getConstraints();
+      const advanced = (constraints.advanced ?? []).filter((entry) => !("torch" in entry));
+      await track.applyConstraints({ ...constraints, advanced: [...advanced, { torch: next } as MediaTrackConstraintSet] });
       if (session === sessionRef.current) setTorch(next);
     } catch { setError("Torch is unavailable on this camera. Try scanning in better light."); }
   }
@@ -89,13 +92,18 @@ export function CameraQrScanner({ onScan }: { onScan: (code: string) => void }) 
   return (
     <div className="space-y-3">
       <div className="relative mx-auto aspect-square w-full max-w-[55svh] overflow-hidden rounded-xl bg-slate-950">
-        <video ref={videoRef} muted playsInline aria-label="Student QR camera preview" className="h-full w-full object-cover" />
+        <video ref={videoRef} muted playsInline aria-label="Student QR camera preview" className="h-full w-full object-contain"
+          onLoadedMetadata={(event) => {
+            const { videoWidth, videoHeight } = event.currentTarget;
+            if (videoWidth && videoHeight) setScanBox(0.8 * Math.min(videoWidth, videoHeight) / Math.max(videoWidth, videoHeight));
+          }} />
         {state !== "running" ? (
           <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-3 p-5 text-center text-white">
             {state === "starting" ? <Loader2 className="h-10 w-10 animate-spin" /> : <Camera className="h-12 w-12 text-white/60" />}
             <p className="text-sm">{state === "starting" ? "Opening camera..." : "Start camera to scan a student card"}</p>
           </div>
-        ) : <div className="pointer-events-none absolute inset-[10%] rounded-2xl border-2 border-white/70" />}
+        ) : <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-2xl border-2 border-white/70"
+          style={{ width: `${scanBox * 100}%`, height: `${scanBox * 100}%` }} />}
       </div>
       <div className="flex flex-wrap gap-2">
         <Button type="button" className="min-h-11 flex-1 gap-2" onClick={() => void start()} disabled={state !== "stopped"}>

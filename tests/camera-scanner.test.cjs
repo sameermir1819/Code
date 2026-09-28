@@ -55,7 +55,7 @@ test('next card can scan after short pause and repeats obey the 60-second cooldo
   assert.equal(accept('STU-A', 60000), true);
 });
 
-function sessionFixture({ acquire, playbackError, decode, focusModes, focusError, drawImage, getImageData } = {}) {
+function sessionFixture({ acquire, playbackError, decode, focusModes, focusError, zoom, devices, enumerate, currentDeviceId = 'rear-current', drawImage, getImageData } = {}) {
   let stops = 0;
   let clock = 0;
   let timerId = 0;
@@ -67,7 +67,8 @@ function sessionFixture({ acquire, playbackError, decode, focusModes, focusError
   const focusConstraints = [];
   const track = {
     stop() { stops++; },
-    getCapabilities: () => ({ focusMode: focusModes }),
+    getCapabilities: () => ({ focusMode: focusModes, zoom }),
+    getSettings: () => ({ deviceId: currentDeviceId }),
     getConstraints: () => ({ facingMode: 'environment' }),
     async applyConstraints(options) { focusConstraints.push(options); if (focusError) throw focusError; },
   };
@@ -85,7 +86,10 @@ function sessionFixture({ acquire, playbackError, decode, focusModes, focusError
     Date: Clock,
     window: { setTimeout(fn, delay) { const id = ++timerId; timers.set(id, { fn, delay }); return id; }, clearTimeout(id) { timers.delete(id); } },
     document: { createElement: () => canvas },
-    navigator: { mediaDevices: { getUserMedia: async options => { constraints.push(options); return acquire ? acquire() : stream; } } },
+    navigator: { mediaDevices: {
+      getUserMedia: async options => { constraints.push(options); return acquire ? acquire(options) : stream; },
+      enumerateDevices: enumerate ?? (devices ? async () => devices : undefined),
+    } },
   }, { './attendance-scanner': attendance });
   const session = api.createCameraSession(video, decode ?? (() => ({ data: 'STU-A' })), code => decoded.push(code), error => errors.push(error));
   return {
@@ -170,6 +174,92 @@ test('continuous autofocus is optional, preserves constraints, and does not bloc
   const f = sessionFixture({ focusModes: ['manual'] });
   assert.equal(await f.session.start(), true);
   assert.equal(f.focusConstraints.length, 0);
+  f.session.stop();
+});
+
+const lens = (deviceId, label, kind = 'videoinput') => ({ deviceId, label, kind });
+
+test('primary rear selection excludes ultra-wide, telephoto, macro and front lenses', () => {
+  const devices = [lens('ultra', 'Back Ultra Wide Camera'), lens('front', 'Front Camera'),
+    lens('tele', 'Back Telephoto Camera'), lens('macro', 'Rear Macro Camera'),
+    lens('main', 'Back Camera'), lens('audio', 'Rear main', 'audioinput')];
+  assert.equal(camera.selectPrimaryRearCamera(devices, 'ultra'), 'main');
+  assert.equal(camera.selectPrimaryRearCamera([lens('wide', 'Back Wide Angle Camera'), lens('virtual', 'Back Triple Camera')]), 'wide');
+  assert.equal(camera.selectPrimaryRearCamera([lens('unknown', ''), lens('front', 'Front Camera')]), undefined);
+  assert.equal(camera.selectPrimaryRearCamera([lens('first', 'camera rear'), lens('current', 'camera rear')], 'current'), 'current');
+  assert.equal(camera.selectPrimaryRearCamera([lens('other', 'Rear Camera'), lens('main', 'Rear Main 1x Camera')]), 'main');
+});
+
+test('supported zoom is set to 1x alongside continuous autofocus', async () => {
+  const f = sessionFixture({ focusModes: ['continuous'], zoom: { min: 1, max: 8 } });
+  assert.equal(await f.session.start(), true);
+  assert.deepEqual(JSON.parse(JSON.stringify(f.focusConstraints[0].advanced)), [{ zoom: 1 }, { focusMode: 'continuous' }]);
+  f.session.stop();
+  const incompatible = sessionFixture({ zoom: { min: 2, max: 8 } });
+  assert.equal(await incompatible.session.start(), true);
+  assert.equal(incompatible.focusConstraints.length, 0, 'unsupported 1x must not prevent scanning');
+  incompatible.session.stop();
+});
+
+test('startup switches to the identified primary lens and releases the default rear stream', async () => {
+  let primaryStops = 0;
+  const primaryTrack = { stop() { primaryStops++; } };
+  const primary = { getTracks: () => [primaryTrack], getVideoTracks: () => [primaryTrack] };
+  let f;
+  f = sessionFixture({ currentDeviceId: 'ultra', devices: [lens('ultra', 'Back Ultra Wide Camera'), lens('main', 'Back Camera')],
+    acquire: options => options.video.deviceId ? primary : f.stream,
+  });
+  assert.equal(await f.session.start(), true);
+  assert.equal(f.constraints[1].video.deviceId.exact, 'main');
+  assert.equal(f.constraints[1].audio, false);
+  assert.equal(f.stops(), 1);
+  assert.equal(f.video.srcObject, primary);
+  f.session.stop();
+  assert.equal(primaryStops, 1);
+});
+
+test('already selected primary lens is not reopened and failed enumeration keeps the working camera', async () => {
+  for (const options of [
+    { currentDeviceId: 'main', devices: [lens('main', 'Back Camera')] },
+    { enumerate: async () => { throw new Error('Enumeration unavailable'); } },
+  ]) {
+    const f = sessionFixture(options);
+    assert.equal(await f.session.start(), true);
+    assert.equal(f.constraints.length, 1);
+    f.session.stop();
+  }
+});
+
+test('cancelled primary-lens acquisition releases the replacement without starting preview', async () => {
+  let complete;
+  let ready;
+  const requested = new Promise(resolve => { ready = resolve; });
+  const replacement = new Promise(resolve => { complete = resolve; });
+  let f;
+  f = sessionFixture({ devices: [lens('main', 'Back Camera')], acquire: options => {
+    if (options.video.deviceId) { ready(); return replacement; }
+    return f.stream;
+  } });
+  const start = f.session.start();
+  await requested;
+  f.session.stop();
+  let stops = 0;
+  complete({ getTracks: () => [{ stop() { stops++; } }] });
+  assert.equal(await start, false);
+  assert.equal(stops, 1);
+  assert.equal(f.video.srcObject, null);
+  assert.equal(f.decoded.length, 0);
+});
+
+test('an unavailable primary lens falls back to a working rear camera', async () => {
+  let f;
+  f = sessionFixture({ devices: [lens('main', 'Back Camera')], acquire: options => {
+    if (options.video.deviceId) throw { name: 'OverconstrainedError' };
+    return f.stream;
+  } });
+  assert.equal(await f.session.start(), true);
+  assert.equal(f.constraints.length, 3);
+  assert.equal(f.constraints[2].video.facingMode.ideal, 'environment');
   f.session.stop();
 });
 
