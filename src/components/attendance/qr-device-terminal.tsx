@@ -15,6 +15,7 @@ type PendingScan = { code: string; requestId: string };
 
 export function QrDeviceTerminal() {
   const inputRef = useRef<HTMLInputElement>(null);
+  const autoSubmitTimer = useRef<number | null>(null);
   const queue = useRef<PendingScan[]>([]);
   const pendingCodes = useRef(new Set<string>());
   const processing = useRef(false);
@@ -44,6 +45,7 @@ export function QrDeviceTerminal() {
     return () => {
       mounted.current = false;
       window.clearInterval(interval);
+      if (autoSubmitTimer.current !== null) window.clearTimeout(autoSubmitTimer.current);
       window.removeEventListener("focus", focusInput);
     };
   }, [loadLiveFeed]);
@@ -103,6 +105,10 @@ export function QrDeviceTerminal() {
   }
 
   function submitScan() {
+    if (autoSubmitTimer.current !== null) {
+      window.clearTimeout(autoSubmitTimer.current);
+      autoSubmitTimer.current = null;
+    }
     const input = inputRef.current;
     if (!input) return;
     const code = input.value;
@@ -130,6 +136,12 @@ export function QrDeviceTerminal() {
               autoCapitalize="off" spellCheck={false} maxLength={1024}
               placeholder="Scan card here..."
               onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}
+              onChange={() => {
+                if (autoSubmitTimer.current !== null) window.clearTimeout(autoSubmitTimer.current);
+                // USB/Bluetooth scanners type the complete code very quickly.
+                // Submit after a brief quiet period, even without Enter/Tab.
+                autoSubmitTimer.current = window.setTimeout(() => submitScan(), 250);
+              }}
               onKeyDown={(event) => {
                 if (event.key === "Tab" && inputRef.current?.value.trim()) {
                   event.preventDefault(); submitScan();
@@ -140,7 +152,7 @@ export function QrDeviceTerminal() {
               Focus scanner
             </Button>
           </form>
-          <p className="text-xs text-muted-foreground">Set the scanner to keyboard mode with Enter or Tab after each scan. Attendance saves automatically.</p>
+          <p className="text-xs text-muted-foreground">Set the scanner to keyboard/HID mode. Attendance saves automatically after the QR code is received; Enter or Tab is optional.</p>
           <p className="text-xs text-muted-foreground">Repeat scans within 30 seconds of entry are ignored. Each day records one check-in and one check-out.</p>
           {pending > 0 && <p role="status" className="text-sm font-medium">{pending} scan{pending === 1 ? "" : "s"} waiting to finish. Keep this page open.</p>}
           <div role="status" aria-live="polite" aria-atomic="true" className={`rounded-lg p-3 text-sm ${
